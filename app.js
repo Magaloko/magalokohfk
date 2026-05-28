@@ -920,7 +920,8 @@ const WORKSPACE_DEFAULTS = {
       "pitches","beforeafter","competitors","hypotheses","premortems","wirkungen",
       "saisonplan","verhandlungen","capture","triggers","jobs","knowledge","glossary","systems",
       "orders-intake","marktanalyse","akademie","lernsystem","stephan-kalender","stephan-decisions","team-notizen",
-      "produkt-lookup","kunden-lookup","abc-uebersicht","lieferant-check","kunden-detail","ma-validation"
+      "produkt-lookup","kunden-lookup","abc-uebersicht","lieferant-check","kunden-detail","ma-validation",
+      "strategie-pitch"
     ]
   },
   crmKunde: {
@@ -1072,6 +1073,51 @@ function applyWorkspaceUI() {
 
 let state = applyWorkspaceLayer(loadState());
 let currentView = "dashboard";
+
+// === Bootstrap: neue Knowledge-Cards einmalig hinzufügen ===
+(function bootstrapStrategyKnowledge() {
+  const newCards = [
+    { id: "k-strat-01", topic: "Conversion Baby-Handel AT", summary: "0,8–0,99 % — niedrigste Rate im E-Commerce. Fashion 2,44 %, Heimtier 3,28 %. 1,0→1,3 % = +30 % Online-Umsatz ohne Mehr-Traffic.", source: "Kimi-Strategie-Analyse 2026", confidence: "hoch", tags: ["Shop", "Conversion", "Strategie"] },
+    { id: "k-strat-02", topic: "Wettbewerb BabyOne", summary: "100+ Filialen D-A-CH, massive Omnichannel-Investitionen (Click&Collect, Video-Beratung, App). HFK-Vorteil: Agilität + echte Expertise + lokale Bindung.", source: "Kimi-Strategie-Analyse 2026", confidence: "hoch", tags: ["Wettbewerb", "Strategie"] },
+    { id: "k-strat-03", topic: "ROI Mago-Kooperation", summary: "Fixum €4k/Monat = €48k/Jahr. Conversion 1,0→1,3 % bei €200k Online-Umsatz = +€60k Umsatz, +€18k Rohertrag (30 % Marge). ROI bereits durch Conversion allein erreicht.", source: "Kimi-Strategie-Analyse 2026", confidence: "hoch", tags: ["Honorar", "Strategie"] },
+    { id: "k-strat-04", topic: "ABC-XYZ Matrix 9 Cluster", summary: "AA=täglich monitoren+Sicherheitsbestand. CC=eliminieren. AC=kritisch prüfen (hoher Umsatz, niedrige Marge). BA=Potenzial analysieren (Marketing, Platzierung).", source: "Kimi-Strategie-Analyse 2026", confidence: "hoch", tags: ["Einkauf", "ABC"] },
+    { id: "k-strat-05", topic: "JTL SQL Schlüsseltabellen", summary: "eazybusiness-DB: tBestellung (Orders), tBestellpos (Positionen+Margen), tArtikel (Stammdaten), tWarenLager (Bestand), tLieferschein, tRetoure.", source: "Kimi-Strategie-Analyse 2026", confidence: "hoch", tags: ["JTL", "SQL", "Daten"] },
+    { id: "k-strat-06", topic: "Vektra Onboarding-Effekt", summary: "Einarbeitung 4–6 Wochen → 2–3 Wochen mit Vektra (-50 %). Cross-Selling-Rate 15–20 % → 25–30 % (+50 %). Falschberatungs-Retouren -50 %.", source: "Kimi-Strategie-Analyse 2026", confidence: "mittel", tags: ["Akademie", "Team"] },
+    { id: "k-strat-07", topic: "SeBo Automatisierungs-Potenzial", summary: "50–100 Mails/Tag, 6 Mitarbeiter. N8N löst 30–40 % der Tickets automatisch = 15–40 Mails weniger täglich. Erste-Antwort-Zeit -80 %.", source: "Kimi-Strategie-Analyse 2026", confidence: "hoch", tags: ["SeBo", "Support"] },
+    { id: "k-strat-08", topic: "Hybrid-Vergütung Empfehlung", summary: "Fixum €3.500–4.500/Monat + 5 % des messbaren Online-Umsatzwachstums (quartalsweise) + €1.500–3.000 Jahresbonus. Freelancer-Retainer: €4k–5k/60h.", source: "Kimi-Strategie-Analyse 2026", confidence: "hoch", tags: ["Honorar", "Strategie"] }
+  ];
+  const existingIds = new Set((state.knowledgeCards || []).map((c) => c.id));
+  const toAdd = newCards.filter((c) => !existingIds.has(c.id));
+  if (toAdd.length) {
+    state.knowledgeCards = [...(state.knowledgeCards || []), ...toAdd];
+    saveState();
+  }
+})();
+
+// === Bootstrap: Stephan-Decision "Kooperationsmodell HFK" einmalig hinzufügen ===
+(function bootstrapKoopDecision() {
+  const seed = {
+    id: "sd-koop-2026",
+    titel: "Kooperationsmodell HFK finalisieren",
+    frage: "Welches Vergütungsmodell und welchen Einstieg schlägt Mago vor? Wie reagiert Stephan auf den 30-Tage-Test-Vorschlag?",
+    kategorie: "Sonstiges",
+    status: "vorbereitet",
+    frist: "",
+    optionen: "A: Vollzeit-Anstellung (€3.500–5.000 brutto)\nB: Freelancer-Retainer (€4k–5k/60h Monat)\nC: Hybrid Fixum + Success-Sharing (Empfehlung)\nD: Projektvertrag 12 Monate mit Meilensteinen",
+    empfehlung: "Hybrid-Modell C: €3.500–4.500 Fixum + 5 % Online-Umsatzwachstum quartalsweise + €1.500–3.000 Jahresbonus. 30-Tage-Test als risikoarmen Einstieg vorschlagen.",
+    risiken: "Messbarkeitsproblem bei Attribution des Umsatzwachstums. Klare KPI-Baseline vor Start definieren (Google Analytics, JTL-Export).",
+    ergebnis: ""
+  };
+  const decisions = state.stephanDecisions || [];
+  if (!decisions.some((d) => d.id === seed.id)) {
+    decisions.push(seed);
+    state.stephanDecisions = decisions;
+    if (state.workspaces?.hfk?.data) {
+      state.workspaces.hfk.data.stephanDecisions = decisions;
+    }
+    saveState();
+  }
+})();
 
 function mergeWithSeed(parsed) {
   const base = structuredClone(seedData);
@@ -1436,7 +1482,8 @@ function setView(view) {
     "abc-uebersicht": "ABC-Übersicht",
     "lieferant-check": "Lieferanten-Bestand-Check",
     "kunden-detail": "Kunden-Detail",
-    "ma-validation": "Marktanalyse-Validierung"
+    "ma-validation": "Marktanalyse-Validierung",
+    "strategie-pitch": "Strategie-Pitch HFK"
   }[view];
   if (location.hash !== `#${view}`) {
     history.replaceState(null, "", `#${view}`);
@@ -9652,6 +9699,351 @@ function renderAkStaff() {
   list.innerHTML = rows.join("");
 }
 
+// === Strategie-Pitch HFK (Kimi Deep-Research 2026) ===
+let spCurrentSection = "markt";
+
+const SP_CONTENT = {
+  markt: `
+    <h3>1. Digital-Realität: Baby &amp; Kinderfachhandel Österreich</h3>
+    <p>Der österreichische Baby- und Kinderfachhandel steht an einem kritischen Wendepunkt. HFK besitzt alle Voraussetzungen — aber die Daten werden noch nicht strategisch genutzt.</p>
+    <h4>Conversion-Raten im Vergleich (AT/DE 2026)</h4>
+    <table class="compact-table"><thead><tr><th>Branche</th><th>Ø Conversion</th></tr></thead><tbody>
+    <tr><td>Baby &amp; Kind (Fachhandel)</td><td><strong>0,8–0,99 %</strong> — niedrigstes Segment</td></tr>
+    <tr><td>Mode &amp; Accessoires</td><td>2,44 %</td></tr>
+    <tr><td>Heimtier</td><td>3,28 %</td></tr>
+    <tr><td>Ø E-Commerce AT</td><td>~2,0 %</td></tr>
+    </tbody></table>
+    <p class="muted">→ Von 1,0 % auf 1,3 % = <strong>+30 % Online-Umsatz ohne Mehr-Traffic</strong>.</p>
+    <h4>Wettbewerber Wien (Auswahl)</h4>
+    <table class="compact-table"><thead><tr><th>Mitbewerber</th><th>Digitale Stärke</th><th>HFK-Vorteil</th></tr></thead><tbody>
+    <tr><td>BabyOne (100+ Filialen)</td><td>Click&amp;Collect, Video-Beratung, App, Omnichannel-Budget</td><td>Agilität, persönliche Expertise, lokale Bindung</td></tr>
+    <tr><td>Ernsting's family</td><td>Family Card, App, Gratis-Lieferung in Filiale, Newsletter-Segmentierung</td><td>Spezialisierung Baby/Kind (kein Fast Fashion)</td></tr>
+    <tr><td>Kinderwagen Cindy</td><td>Lokaler Spezialist, Community</td><td>Breiteres Sortiment, mehr Daten</td></tr>
+    <tr><td>Lalekula / Popolini</td><td>Nische ökologisch</td><td>Mainstream-Breite + Beratungstiefe</td></tr>
+    </tbody></table>
+    <p><strong>Kernbotschaft:</strong> Erfolg entsteht nicht nur im Geschäft, sondern durch digitale Tools, die persönliche Beratungsqualität <em>stärken</em> statt ersetzen.</p>`,
+
+  schwaechen: `
+    <h3>2. HFK-Schwächen &amp; Chancen (Kimi-Gap-Analyse)</h3>
+    <table class="compact-table"><thead><tr><th>Bereich</th><th>Ist-Zustand</th><th>Risiko ohne Change</th><th>Chance mit Mago</th></tr></thead><tbody>
+    <tr><td><strong>Einkaufsentscheidungen</strong></td><td>Intuition + Erfahrung, keine Datenbasis</td><td>Fehleinkäufe, Überbestand, OOS bei A-Artikeln</td><td>ABC-Analyse, Saison-Tracker, Lieferanten-Scorecard</td></tr>
+    <tr><td><strong>Kundenservice</strong></td><td>50–100 Mails/Tag, 6 Mitarbeiter, keine Automatisierung</td><td>Burnout, lange Antwortzeiten, Kundenverlust</td><td>SeBo + N8N: 30–40 % Auto-Reply, SLA-Tracking</td></tr>
+    <tr><td><strong>Mitarbeiter-Training</strong></td><td>4–6 Wochen Einarbeitung, wissensabhängig</td><td>Qualitätsverlust bei Fluktuation</td><td>Vektra: 2–3 Wochen, konsistente Beratungsqualität</td></tr>
+    <tr><td><strong>Online-Shop</strong></td><td>JTL-Shop 5.4.2, NOVA-Template, kaum optimiert</td><td>Conversion bleibt unter 1 %, Wachstum bleibt aus</td><td>10 Hebel (SEO, UX, Checkout, Newsletter)</td></tr>
+    <tr><td><strong>Daten &amp; Reporting</strong></td><td>JTL-Standardberichte, kein BI, keine KPIs täglich</td><td>Entscheidungen ohne Zahlen, externe Berichte teuer</td><td>OneSource: JTL → PostgreSQL → Metabase, täglich automatisch</td></tr>
+    <tr><td><strong>Strategische Steuerung</strong></td><td>MAGALOKO im Aufbau, Insellösungen</td><td>Kein Gesamtbild, Stephan als Bottleneck</td><td>MAGALOKO als einziges Cockpit, Weekly Report jeden Montag</td></tr>
+    </tbody></table>`,
+
+  rolle: `
+    <h3>3. Magoś Rollenprofil</h3>
+    <p><strong>Empfohlener Titel:</strong> <em>Digital Lead &amp; Operations Analyst</em> (intern) / <em>Digital Lead &amp; Strategieberater</em> (extern)</p>
+    <p><strong>Reporting:</strong> Direkt an Stephan Klein (CEO) · <strong>Schnittstellen:</strong> Einkauf (Beate, Lorna), Support (6 MA), externe Dienstleister</p>
+    <h4>Hauptverantwortungsbereiche</h4>
+    <ol>
+    <li><strong>MAGALOKO</strong> – Entwicklung &amp; Betrieb: Tasks, Systeme, Zugänge, Roadmap, Briefings</li>
+    <li><strong>Einkaufsplanung &amp; -analyse</strong> – ABC-Analyse, Saison-Tracker, Größen-/Farben-Mix, Lieferanten-Scorecard, Slow-Mover</li>
+    <li><strong>SeBo</strong> – Service-Bot-Dashboard: E-Mail-Tickets, Kategorisierung, SLA-Tracking, N8N-Automatisierung</li>
+    <li><strong>Vektra</strong> – Trainingssystem: Produktwissen, Beratungsskripte, Einwände, Rollenspiele, Quizzes</li>
+    <li><strong>Digital Sales</strong> – JTL-Shop-Optimierung, SEO, Conversion, UX, Newsletter (Brevo)</li>
+    <li><strong>OneSource</strong> – Daten-Infrastruktur: JTL → PostgreSQL → Metabase, rollenbasierte Dashboards</li>
+    </ol>
+    <h4>Aufgaben-Frequenz</h4>
+    <table class="compact-table"><thead><tr><th>Frequenz</th><th>Aufgaben</th></tr></thead><tbody>
+    <tr><td>Täglich</td><td>MAGALOKO-Pflege, Ticket-Monitoring, Anomalie-Check, Briefing vorbereiten</td></tr>
+    <tr><td>Wöchentlich</td><td>Einkaufsdaten-Analyse, Support-Auswertung, SEO-Check, Vektra-Training, Weekly Report für Stephan</td></tr>
+    <tr><td>Monatlich</td><td>ABC-Analyse-Update, Lieferanten-Scorecard, Shop-Performance-Review, Metabase-Dashboards</td></tr>
+    <tr><td>Quartalsweise</td><td>Strategie-Review mit Stephan, KPI-Auswertung, Roadmap-Update</td></tr>
+    </tbody></table>`,
+
+  kpis: `
+    <h3>4. Messbare Ziele — 12-Monats-KPI-Matrix</h3>
+    <table class="compact-table"><thead><tr><th>Kategorie</th><th>KPI</th><th>Baseline</th><th>12-Monats-Ziel</th></tr></thead><tbody>
+    <tr><td>Umsatz</td><td>Online-Shop Umsatz</td><td>100 %</td><td><strong>+20–30 %</strong></td></tr>
+    <tr><td>Umsatz</td><td>Conversion Rate</td><td>~1,0 %</td><td><strong>1,3–1,5 %</strong> (+30–50 %)</td></tr>
+    <tr><td>Einkauf</td><td>Lagerumschlag</td><td>n/a</td><td><strong>+15 %</strong></td></tr>
+    <tr><td>Einkauf</td><td>OOS-Rate</td><td>n/a</td><td><strong>-25 %</strong></td></tr>
+    <tr><td>Einkauf</td><td>Nulldreher (Dead Stock)</td><td>n/a</td><td><strong>-30 %</strong></td></tr>
+    <tr><td>Support</td><td>Ø Antwortzeit</td><td>n/a</td><td><strong>-40 %</strong></td></tr>
+    <tr><td>Support</td><td>Automatisierte Tickets</td><td>0 %</td><td><strong>30–40 %</strong></td></tr>
+    <tr><td>Support</td><td>SLA-Einhaltung</td><td>n/a</td><td><strong>&gt;90 %</strong></td></tr>
+    <tr><td>Team</td><td>Einarbeitungszeit neue MA</td><td>4–6 Wochen</td><td><strong>2–3 Wochen</strong></td></tr>
+    <tr><td>Daten</td><td>Dashboard-Aktualität</td><td>manuell/wöchentlich</td><td><strong>täglich automatisch</strong></td></tr>
+    <tr><td>SEO</td><td>Organische Sichtbarkeit</td><td>n/a</td><td><strong>+30 %</strong></td></tr>
+    <tr><td>Kundenzufriedenheit</td><td>Retouren wegen Fehlberatung</td><td>n/a</td><td><strong>-20 %</strong></td></tr>
+    </tbody></table>`,
+
+  nutzen: `
+    <h3>5. Konkreter Nutzen für Stephan (in seiner Sprache)</h3>
+    <ol>
+    <li>💰 <strong>Mehr Umsatz</strong> — Conversion 1,0 → 1,5 % = <strong>+50 % Online-Umsatz</strong> bei gleichem Traffic</li>
+    <li>🧭 <strong>Weniger Chaos</strong> — MAGALOKO als Cockpit: alle Systeme, Zugänge, Tasks, Entscheidungen an einem Ort</li>
+    <li>📦 <strong>Bessere Einkaufsentscheidungen</strong> — 20 % der Produkte erzeugen 62 % des Umsatzes; Fokus auf A-Produkte reduziert Fehleinkäufe um 30 %</li>
+    <li>📩 <strong>Weniger Support-Stress</strong> — N8N-Automatisierung: 30–40 % von 50–100 Tickets täglich = 15–40 Mails weniger pro Tag</li>
+    <li>👩‍💼 <strong>Bessere Mitarbeiter</strong> — Vektra: gleichwertige Beratungsqualität nach 2–3 statt 4–6 Wochen</li>
+    <li>📊 <strong>Bessere Daten</strong> — OneSource: Umsatz, Marge, Lager, Support täglich aktuell, mobil-optimiert</li>
+    <li>📅 <strong>Bessere Planung</strong> — Saison-Tracker auf 2–3 Jahre Verkaufsdaten: welche Größen, Farben, Marken wann</li>
+    <li>🔓 <strong>Weniger Abhängigkeit</strong> — Interne Datenkompetenz: keine €2.000–5.000-Rechnungen mehr für "kleine Berichte"</li>
+    <li>📋 <strong>Professioneller Weekly Report</strong> — Jeden Montag: Vorwochenvergleich, Top-Produkte, Support-Status, Einkaufs-Alerts — auf einer Seite</li>
+    <li>⚠️ <strong>Risiko-Minimierung</strong> — BabyOne und Ernsting's family investieren massiv; HFK muss mithalten oder verliert Marktanteile</li>
+    </ol>`,
+
+  einkauf: `
+    <h3>6. Einkaufsplanung: Datengetriebenes Sortimentsmanagement</h3>
+    <h4>8 Einkaufsplaner-Module</h4>
+    <table class="compact-table"><thead><tr><th>Modul</th><th>Funktion</th><th>Output</th></tr></thead><tbody>
+    <tr><td>Messe-Einkaufsplaner</td><td>Messe-Vorbereitung: Budget, Ziellisten, Lieferanten-Deadlines</td><td>Checkliste + Budget-Tracking</td></tr>
+    <tr><td>Saison-Tracker</td><td>2–3 Jahre Saisonmuster (Sommer/Winter/Schulstart/Weihnachten)</td><td>Saison-Nachorder-Plan, Frühwarnungen</td></tr>
+    <tr><td>Größen-/Farben-Mix</td><td>Analyse Ist vs. Einkaufsgrößen/Farben</td><td>Optimaler Mix pro Warengruppe</td></tr>
+    <tr><td>Lieferanten-Scorecard</td><td>Bewertung nach Lieferzeit, Qualität, Retouren, Preisst.</td><td>Ranking, Verhandlungsbasis</td></tr>
+    <tr><td>Penner-Radar</td><td>Dead-Stock-Identifikation (Lager aber 90 Tage kein Verkauf)</td><td>Abverkaufsliste, Markdown-Kandidaten</td></tr>
+    <tr><td>Topseller-Nachorder</td><td>Auto-Alerts wenn A-Produkte kritischen Bestand erreichen</td><td>Nachorder-Empfehlung mit Timing</td></tr>
+    <tr><td>Budget-Wächter</td><td>Einkaufsbudget vs. Ausgaben in Echtzeit (Kategorie/Marke/Saison)</td><td>Budget-Status, Abweichungs-Alerts</td></tr>
+    <tr><td>Einkaufsbriefing für Stephan</td><td>Wöchentliche 1-Seiten-Zusammenfassung: Was wurde gekauft, Entscheidungen offen, Risiken</td><td>1-Page Briefing mit Empfehlungen</td></tr>
+    </tbody></table>
+    <h4>ABC-XYZ-Matrix: 9 Cluster</h4>
+    <table class="compact-table"><thead><tr><th>Cluster</th><th>Umsatz</th><th>Marge</th><th>Empfehlung</th></tr></thead><tbody>
+    <tr style="background:var(--surface-2)"><td><strong>AA</strong></td><td>Hoch</td><td>Hoch</td><td>Täglich monitoren, Sicherheitsbestand, Lieferantentreue</td></tr>
+    <tr><td>AB</td><td>Hoch</td><td>Mittel</td><td>Marge verbessern (Verhandlung, Alternativlieferant)</td></tr>
+    <tr style="color:var(--danger)"><td>AC</td><td>Hoch</td><td>Niedrig</td><td>Kritisch prüfen: Sortimentsrelevanz vs. Profitabilität</td></tr>
+    <tr><td>BA</td><td>Mittel</td><td>Hoch</td><td>Potenzial analysieren: Marketing, bessere Platzierung</td></tr>
+    <tr><td>BB</td><td>Mittel</td><td>Mittel</td><td>Standard-Behandlung, regelmäßige Überprüfung</td></tr>
+    <tr><td>BC</td><td>Mittel</td><td>Niedrig</td><td>Reduzieren oder eliminieren</td></tr>
+    <tr><td>CA</td><td>Gering</td><td>Hoch</td><td>Nische halten, Cross-Selling forcieren</td></tr>
+    <tr><td>CB</td><td>Gering</td><td>Mittel</td><td>Automatisieren, minimale Aufmerksamkeit</td></tr>
+    <tr style="color:var(--danger)"><td>CC</td><td>Gering</td><td>Niedrig</td><td>Eliminieren oder drastisch reduzieren</td></tr>
+    </tbody></table>
+    <p class="muted">Baby- &amp; Kinderhandel: 6+ Monate Vorlaufzeit für Saison-Trends. Forecasting-Logik: Basis-Forecast × Saison-Faktor × Wachstumsfaktor (3-Monats-Trend).</p>`,
+
+  vektra: `
+    <h3>7. Vektra: Digitales Trainingssystem</h3>
+    <p><strong>Problem:</strong> Beratungsqualität ist der zentrale Wettbewerbsvorteil vs. Online-Pure-Plays. Produktwissen (Kinderwagen, Autositze, Sicherheitsstandards) ist so umfangreich, dass selbst erfahrene MA nicht alles wissen. Neue MA brauchen 4–6 Monate für komplexe Beratungen.</p>
+    <h4>10 Trainings-Module</h4>
+    <table class="compact-table"><thead><tr><th>Modul</th><th>Inhalt</th><th>Format</th></tr></thead><tbody>
+    <tr><td>Produktwissen-DB</td><td>Alle HFK-Produkte: Specs, Preise, Wettbewerb, USPs</td><td>Interaktive Karten, Filter, Suche</td></tr>
+    <tr><td>Marken-Profile</td><td>Hersteller-Geschichte, Marken-Philosophie, USPs, Preislage</td><td>Kurzprofile mit Logos</td></tr>
+    <tr><td>Beratungsskripte</td><td>Standardfragen, Empfehlungslogik, Upselling pro Kategorie</td><td>Text + Audio + Dialoge</td></tr>
+    <tr><td>Einwandbehandlung</td><td>20 häufige Einwände mit Antwortstrategien</td><td>Interaktive Szenarien</td></tr>
+    <tr><td>Rollenspiele</td><td>Simulierte Verkaufsgespräche mit KI-Feedback</td><td>Chat-basiert</td></tr>
+    <tr><td>Quiz &amp; Assessment</td><td>Produkte, Marken, Beratungstechniken</td><td>Multiple Choice, Zeitdruck</td></tr>
+    <tr><td>Lernpfade</td><td>Onboarding → Basis → Fortgeschritten → Experte</td><td>Meilenstein-basiert</td></tr>
+    <tr><td>Tagesdrills</td><td>3–5 Fragen täglich zu aktuellen Produkten/Aktionen</td><td>Push-Notification, 2 Minuten</td></tr>
+    <tr><td>Leaderboard</td><td>Punkte, Badges, Level, Team-Wettbewerb</td><td>Rankings, Belohnungen</td></tr>
+    <tr><td>Mitarbeiter-Auswertung</td><td>Individueller Fortschritt, Stärken/Schwächen pro MA</td><td>Dashboard für Stephan/Teamlead</td></tr>
+    </tbody></table>
+    <h4>Business Impact (6 Monate)</h4>
+    <table class="compact-table"><thead><tr><th>Metrik</th><th>Ohne Vektra</th><th>Mit Vektra</th></tr></thead><tbody>
+    <tr><td>Einarbeitung neue MA</td><td>4–6 Wochen</td><td><strong>2–3 Wochen (-50 %)</strong></td></tr>
+    <tr><td>Cross-Selling-Rate</td><td>15–20 %</td><td><strong>25–30 % (+50 %)</strong></td></tr>
+    <tr><td>Retouren "Falschberatung"</td><td>8–12 % der Retouren</td><td><strong>4–6 % (-50 %)</strong></td></tr>
+    <tr><td>Zeit für Training durch Erfahrene</td><td>3–5 h/Woche</td><td><strong>1–2 h/Woche (-60 %)</strong></td></tr>
+    </tbody></table>
+    <p class="muted">Technisch: Telegram Web App + responsive Web App. Backend: Produkte, Marken, Fragen, Antworten, MA, Lernergebnisse. CMS-Interface für neue Inhalte.</p>`,
+
+  sebo: `
+    <h3>8. SeBo: Service-Bot Dashboard &amp; N8N-Automatisierung</h3>
+    <p><strong>Problem:</strong> 50–100 Mails/Tag, 6 Support-MA, 8–17 Tickets pro Person täglich. E-Mails kommen in Wellen, variieren in Komplexität, erfordern Recherche in mehreren Systemen (JTL, Versand, Wawi).</p>
+    <h4>N8N-Architektur: 4 Layer</h4>
+    <ol>
+    <li><strong>Intake</strong> — Eingehende E-Mails via IMAP/Webhook, normalisieren (Ticket-ID, Kunde, Betreff, Inhalt)</li>
+    <li><strong>KI-Analyse</strong> — LLM klassifiziert Kategorie (Lieferstatus, Retoure, Beschwerde, Beratung, Buchhaltung), bestimmt Priorität (low/medium/high/critical), analysiert Sentiment, extrahiert Schlüsselinfos</li>
+    <li><strong>Policy-Engine</strong> — Deterministische Regeln: Confidence &gt;0,8 + "Lieferstatus" → Auto-Reply mit Tracking-Link. Sentiment "frustriert" → Eskalation. Bestellwert &gt;€500 → Teamlead.</li>
+    <li><strong>Execution</strong> — Auto-Replies senden, CRM aktualisieren, Slack-Benachrichtigungen, Helpdesk-Tickets zuweisen. Jede Entscheidung geloggt.</li>
+    </ol>
+    <h4>SeBo-Dashboard Widgets</h4>
+    <table class="compact-table"><thead><tr><th>Widget</th><th>Nutzen</th></tr></thead><tbody>
+    <tr><td>Ticket-Eingang (Live)</td><td>Auslastungsübersicht</td></tr>
+    <tr><td>Kategorie-Verteilung</td><td>Muster-Identifikation</td></tr>
+    <tr><td>Prioritäts-Heatmap</td><td>Fokus auf Wichtiges</td></tr>
+    <tr><td>SLA-Tracker</td><td>Qualitätskontrolle</td></tr>
+    <tr><td>Mitarbeiter-Performance</td><td>Tickets/MA, Ø Bearbeitungszeit</td></tr>
+    <tr><td>KI-Automatisierungsrate</td><td>% automatisch gelöster Tickets</td></tr>
+    <tr><td>Retouren-Analyse</td><td>Retourgründe → Einkaufs-Feedback</td></tr>
+    <tr><td>Wochenreport-Generator</td><td>Auto-Report spart Zeit</td></tr>
+    </tbody></table>
+    <p><strong>Reale Zahlen:</strong> Teams mit N8N-Support-Automatisierung erreichen First-Response-Zeit -80 %, Bearbeitungszeit -60 %, 40 % der Tickets auto-gelöst. Bei 75 Tickets/Tag = 30 täglich automatisch — Zeit für komplexe Fälle.</p>`,
+
+  digital: `
+    <h3>9. Digital Sales &amp; Shop-Optimierung</h3>
+    <p>HFK nutzt JTL-Shop 5.4.2 mit NOVA-Template. Strukturelle Ursache der niedrigen Conversion: Baby-Produkte sind emotional aufgeladene, hochpreisige Käufe mit viel Recherche-Bedarf.</p>
+    <h4>10 Optimierungs-Hebel</h4>
+    <table class="compact-table"><thead><tr><th>#</th><th>Hebel</th><th>Erwarteter Impact</th></tr></thead><tbody>
+    <tr><td>1</td><td>Template-Performance (WebP, CSS/JS-Bundling, Lazy Loading)</td><td>-40 % Ladezeit, -15 % Absprungrate</td></tr>
+    <tr><td>2</td><td>SEO-Grundlagen (Canonical, Meta-Descriptions, Sitemap)</td><td>+30 % organische Sichtbarkeit</td></tr>
+    <tr><td>3</td><td>Produktseiten (Bilder, Video, USP-Boxen, Bewertungen, Cross-Sell)</td><td>+20 % Conversion</td></tr>
+    <tr><td>4</td><td>Navigation (MegaMenu, flache Hierarchie max. 3 Ebenen, Breadcrumbs)</td><td>Bessere UX, mehr Seitenaufrufe</td></tr>
+    <tr><td>5</td><td>Suche (Doofinder: Synonyme, Autocomplete, Personalisierung)</td><td>+25 % Such-Conversion</td></tr>
+    <tr><td>6</td><td>Warenkorb (Express Checkout, Apple/Google Pay, Trust-Signale)</td><td>-20 % Warenkorbabbrüche</td></tr>
+    <tr><td>7</td><td>Cross-Selling (JTL-Cross-Selling-Gruppen, "Kunden kauften auch")</td><td>+15 % Ø Warenkorbwert</td></tr>
+    <tr><td>8</td><td>Newsletter (Brevo: Welcome-Serie, Win-Back, Saison, A/B-Tests)</td><td>+40 % Newsletter-Umsatz</td></tr>
+    <tr><td>9</td><td>Landingpages (Schulstart, Winter-Baby, Ostern, Marken-Highlights)</td><td>+30 % Kampagnen-Conversion</td></tr>
+    <tr><td>10</td><td>Tracking (GA4, Enhanced E-Commerce, Event-Tracking)</td><td>Datenbasis für alle A/B-Tests</td></tr>
+    </tbody></table>
+    <h4>SEO-Strategie (3 Ebenen)</h4>
+    <ul>
+    <li><strong>Technisch:</strong> Sprechende URLs, Sitemap (kein Duplicate Content), Canonical Tags, Core Web Vitals (LCP/CLS/INP), Schema.org für Produkte &amp; Bewertungen</li>
+    <li><strong>On-Page:</strong> Meta-Titles (max 55 Zeichen), Descriptions (max 155 Zeichen), Keyword-optimierte Kategorietexte, Alt-Tags alle Bilder</li>
+    <li><strong>Content SEO:</strong> Blog "Welcher Kinderwagen passt zu mir?", "Autositz-Tests 2025", "Neugeborenen-Checkliste" → Long-Tail-Landingpages</li>
+    </ul>`,
+
+  onesource: `
+    <h3>10. OneSource: Der Daten-Hub für HFK</h3>
+    <p><strong>Vision:</strong> JTL Wawi ist die einzige Wahrheit. Alle Geschäftsentscheidungen nutzen dieselben Daten, in Echtzeit. Keine widersprüchlichen Excel-Dateien, keine manuellen Exporte.</p>
+    <h4>Architektur (bewusst lean)</h4>
+    <table class="compact-table"><thead><tr><th>Komponente</th><th>Funktion</th><th>Technologie</th><th>Kosten</th></tr></thead><tbody>
+    <tr><td>Datenquelle</td><td>Primäre Geschäftsdaten</td><td>JTL Wawi (MS SQL Server)</td><td>Bereits vorhanden</td></tr>
+    <tr><td>ETL-Prozess</td><td>Nachtexport &amp; Transformation</td><td>Python-Scripts / N8N</td><td>Entwicklungszeit</td></tr>
+    <tr><td>Data Warehouse</td><td>Zentrale Reporting-DB</td><td>PostgreSQL (lokal/Cloud)</td><td>€0–50/Monat</td></tr>
+    <tr><td>BI-Layer</td><td>Dashboards &amp; Visualisierungen</td><td>Metabase (Open Source)</td><td>€0</td></tr>
+    <tr><td>Distribution</td><td>Reports, Alerts</td><td>E-Mail via Metabase, Slack</td><td>€0</td></tr>
+    </tbody></table>
+    <h4>5 Rollenbasierte Dashboards</h4>
+    <table class="compact-table"><thead><tr><th>Dashboard</th><th>Zielgruppe</th><th>Inhalt</th><th>Update</th></tr></thead><tbody>
+    <tr><td>Executive Overview</td><td>Stephan</td><td>Umsatz, Marge, Top-Produkte, Lager, Support — kompakt auf 1 Seite</td><td>Täglich</td></tr>
+    <tr><td>Einkaufs-Dashboard</td><td>Beate, Lorna</td><td>ABC, Saison-Tracker, Lieferanten-Scorecard, Slow-Mover, Nachorder-Alerts</td><td>Täglich</td></tr>
+    <tr><td>Support-Dashboard</td><td>Support-Team, Stephan</td><td>Ticket-Volumen, Kategorien, SLA, MA-Performance, Zufriedenheit</td><td>Live</td></tr>
+    <tr><td>Shop-Performance</td><td>Mago, Stephan</td><td>Traffic, Conversion, Top-Seiten, SEO-Sichtbarkeit, Warenkorb-Analyse</td><td>Täglich</td></tr>
+    <tr><td>Lager &amp; Logistik</td><td>Lager-Team</td><td>Bestand, Umschlaghäufigkeit, Reichweite, Nachorder-Vorschläge</td><td>Täglich</td></tr>
+    </tbody></table>
+    <p class="muted">JTL SQL-Schlüsseltabellen (eazybusiness): tBestellung, tBestellpos (inkl. Einkaufs-/Verkaufspreise), tArtikel, tWarenLager, tLieferschein, tRetoure.</p>`,
+
+  roadmap: `
+    <h3>11. Roadmap: Tag 1 bis Monat 12</h3>
+    <h4>Erste 7 Tage — Foundation</h4>
+    <table class="compact-table"><thead><tr><th>Tag</th><th>Aktivität</th><th>Deliverable</th></tr></thead><tbody>
+    <tr><td>1</td><td>Kick-off mit Stephan, Ziele ausrichten, Zugänge klären</td><td>Agreement, Zugangsliste</td></tr>
+    <tr><td>2</td><td>System-Audit: JTL Wawi, JTL-Shop, alle genutzten Tools</td><td>System-Landscape-Dokument</td></tr>
+    <tr><td>3</td><td>Daten-Audit: Erste SQL-Queries auf JTL-DB, Datenqualitäts-Check</td><td>Datenqualitäts-Report</td></tr>
+    <tr><td>4</td><td>MAGALOKO-Setup: Task-Struktur, System-Übersicht, initiale Roadmap</td><td>MAGALOKO MVP live</td></tr>
+    <tr><td>5</td><td>Support-Analyse: 50 letzte Tickets reviewen, Kategorien identifizieren</td><td>Support-Kategorien-Draft</td></tr>
+    <tr><td>6</td><td>Erstes Stephan-Briefing: Status, Findings, nächste Schritte</td><td>1-Page-Briefing</td></tr>
+    <tr><td>7</td><td>SeBo-Planung: N8N-Workflow-Draft, Dashboard-Mockup</td><td>SeBo-Konzept-Dokument</td></tr>
+    </tbody></table>
+    <h4>Monat 1 — Quick Wins</h4>
+    <ul>
+    <li>Woche 1: Audit, Zugänge, System-Landscape, MAGALOKO MVP → System-Übersicht, MAGALOKO live</li>
+    <li>Woche 2: SeBo MVP, erste automatisierte Antworten (Lieferstatus-Kategorie)</li>
+    <li>Woche 3: Erste ABC-Analyse, Top-Seller, Slow-Mover → Erster Einkaufs-Report für Beate/Lorna</li>
+    <li>Woche 4: Shop-Audit: SEO-Check, Performance-Analyse, Conversion-Tracking → Shop-Audit-Report mit Prioritäten</li>
+    </ul>
+    <h4>Monat 2–3 — Build-Out</h4>
+    <ul>
+    <li>M2: SeBo live, N8N-Automatisierung Standardtickets, Vektra-Konzept → 30 % Automatisierungsrate, Vektra-Mockup</li>
+    <li>M3: Einkaufsplaner MVP: ABC-Analyse, Saison-Tracker, Größen-/Farben-Mix → Interaktives Einkaufs-Dashboard</li>
+    </ul>
+    <h4>Monat 4–6 — Development</h4>
+    <ul>
+    <li>M4: OneSource: JTL → PostgreSQL → Metabase Setup → Erste Dashboards (Einkauf, Support)</li>
+    <li>M5: Vektra live: Erste Trainings-Module, Quizze, Tagesdrills → MA beginnen Training</li>
+    <li>M6: Shop-Optimierung: Template-Verbesserungen, SEO-Maßnahmen, Conversion-Tests → -30 % Ladezeit</li>
+    </ul>
+    <h4>Monat 7–12 — Professionalisierung</h4>
+    <ul>
+    <li>M7–8: Alle Dashboard-Rollen live (Stephan, Einkauf, Support, Lager)</li>
+    <li>M9–10: Umsatz-Hebel: Newsletter-Automation, Kunden-Win-Back, A/B-Tests → +10–15 % Umsatz messbar</li>
+    <li>M11–12: Optimierung, Dokumentation, Wissenstransfer, Strategie-Planung 2027</li>
+    </ul>`,
+
+  verguetung: `
+    <h3>12. Vergütungsmodelle: Marktdaten + Empfehlung</h3>
+    <h4>Österreich: Marktgehälter E-Commerce (Stand Mai 2026)</h4>
+    <table class="compact-table"><thead><tr><th>Position</th><th>Brutto/Monat</th></tr></thead><tbody>
+    <tr><td>Junior E-Commerce Manager (1–4 Jahre)</td><td>€2.800–3.500</td></tr>
+    <tr><td>Mid-Level E-Commerce Manager (3–5 Jahre)</td><td>€3.500–5.000</td></tr>
+    <tr><td>Senior E-Commerce Manager (5+ Jahre)</td><td>€4.500–6.700</td></tr>
+    <tr><td>Freelancer Tagessatz AT (Ø)</td><td>€808/Tag (= €101/Stunde)</td></tr>
+    <tr><td>Freelancer Retainer 60h/Monat</td><td>~€6.000/Monat</td></tr>
+    </tbody></table>
+    <h4>5 Modelle im Vergleich</h4>
+    <table class="compact-table"><thead><tr><th>Modell</th><th>Struktur</th><th>Mago-Vorteil</th><th>HFK-Vorteil</th></tr></thead><tbody>
+    <tr><td>A) Vollzeit-Anstellung</td><td>€3.500–5.000 brutto, 38,5h/Woche</td><td>Sicherheit, Sozialversicherung</td><td>Volle Verfügbarkeit</td></tr>
+    <tr><td>B) Freelancer-Retainer</td><td>€3.000–6.000/Monat für 40–80h</td><td>Flexibilität, höhere Stundensätze</td><td>Skalierbar, keine Sozialabgaben</td></tr>
+    <tr style="background:var(--surface-2)"><td><strong>C) Hybrid (Empfehlung)</strong></td><td>€2.500–3.500 Fixum + 5–15 % Umsatzwachstum + Erfolgsbonus</td><td>Erfolgsanreiz + Sicherheit</td><td>Niedriges Risiko, zahlt auf Erfolg</td></tr>
+    <tr><td>D) Projektvertrag 12M</td><td>€4.000–8.000/Monat mit Meilensteinen</td><td>Hohes Einkommen, klare Ziele</td><td>Klare Deliverables, Exit-Option</td></tr>
+    <tr><td>E) Teilzeit + Freelance</td><td>20h Anstellung + 20–40h Freelance</td><td>Sicherheit + Flexibilität</td><td>Partielle Integration</td></tr>
+    </tbody></table>
+    <h4>Empfehlung: Hybrid-Modell mit Success-Sharing</h4>
+    <p><strong>Fixum:</strong> €3.500–4.500 brutto (Anstellung) ODER €4.000–5.000 Retainer (60–80h/Monat)</p>
+    <p><strong>Success-Sharing (quartalsweise, messbar):</strong></p>
+    <ul>
+    <li>5 % des messbaren Online-Umsatzwachstums (vs. Vorjahresquartal, nach Marketingkosten)</li>
+    <li>€500–1.000/Quartal für Automatisierungs-Einsparungen (gesparte Stunden × Stundensatz)</li>
+    <li>Jahresbonus €1.500–3.000 bei Erreichung aller Jahres-KPIs</li>
+    </ul>
+    <h4>Beispielrechnung (moderat)</h4>
+    <table class="compact-table"><thead><tr><th>Komponente</th><th>Monatlich</th><th>Jährlich</th></tr></thead><tbody>
+    <tr><td>Fixum (€4.000/Monat)</td><td>€4.000</td><td>€48.000</td></tr>
+    <tr><td>Umsatz-Sharing (+20 % = €15k mehr/Quartal × 5 %)</td><td>€250</td><td>€3.000</td></tr>
+    <tr><td>Automatisierungs-Einsparungen</td><td>€167</td><td>€2.000</td></tr>
+    <tr><td>Jahresbonus</td><td>—</td><td>€2.000</td></tr>
+    <tr style="background:var(--surface-2)"><td><strong>Total</strong></td><td><strong>~€4.417</strong></td><td><strong>~€55.000</strong></td></tr>
+    </tbody></table>
+    <p class="muted"><strong>ROI für Stephan:</strong> Conversion 1,0 → 1,3 % bei €200k Online-Umsatz = +€60k Umsatz → +€18k Rohertrag (30 % Marge) gegen €48k Jahreskost Mago. ROI bereits durch Conversion-Verbesserung allein erreicht — alle anderen Projekte sind reiner Zusatzgewinn.</p>`,
+
+  meeting: `
+    <h3>13. Meeting-Vorbereitung: Gespräch mit Stephan</h3>
+    <h4>Gesprächs-Agenda (60–90 Minuten)</h4>
+    <table class="compact-table"><thead><tr><th>Zeit</th><th>Thema</th><th>Ziel</th></tr></thead><tbody>
+    <tr><td>0–10 Min</td><td>Opening: Mago's Vision für HFK</td><td>Neugier wecken, großes Bild zeigen</td></tr>
+    <tr><td>10–25 Min</td><td>Status-Analyse: Wo steht HFK digital?</td><td>Gemeinsame Erkenntnis: enormes Potenzial vorhanden</td></tr>
+    <tr><td>25–45 Min</td><td>6 Projekte: Kurz-Intro je Projekt</td><td>Stephan versteht Mago's konkrete Arbeit</td></tr>
+    <tr><td>45–60 Min</td><td>Nutzen für Stephan: Zahlen, Zeitersparnis, Stress-Reduktion</td><td>Stephan sieht persönlichen Vorteil</td></tr>
+    <tr><td>60–75 Min</td><td>Roadmap &amp; Kosten: Was braucht es?</td><td>Realistische Erwartungen, leistbarer Rahmen</td></tr>
+    <tr><td>75–90 Min</td><td>Nächste Schritte: Wie starten?</td><td>Konkreter Termin, Timeline</td></tr>
+    </tbody></table>
+    <h4>10 starke Aussagen von Mago</h4>
+    <ol>
+    <li>"Ich bin nicht nur ein Entwickler. Ich bin die Person, die HFK voranbringt — digital, datengetrieben, operativ."</li>
+    <li>"BabyOne hat 100 Filialen und Millionen-Budgets. HFK hat etwas, das die nicht haben: Herz und echte Expertise. Meine Aufgabe: diese Stärke mit digitalen Tools zu multiplizieren."</li>
+    <li>"Die Conversion-Rate im Baby-Handel ist die niedrigste im E-Commerce — nur 0,8 %. Das ist keine Schwäche, das ist eine Chance. Schon bei 1,2 % wäre das +50 % Online-Umsatz."</li>
+    <li>"Ich will nicht ersetzen, was bei HFK funktioniert. Ich will messen, was funktioniert — und das, was schwer ist, leicht machen."</li>
+    <li>"Stell dir vor: Jeden Montag eine E-Mail — der Wochenbericht: Umsatz, Top-Produkte, Support-Status, Einkaufs-Alerts — alles auf einer Seite. Das ist kein Traum, das ist MAGALOKO."</li>
+    <li>"30–40 % von 100 täglichen Support-E-Mails sind Standardfragen: 'Wo ist mein Paket?', 'Wie retourniere ich?' — Ein Computer kann das beantworten. Deine Mitarbeiter haben Zeit für Mütter, die echte Hilfe brauchen."</li>
+    <li>"Beate und Lorna haben phänomenales Einkaufsgespür. Ich gebe ihnen Daten, die das bestätigen oder korrigieren — und verhindern Fehleinkäufe, bevor sie passieren."</li>
+    <li>"Heute braucht ein neuer Mitarbeiter 4–6 Wochen, um selbstständig zu beraten. Mit Vektra sind es 2–3 Wochen — bei gleicher Qualität."</li>
+    <li>"Ich arbeite nicht für Stundenlöhne. Ich arbeite für Ergebnisse. Wenn der Online-Umsatz nicht steigt, verdienen wir beide weniger. Das ist fair."</li>
+    <li>"In 12 Monaten ist HFK der digital fortschrittlichste inhabergeführte Baby-Fachhandel Wiens. Nicht weil wir mehr als andere ausgeben, sondern weil wir klüger arbeiten."</li>
+    </ol>
+    <h4>15 Fragen für Stephan</h4>
+    <ol>
+    <li>Wie viel Umsatz macht der Online-Shop aktuell im Vergleich zum Geschäft?</li>
+    <li>Welche 3 Probleme kosten dich aktuell die meisten schlaflosen Nächte?</li>
+    <li>Wie entscheiden Beate und Lorna aktuell über den Einkauf für die kommende Saison?</li>
+    <li>Wie viele Stunden pro Woche investierst du selbst in Datensammlung und -analyse?</li>
+    <li>Was passiert, wenn eine erfahrene Mitarbeiterin das Unternehmen verlässt — wo ist ihr Wissen?</li>
+    <li>Hast du schon mal einem externen Dienstleister für einen "kleinen Report" gezahlt — was hat er gekostet?</li>
+    <li>Wie zufrieden bist du mit der aktuellen JTL-Shop-Performance (Traffic, Conversion, SEO)?</li>
+    <li>Welche Kundenservice-Probleme hörst du am häufigsten von deinem Team?</li>
+    <li>Gibt es Produkte, die du regelmäßig einkaufst, die sich dann nicht verkaufen?</li>
+    <li>Wie lange dauert es, bis ein neuer Mitarbeiter selbstständig Kunden beraten kann?</li>
+    <li>Welche Information würdest du täglich auf einen Blick haben wollen, die du gerade nicht hast?</li>
+    <li>Hast du schon mal über systematische Digitalisierung nachgedacht — was hat dich bisher zurückgehalten?</li>
+    <li>Wie stellst du dir eine Zusammenarbeit vor: Anstellung, Projekt, oder Hybrid?</li>
+    <li>Was wäre für dich "Erfolg" nach 6 Monaten Zusammenarbeit?</li>
+    <li>Gibt es Dinge, die du absolut nicht verändert haben willst — die "heilig" sind bei HFK?</li>
+    </ol>
+    <h4>Der klare Ask an Stephan</h4>
+    <blockquote style="border-left:3px solid var(--accent);padding-left:1rem;margin:1rem 0;font-style:italic;">"Stephan, ich will HFK dabei helfen, der digital fortschrittlichste inhabergeführte Baby-Fachhandel Wiens zu werden. Ich bringe sechs Projekte mit, die aufeinander aufbauen und einen messbaren Nutzen haben. Mein Vorschlag: Lass mich mit einem 30-Tage-Test starten. In dieser Zeit liefere ich die System-Landscape, erste ABC-Analyse, SeBo-Prototyp und den ersten Weekly Report. Wenn du nach 30 Tagen siehst, dass es funktioniert, gestalten wir die langfristige Zusammenarbeit. Wenn nicht, haben wir beide etwas gelernt und trennen uns in gutem Einvernehmen. Was meinst du?"</blockquote>`
+};
+
+function loadSpSection(sec) {
+  const contentEl = byId("sp-content");
+  if (!contentEl) return;
+  spCurrentSection = sec;
+  document.querySelectorAll(".ma-section-btn[data-sp-sec]").forEach((b) => {
+    b.classList.toggle("active", b.dataset.spSec === sec);
+  });
+  contentEl.innerHTML = SP_CONTENT[sec] || '<p class="muted">Sektion nicht verfügbar.</p>';
+}
+
+function renderStrategiePitch() {
+  const contentEl = byId("sp-content");
+  if (!contentEl) return;
+  if (!contentEl.dataset.loaded) {
+    contentEl.dataset.loaded = "1";
+    loadSpSection(spCurrentSection);
+  }
+}
+
 // === Marktanalyse 2026 ===
 let maCurrentSection = "00";
 const maSectionCache = {};
@@ -10137,6 +10529,7 @@ function render() {
   renderCalendar();
   renderOrdersIntake();
   renderMarktanalyse();
+  renderStrategiePitch();
   renderAkademie();
   renderStephanKalender();
   renderStephanDecisions();
@@ -12236,6 +12629,11 @@ document.querySelectorAll(".ma-section-btn[data-ma-sec]").forEach((btn) => {
 // === Lernsystem Wiring ===
 document.querySelectorAll(".ma-section-btn[data-ls-sec]").forEach((btn) => {
   btn.addEventListener("click", () => loadLsSection(btn.dataset.lsSec));
+});
+
+// === Strategie-Pitch Wiring ===
+document.querySelectorAll(".ma-section-btn[data-sp-sec]").forEach((btn) => {
+  btn.addEventListener("click", () => loadSpSection(btn.dataset.spSec));
 });
 
 // === Order-Intake Wiring ===
