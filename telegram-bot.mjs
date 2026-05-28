@@ -17,12 +17,30 @@ const scoresPath = join(root, "data", "bot-scores.jsonl");
 let TOKEN = "";
 let ALLOWED = null; // null = alle erlaubt; sonst Array von numeric user IDs
 
+let ALLOW_ALL = false;
+
 async function loadConfig() {
   const raw = await readFile(configPath, "utf8");
   const cfg = JSON.parse(raw);
   if (!cfg.token) throw new Error("config/telegram.json: 'token' fehlt");
   TOKEN = cfg.token;
-  ALLOWED = Array.isArray(cfg.allowedUserIds) && cfg.allowedUserIds.length ? cfg.allowedUserIds : null;
+  const hasList = Array.isArray(cfg.allowedUserIds) && cfg.allowedUserIds.length > 0;
+  ALLOW_ALL = cfg.allowAllUsers === true;
+  // Fail-closed (Audit-Finding #3): ohne Allowlist startet der Bot NICHT,
+  // außer explizit allowAllUsers:true (mit Warnung).
+  if (!hasList && !ALLOW_ALL) {
+    throw new Error(
+      "SICHERHEIT: config/telegram.json hat keine 'allowedUserIds'.\n" +
+      "Der Bot ist sonst für JEDEN nutzbar der ihn findet (Telegram ist NICHT Tailnet-privat).\n" +
+      "→ Trage die Telegram-User-IDs deines Teams ein, z.B. \"allowedUserIds\": [123456789].\n" +
+      "→ Oder setze bewusst \"allowAllUsers\": true (NICHT empfohlen).\n" +
+      "Deine eigene ID bekommst du via @userinfobot."
+    );
+  }
+  ALLOWED = hasList ? cfg.allowedUserIds : null;
+  if (ALLOW_ALL && !hasList) {
+    console.warn("[telegram-bot] ⚠️ WARNUNG: allowAllUsers=true — JEDER kann den Bot nutzen!");
+  }
 }
 
 // === MAGALOKO-Datenzugriff (frisch pro Anfrage) ===
@@ -101,8 +119,11 @@ const norm = (s) => String(s || "").toLowerCase().normalize("NFD").replace(/[̀-
 function pick(arr) { return arr[Math.floor(Math.random() * arr.length)]; }
 
 function isAllowed(userId) {
-  if (!ALLOWED) return true;
-  return ALLOWED.includes(userId);
+  if (ALLOW_ALL) return true;
+  if (!ALLOWED) return false; // fail-closed
+  const ok = ALLOWED.includes(userId);
+  if (!ok) console.warn(`[telegram-bot] Zugriff verweigert für User-ID ${userId} (nicht in allowedUserIds)`);
+  return ok;
 }
 
 // === Command-Handler ===

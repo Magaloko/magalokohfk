@@ -6,7 +6,7 @@
 //   /api/state PUT                       → durchreichen, bei Fehler: in IDB-Queue (vom Client)
 //   /auth/*                              → network-only (nie cachen, sensibel)
 
-const VERSION = "magaloko-v24-team-notizen";
+const VERSION = "magaloko-v26-audit-fixes-3";
 const STATIC_CACHE = `${VERSION}-static`;
 const DATA_CACHE = `${VERSION}-data`;
 
@@ -46,9 +46,30 @@ function isStaticRequest(url) {
 }
 
 function isDataRequest(url) {
-  return url.pathname === "/api/state" ||
-    url.pathname.startsWith("/api/hfk/") ||
+  // /api/state NICHT cachen (Audit-Finding #8: sensible Geschäfts-/Kundendaten)
+  return url.pathname.startsWith("/api/hfk/") ||
     url.pathname.startsWith("/api/jtl/");
+}
+
+// App-Shell: network-first damit neuer Code sofort kommt (Audit-Finding #9 — löst 2×-Reload)
+function isAppShell(url) {
+  return url.pathname === "/" ||
+    url.pathname === "/index.html" ||
+    url.pathname === "/app.js" ||
+    url.pathname === "/styles.css";
+}
+
+async function networkFirstShell(request) {
+  const cache = await caches.open(STATIC_CACHE);
+  try {
+    const response = await fetch(request);
+    if (response.ok) cache.put(request, response.clone()).catch(() => {});
+    return response;
+  } catch {
+    const cached = await cache.match(request) || await cache.match("/index.html");
+    if (cached) return cached;
+    throw new Error("offline + nicht im Cache");
+  }
 }
 
 async function cacheFirst(request) {
@@ -103,6 +124,13 @@ self.addEventListener("fetch", (event) => {
   const url = new URL(request.url);
 
   if (url.pathname.startsWith("/auth/")) return; // niemals cachen, niemals abfangen
+  if (url.pathname === "/api/state") return; // niemals cachen (sensibel, immer frisch)
+
+  // App-Shell network-first → neuer Code ohne Mehrfach-Reload
+  if (isAppShell(url)) {
+    event.respondWith(networkFirstShell(request));
+    return;
+  }
 
   if (isStaticRequest(url)) {
     event.respondWith(cacheFirst(request));

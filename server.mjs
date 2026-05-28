@@ -2,7 +2,7 @@ import { createServer } from "node:http";
 import { readFile, writeFile, mkdir, rename, appendFile } from "node:fs/promises";
 import { createReadStream } from "node:fs";
 import { createInterface } from "node:readline";
-import { extname, dirname, join, normalize, resolve } from "node:path";
+import { extname, dirname, join, normalize, resolve, sep } from "node:path";
 import { fileURLToPath } from "node:url";
 import { createHash, randomBytes, timingSafeEqual } from "node:crypto";
 
@@ -157,7 +157,13 @@ function clearSessionCookie(response) {
 }
 
 function clientIp(request) {
-  return request.headers["x-forwarded-for"]?.split(",")[0].trim() || request.socket.remoteAddress || "unknown";
+  // x-forwarded-for nur vertrauen wenn explizit ein Reverse-Proxy konfiguriert ist
+  // (Audit-Finding #11: sonst kann ein Client die IP spoofen und Rate-Limits umgehen).
+  if (authConfig.trustProxy === true) {
+    const fwd = request.headers["x-forwarded-for"]?.split(",")[0].trim();
+    if (fwd) return fwd;
+  }
+  return request.socket?.remoteAddress || "unknown";
 }
 
 function checkRateLimit(ip) {
@@ -198,11 +204,17 @@ async function sendMagicLink(email, link) {
       console.error("SMTP-Fehler:", error.message);
     }
   }
-  // Dev-Modus / SMTP-Fallback
+  // Fail-closed (Audit-Finding #10): bei aktiver Auth ohne SMTP KEINEN Dev-Link
+  // in Datei/Konsole schreiben — das wäre ein abgreifbarer Login.
+  if (authConfig.requireAuth) {
+    console.error("SMTP fehlt — Magic-Link kann nicht versendet werden. Bitte authConfig.smtp konfigurieren.");
+    return { sent: false, error: "SMTP nicht konfiguriert" };
+  }
+  // Nur im Dev-Modus (requireAuth:false): Link lokal ablegen zum Testen.
   const devFile = join(dataDir, "last-magic-link.txt");
   await mkdir(dataDir, { recursive: true });
   await writeFile(devFile, `${new Date().toISOString()}\nEmail: ${email}\nLink: ${link}\n`, "utf8");
-  console.log(`\n=== MAGIC LINK (Dev-Modus) ===\nEmail: ${email}\nLink:  ${link}\nDatei: ${devFile}\n==============================\n`);
+  console.log(`\n=== MAGIC LINK (Dev-Modus, requireAuth:false) ===\nEmail: ${email}\nLink:  ${link}\nDatei: ${devFile}\n==============================\n`);
   return { sent: false, devFile };
 }
 
@@ -937,8 +949,9 @@ async function handleAuth(request, response, url) {
   return false;
 }
 
-function requireAuthFor(url) {
+function requireAuthFor(request, url) {
   if (!authConfig.requireAuth) return false;
+  const method = (request?.method || "GET").toUpperCase();
   // Login-Seite und Auth-Endpoints sind immer erreichbar
   if (url.pathname.startsWith("/auth/")) return false;
   if (url.pathname === "/login.html") return false;
@@ -947,8 +960,9 @@ function requireAuthFor(url) {
     const token = url.searchParams.get("token");
     return !(token && authConfig.stephanToken && token === authConfig.stephanToken);
   }
-  // Stephan-Token darf auch /api/state lesen (nur GET)
-  if (url.pathname === "/api/state" && url.searchParams.get("token") && authConfig.stephanToken === url.searchParams.get("token")) {
+  // Stephan-Token darf /api/state NUR lesen (GET), niemals schreiben (Audit-Finding #2)
+  if (method === "GET" && url.pathname === "/api/state" &&
+      url.searchParams.get("token") && authConfig.stephanToken === url.searchParams.get("token")) {
     return false;
   }
   return true;
@@ -1234,8 +1248,8 @@ async function handleApi(request, response, url) {
       await mkdir(dataDir, { recursive: true });
       await writeFile(stateTmp, JSON.stringify(state), "utf8");
       await rename(stateTmp, statePath);
-      // SSE-Broadcast falls aktiv (Multi-Device-Sync)
-      if (typeof broadcastStateUpdate === "function") broadcastStateUpdate();
+      // SSE-Broadcast (Multi-Device-Sync) — Audit-Finding #5: hieß fälschlich broadcastStateUpdate
+      broadcastSse("state-updated", { updatedAt: state.updatedAt, source: "capture" });
       await audit("capture.received", { source, subject, sender });
       response.writeHead(200, { "Content-Type": mimeTypes[".json"] });
       response.end(JSON.stringify({ ok: true, entryId: entry.id }));
@@ -1871,15 +1885,27 @@ async function handleApi(request, response, url) {
   if (url.pathname === "/api/state" && request.method === "PUT") {
     try {
       const body = await readBody(request);
-      JSON.parse(body);
+      const parsed = JSON.parse(body);
+      // Optimistic-Concurrency (Audit-Finding #4): verhindert dass ein Gerät
+      // die Änderung eines anderen überschreibt (Handy/Tablet/PC parallel).
+      const base = Number(request.headers["x-base-updated-at"] || 0);
+      if (base > 0) {
+        let diskUpdatedAt = 0;
+        try {
+          const cur = JSON.parse(await readFile(statePath, "utf8"));
+          diskUpdatedAt = Number(cur.updatedAt || 0);
+        } catch { /* keine Datei = kein Konflikt */ }
+        if (diskUpdatedAt > base) {
+          response.writeHead(409, { "Content-Type": mimeTypes[".json"] });
+          response.end(JSON.stringify({ error: "conflict", serverUpdatedAt: diskUpdatedAt, base }));
+          return true;
+        }
+      }
       await mkdir(dataDir, { recursive: true });
       await writeFile(stateTmp, body, "utf8");
       await rename(stateTmp, statePath);
-      // Andere Tabs benachrichtigen
-      try {
-        const parsed = JSON.parse(body);
-        broadcastSse("state-updated", { updatedAt: parsed.updatedAt || Date.now(), clientId: request.headers["x-client-id"] || null });
-      } catch {}
+      // Andere Tabs/Geräte benachrichtigen
+      broadcastSse("state-updated", { updatedAt: parsed.updatedAt || Date.now(), clientId: request.headers["x-client-id"] || null });
       response.writeHead(204);
       response.end();
     } catch (error) {
@@ -1949,7 +1975,7 @@ async function start() {
     }
 
     // Auth-Check vor allen anderen Routen
-    if (requireAuthFor(url)) {
+    if (requireAuthFor(request, url)) {
       const sess = getSessionFromRequest(request);
       if (!sess) {
         if (url.pathname.startsWith("/api/")) {
@@ -1976,6 +2002,37 @@ async function start() {
     const safePath = normalize(relativePath).replace(/^(\.\.[/\\])+/, "");
     const filePath = join(root, safePath);
     const extension = extname(filePath);
+
+    // === Sicherheits-Härtung (Audit-Finding #1) ===
+    // 1. Containment: Datei MUSS innerhalb des Projekt-Roots liegen (Path-Traversal-Schutz)
+    const resolvedRoot = resolve(root);
+    const resolvedFile = resolve(filePath);
+    if (resolvedFile !== resolvedRoot && !resolvedFile.startsWith(resolvedRoot + sep)) {
+      response.writeHead(403, { "Content-Type": "text/plain; charset=utf-8" });
+      response.end("Forbidden");
+      return;
+    }
+    // 2. Deny-Liste: sensible Verzeichnisse + Server-Code niemals ausliefern
+    const rel = safePath.replace(/\\/g, "/").toLowerCase();
+    const DENY_PREFIXES = ["config/", "data/", ".git/", ".claude/", "node_modules/"];
+    const DENY_FILES = ["server.mjs", "telegram-bot.mjs", ".gitignore", "audit_brief.md", "kimi_swarm_hfk_verkaufslernsystem.md"];
+    if (
+      DENY_PREFIXES.some((p) => rel.startsWith(p)) ||
+      DENY_FILES.includes(rel) ||
+      extension === ".mjs" ||              // Server-Code (server.mjs/telegram-bot.mjs) nie öffentlich
+      extension === ".jsonl"               // Log-/Score-Dateien
+    ) {
+      response.writeHead(404, { "Content-Type": "text/plain; charset=utf-8" });
+      response.end("Not found");
+      return;
+    }
+    // 3. .md/.txt nur aus expliziten Content-Ordnern (Lese-Views), sonst blocken
+    if ((extension === ".md" || extension === ".txt") &&
+        !rel.startsWith("lernsystem-2026/") && !rel.startsWith("marktanalyse-2026/")) {
+      response.writeHead(404, { "Content-Type": "text/plain; charset=utf-8" });
+      response.end("Not found");
+      return;
+    }
 
     if (!allowedExtensions.has(extension)) {
       response.writeHead(404, { "Content-Type": "text/plain; charset=utf-8" });
@@ -2011,6 +2068,20 @@ async function start() {
     console.log(`Auth: ${authConfig.requireAuth ? "AKTIV" : "deaktiviert"} · zugelassene Mails: ${authConfig.allowedEmails.length || 0}`);
     if (authConfig.requireAuth && !authConfig.allowedEmails.length) {
       console.warn("⚠ requireAuth=true aber keine allowedEmails — niemand kann sich einloggen!");
+    }
+    // Opt-in JTL-Index-Warmup (Audit-Finding #6): WARM_INDEXES=1 lädt die großen
+    // Indizes im Hintergrund nach dem Start, gestaffelt — damit der erste Lookup
+    // nicht 3-4s warten muss. Default aus (schneller Start, RAM nur bei Bedarf).
+    if (process.env.WARM_INDEXES === "1") {
+      console.log("[warmup] JTL-Indizes werden im Hintergrund geladen …");
+      setTimeout(async () => {
+        try { await loadArticleIndex(); console.log("[warmup] Artikel-Index bereit"); } catch (e) { console.warn("[warmup] Artikel:", e.message); }
+        try { await loadAddressIndex(); console.log("[warmup] Adress-Index bereit"); } catch (e) { console.warn("[warmup] Adressen:", e.message); }
+        try { await loadOrderIndex(); console.log("[warmup] Order-Index bereit"); } catch (e) { console.warn("[warmup] Orders:", e.message); }
+        try { await loadAbcIndex(); console.log("[warmup] ABC-Index bereit"); } catch (e) { console.warn("[warmup] ABC:", e.message); }
+        try { await loadManufacturerMap(); } catch {}
+        console.log("[warmup] Alle JTL-Indizes geladen.");
+      }, 2000);
     }
   });
 }

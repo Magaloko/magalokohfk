@@ -1,5 +1,7 @@
 {
-  "_comment": "Kopiere diese Datei zu telegram.json und trage deinen echten Token ein. telegram.json NICHT committen, NICHT ins Backup.",
+  "_comment": "Kopiere zu telegram.json + echten Token eintragen. NICHT committen.",
+  "_security": "allowedUserIds MUSS gefüllt sein (Team-User-IDs via @userinfobot), sonst startet der Bot nicht (fail-closed). Nur in Ausnahme allowAllUsers:true setzen.",
   "token": "DEIN_BOTFATHER_TOKEN_HIER",
-  "allowedUserIds": []
+  "allowedUserIds": [123456789],
+  "allowAllUsers": false
 }

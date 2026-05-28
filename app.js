@@ -1162,6 +1162,8 @@ async function syncFromServer(force = false) {
     if (!remote || typeof remote !== "object" || !Object.keys(remote).length) return;
     const localUpdated = Number(state.updatedAt || 0);
     const remoteUpdated = Number(remote.updatedAt || 0);
+    // Server-Disk-Stand merken (Basis für nächsten konfliktfreien Push)
+    lastServerRevision = remoteUpdated;
     if (force || remoteUpdated > localUpdated) {
       state = applyWorkspaceLayer(mergeWithSeed(remote));
       localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
@@ -1179,6 +1181,8 @@ async function syncFromServer(force = false) {
 
 let saveTimer = null;
 let saveBusy = false;
+// Optimistic-Concurrency (Audit-Finding #4): letzte bekannte Server-Revision
+let lastServerRevision = Number((typeof state !== "undefined" && state.updatedAt) || 0);
 
 function saveState() {
   state.updatedAt = Date.now();
@@ -1217,13 +1221,27 @@ async function pushToServer() {
     return;
   }
   saveBusy = true;
+  const pushedRevision = Number(state.updatedAt || 0);
   try {
     const response = await fetch("/api/state", {
       method: "PUT",
-      headers: { "Content-Type": "application/json", "X-Client-Id": MAGALOKO_CLIENT_ID },
+      headers: {
+        "Content-Type": "application/json",
+        "X-Client-Id": MAGALOKO_CLIENT_ID,
+        "X-Base-Updated-At": String(lastServerRevision)
+      },
       body: JSON.stringify(state)
     });
+    // Konflikt (anderes Gerät hat zwischenzeitlich gespeichert) — Audit-Finding #4
+    if (response.status === 409) {
+      saveBusy = false;
+      await syncFromServer(true);
+      showToast("⚠ Neuere Version von anderem Gerät geladen — bitte Änderung prüfen");
+      return;
+    }
     if (!response.ok) throw new Error("save failed");
+    // Erfolg: Server hat jetzt unsere Revision
+    lastServerRevision = pushedRevision;
     if (hasPendingSave()) {
       clearPendingSave();
       updateOfflineIndicator();
@@ -1244,9 +1262,22 @@ async function flushOfflineQueue() {
     if (!last) return;
     const response = await fetch("/api/state", {
       method: "PUT",
-      headers: { "Content-Type": "application/json" },
+      headers: {
+        "Content-Type": "application/json",
+        "X-Client-Id": MAGALOKO_CLIENT_ID,
+        // Sende die zuletzt bekannte Server-Revision als Basis (Audit-Finding #4 — Offline-Pfad)
+        "X-Base-Updated-At": String(lastServerRevision)
+      },
       body: JSON.stringify(last.state)
     });
+    // Konflikt: anderes Gerät hat nach dem Offline-Gehen gespeichert → Serverdaten laden
+    if (response.status === 409) {
+      clearPendingSave();
+      await syncFromServer(true);
+      showToast("⚠ Neuere Version vom Server — Offline-Änderungen verworfen, bitte prüfen");
+      updateOfflineIndicator();
+      return;
+    }
     if (response.ok) {
       clearPendingSave();
       updateOfflineIndicator();
@@ -8130,9 +8161,6 @@ function renderToday() {
   renderTodayStrip();
 }
 
-function escapeHtml(s) {
-  return String(s ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
-}
 
 function collectDatedEvents(fromIso, toIso) {
   const events = [];
@@ -9599,10 +9627,16 @@ function mdToHtml(md) {
   text = text.replace(/```([\s\S]*?)```/g, (_, c) => `<pre><code>${c}</code></pre>`);
   // Inline code
   text = text.replace(/`([^`\n]+)`/g, "<code>$1</code>");
+  // URL-Sanitizer (Audit-Finding #12): nur http(s) + relativ erlauben, sonst neutralisieren
+  const safeUrl = (u) => {
+    const t = String(u || "").trim();
+    if (/^https?:\/\//i.test(t) || t.startsWith("/") || t.startsWith("#") || t.startsWith("./")) return t;
+    return "#blocked"; // blockt javascript:, data:, vbscript: etc.
+  };
   // Bilder ![alt](url)
-  text = text.replace(/!\[([^\]]*)\]\(([^)]+)\)/g, '<img alt="$1" src="$2" loading="lazy" />');
+  text = text.replace(/!\[([^\]]*)\]\(([^)]+)\)/g, (_, alt, url) => `<img alt="${alt}" src="${safeUrl(url)}" loading="lazy" />`);
   // Links [text](url)
-  text = text.replace(/\[([^\]]+)\]\(([^)]+)\)/g, '<a href="$2" target="_blank" rel="noopener">$1</a>');
+  text = text.replace(/\[([^\]]+)\]\(([^)]+)\)/g, (_, label, url) => `<a href="${safeUrl(url)}" target="_blank" rel="noopener">${label}</a>`);
   // Footnote refs [^1^] oder [^1]
   text = text.replace(/\[\^(\d+)\^?\]/g, '<sup>[$1]</sup>');
   // Bold **text**
