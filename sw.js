@@ -1,0 +1,138 @@
+// MAGALOKO Service Worker
+// Strategie:
+//   static (HTML/CSS/JS/SVG/manifest)  → cache-first, im Hintergrund updaten
+//   /api/state                          → network-first, cache-fallback (offline-lesen)
+//   /api/hfk/*, /api/jtl/*              → network-first, cache-fallback (lange gültig)
+//   /api/state PUT                       → durchreichen, bei Fehler: in IDB-Queue (vom Client)
+//   /auth/*                              → network-only (nie cachen, sensibel)
+
+const VERSION = "magaloko-v24-team-notizen";
+const STATIC_CACHE = `${VERSION}-static`;
+const DATA_CACHE = `${VERSION}-data`;
+
+const STATIC_ASSETS = [
+  "/",
+  "/index.html",
+  "/login.html",
+  "/styles.css",
+  "/app.js",
+  "/icon.svg",
+  "/manifest.json"
+];
+
+self.addEventListener("install", (event) => {
+  event.waitUntil(
+    caches.open(STATIC_CACHE)
+      .then((cache) => cache.addAll(STATIC_ASSETS).catch(() => null))
+      .then(() => self.skipWaiting())
+  );
+});
+
+self.addEventListener("activate", (event) => {
+  event.waitUntil(
+    caches.keys()
+      .then((keys) => Promise.all(
+        keys.filter((k) => !k.startsWith(VERSION)).map((k) => caches.delete(k))
+      ))
+      .then(() => self.clients.claim())
+  );
+});
+
+function isStaticRequest(url) {
+  if (url.origin !== self.location.origin) return false;
+  if (url.pathname.startsWith("/api/")) return false;
+  if (url.pathname.startsWith("/auth/")) return false;
+  return true;
+}
+
+function isDataRequest(url) {
+  return url.pathname === "/api/state" ||
+    url.pathname.startsWith("/api/hfk/") ||
+    url.pathname.startsWith("/api/jtl/");
+}
+
+async function cacheFirst(request) {
+  const cache = await caches.open(STATIC_CACHE);
+  const cached = await cache.match(request);
+  if (cached) {
+    // Im Hintergrund aktualisieren
+    fetch(request).then((response) => {
+      if (response.ok) cache.put(request, response.clone()).catch(() => {});
+    }).catch(() => {});
+    return cached;
+  }
+  try {
+    const response = await fetch(request);
+    if (response.ok) cache.put(request, response.clone()).catch(() => {});
+    return response;
+  } catch (error) {
+    // Letzter Fallback: Index aus Cache (für SPA-Routen ohne match)
+    const fallback = await cache.match("/index.html");
+    if (fallback) return fallback;
+    throw error;
+  }
+}
+
+async function networkFirst(request) {
+  const cache = await caches.open(DATA_CACHE);
+  try {
+    const response = await fetch(request);
+    if (response.ok) cache.put(request, response.clone()).catch(() => {});
+    return response;
+  } catch (error) {
+    const cached = await cache.match(request);
+    if (cached) {
+      const headers = new Headers(cached.headers);
+      headers.set("X-MAGALOKO-Offline", "true");
+      return new Response(await cached.blob(), {
+        status: cached.status,
+        statusText: cached.statusText,
+        headers
+      });
+    }
+    return new Response(JSON.stringify({ error: "offline", offline: true }), {
+      status: 503,
+      headers: { "Content-Type": "application/json" }
+    });
+  }
+}
+
+self.addEventListener("fetch", (event) => {
+  const request = event.request;
+  if (request.method !== "GET") return; // PUTs/POSTs nie SW-handhaben
+  const url = new URL(request.url);
+
+  if (url.pathname.startsWith("/auth/")) return; // niemals cachen, niemals abfangen
+
+  if (isStaticRequest(url)) {
+    event.respondWith(cacheFirst(request));
+    return;
+  }
+
+  if (isDataRequest(url)) {
+    event.respondWith(networkFirst(request));
+    return;
+  }
+});
+
+// Messages vom Client (z.B. SKIP_WAITING bei Update)
+self.addEventListener("message", (event) => {
+  if (event.data === "SKIP_WAITING") self.skipWaiting();
+});
+
+// Click auf Notification → App fokussieren oder öffnen
+self.addEventListener("notificationclick", (event) => {
+  event.notification.close();
+  const targetUrl = (event.notification.data && event.notification.data.url) || "/";
+  event.waitUntil(
+    self.clients.matchAll({ type: "window", includeUncontrolled: true }).then((clients) => {
+      for (const client of clients) {
+        if (client.url.includes(self.location.origin) && "focus" in client) {
+          client.navigate(targetUrl).catch(() => {});
+          return client.focus();
+        }
+      }
+      return self.clients.openWindow(targetUrl);
+    })
+  );
+});

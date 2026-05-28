@@ -1,0 +1,47 @@
+{
+  "name": "MAGALOKO",
+  "short_name": "MAGALOKO",
+  "description": "Mago Cockpit für digitale HFK-Steuerung",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "orientation": "any",
+  "background_color": "#1f1d19",
+  "theme_color": "#1f1d19",
+  "lang": "de",
+  "categories": ["business", "productivity"],
+  "icons": [
+    {
+      "src": "/icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ],
+  "shortcuts": [
+    {
+      "name": "Hebel-Cockpit",
+      "short_name": "Hebel",
+      "url": "/#levers",
+      "description": "Top-Hebel mit Score nach Wirkung/Aufwand"
+    },
+    {
+      "name": "Anomalien",
+      "short_name": "Anomalien",
+      "url": "/#anomalies",
+      "description": "Wochen-KPIs und Datenbrüche"
+    },
+    {
+      "name": "Einkaufsplaner",
+      "short_name": "Einkauf",
+      "url": "/#purchase",
+      "description": "HFK-Produktgruppen, Bestellmatrix"
+    },
+    {
+      "name": "Stephan-Assistent",
+      "short_name": "Stephan",
+      "url": "/#assistant",
+      "description": "Fragen-Drill und KI-Simulator"
+    }
+  ]
+}

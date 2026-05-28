@@ -1,0 +1,183 @@
+<!doctype html>
+<html lang="de">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+    <meta name="theme-color" content="#1f1d19" />
+    <link rel="icon" href="/icon.svg" type="image/svg+xml" />
+    <title>HFK Cockpit · Read-Only für Stephan</title>
+    <link rel="stylesheet" href="/styles.css" />
+    <style>
+      body { background: var(--bg); padding: 24px; max-width: 1100px; margin: 0 auto; padding-bottom: 60px; }
+      .stephan-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: baseline;
+        padding-bottom: 18px;
+        margin-bottom: 24px;
+        border-bottom: 1px solid var(--line);
+      }
+      .stephan-header h1 { margin: 0; font-size: 28px; }
+      .stephan-header .muted { font-size: 12px; }
+      .stephan-section { margin-bottom: 28px; }
+      .stephan-section h2 {
+        margin: 0 0 12px;
+        font-size: 13px;
+        font-weight: 800;
+        letter-spacing: 0.08em;
+        text-transform: uppercase;
+        color: var(--muted-2);
+      }
+      .stephan-decision {
+        display: grid;
+        gap: 6px;
+        padding: 16px 18px;
+        margin-bottom: 10px;
+        background: var(--surface);
+        border: 1px solid var(--line);
+        border-left: 4px solid var(--blue);
+        border-radius: var(--radius-sm);
+      }
+      .stephan-decision.overdue { border-left-color: var(--red); background: #fdf6f5; }
+      .stephan-decision strong { font-size: 15px; }
+      .stephan-kpi-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+        gap: 14px;
+      }
+      .stephan-footer {
+        margin-top: 40px;
+        padding-top: 18px;
+        border-top: 1px solid var(--line);
+        color: var(--muted-2);
+        font-size: 12px;
+        text-align: center;
+      }
+      .stephan-hebel {
+        padding: 14px 16px;
+        background: linear-gradient(135deg, #fffdf3 0%, var(--surface) 100%);
+        border: 1px solid var(--line);
+        border-left: 4px solid var(--accent);
+        border-radius: var(--radius-sm);
+        margin-bottom: 10px;
+      }
+    </style>
+  </head>
+  <body>
+    <header class="stephan-header">
+      <div>
+        <h1>HFK Cockpit</h1>
+        <p class="muted" style="margin:4px 0 0;">Read-Only-Sicht · von Mago für Stephan · <span id="stephan-date"></span></p>
+      </div>
+      <a href="/" class="button" title="Magos volle Sicht">Mago-Cockpit ↗</a>
+    </header>
+
+    <section class="stephan-section">
+      <h2>Heute zuerst</h2>
+      <div id="stephan-hero"></div>
+    </section>
+
+    <section class="stephan-section">
+      <h2>Stephan-Entscheidungen offen</h2>
+      <div id="stephan-decisions"></div>
+    </section>
+
+    <section class="stephan-section">
+      <h2>Versprechen von Mago an Stephan</h2>
+      <div id="stephan-promises"></div>
+    </section>
+
+    <section class="stephan-section">
+      <h2>Top-3 Hebel (priorisiert)</h2>
+      <div id="stephan-levers"></div>
+    </section>
+
+    <section class="stephan-section">
+      <h2>Aktuelle HFK-Zahlen (aus SeBo)</h2>
+      <div id="stephan-kpis" class="stephan-kpi-grid"></div>
+    </section>
+
+    <section class="stephan-section">
+      <h2>Eskalierte Risiken</h2>
+      <div id="stephan-risks"></div>
+    </section>
+
+    <footer class="stephan-footer">
+      Diese Sicht zeigt nur, was Stephan sehen soll. Mago arbeitet im vollen Cockpit. Fragen → mago@…
+    </footer>
+
+    <script>
+      const $ = (id) => document.getElementById(id);
+      const fmtEur = (v) => new Intl.NumberFormat("de-DE", { style: "currency", currency: "EUR", maximumFractionDigits: 0 }).format(v || 0);
+      const esc = (s) => String(s ?? "").replace(/[&<>"']/g, (c) => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+      const today = new Date().toISOString().slice(0, 10);
+
+      $("stephan-date").textContent = new Date().toLocaleDateString("de-DE", { weekday: "long", day: "2-digit", month: "long", year: "numeric" });
+
+      fetch("/api/state").then((r) => r.json()).then((state) => {
+        const overduePromises = (state.promises || []).filter((p) => (p.status === "offen" || p.status === "in Arbeit") && p.dueDate && p.dueDate < today);
+        const openPromises = (state.promises || []).filter((p) => p.status === "offen" || p.status === "in Arbeit");
+        const seboT = state.seboSnapshot?.totals || {};
+        const escalated = seboT.ticketsEscalated || 0;
+
+        // Hero
+        const heroEl = $("stephan-hero");
+        if (overduePromises.length) {
+          heroEl.innerHTML = `<div class="hero-focus hero-danger"><div class="hero-icon">▲</div><div class="hero-text"><span class="hero-eyebrow">Brennt</span><h2>${overduePromises.length} überfälliges Versprechen von Mago an dich</h2><p>Top: „${esc(overduePromises[0].what)}" (fällig war ${overduePromises[0].dueDate})</p></div></div>`;
+        } else if (escalated > 5) {
+          heroEl.innerHTML = `<div class="hero-focus hero-danger"><div class="hero-icon">▲</div><div class="hero-text"><span class="hero-eyebrow">Achtung</span><h2>${escalated} eskalierte Support-Tickets in SeBo</h2><p>Mago kümmert sich. Status fragen falls nach 48h nichts passiert.</p></div></div>`;
+        } else {
+          heroEl.innerHTML = `<div class="hero-focus hero-ok"><div class="hero-icon">✓</div><div class="hero-text"><span class="hero-eyebrow">Alles ruhig</span><h2>Keine Brände</h2><p>Versprechen im Plan, Support im Griff, Anomalien geklärt.</p></div></div>`;
+        }
+
+        // Decisions (looking for tasks/levers/notes mentioning "entscheid" or in playbooks)
+        const decisions = (state.tasks || [])
+          .filter((t) => t.status !== "Erledigt" && /entscheid|freigabe|klär|zusage/i.test(t.title + " " + (t.notes || "")))
+          .slice(0, 5);
+        $("stephan-decisions").innerHTML = decisions.length
+          ? decisions.map((d) => `<article class="stephan-decision"><strong>${esc(d.title)}</strong><span class="muted">${esc(d.area)} · ${esc(d.status)} · bis ${d.dueDate || "offen"}</span>${d.notes ? `<p style="margin:4px 0 0;">${esc(d.notes)}</p>` : ""}</article>`).join("")
+          : '<p class="muted">Keine offenen Entscheidungen aktuell.</p>';
+
+        // Promises
+        $("stephan-promises").innerHTML = openPromises.length
+          ? openPromises.slice(0, 8).map((p) => {
+              const overdue = p.dueDate && p.dueDate < today;
+              return `<article class="stephan-decision ${overdue ? "overdue" : ""}"><strong>${overdue ? "▲ " : ""}${esc(p.what)}</strong><span class="muted">Status: ${esc(p.status)} · zugesagt ${p.promisedAt || "?"} · fällig ${p.dueDate || "ohne Datum"}${overdue ? " · überfällig" : ""}</span>${p.context ? `<span class="muted">Kontext: ${esc(p.context)}</span>` : ""}</article>`;
+            }).join("")
+          : '<p class="muted">Keine offenen Versprechen.</p>';
+
+        // Top-3 Hebel
+        const levers = (state.levers || []).filter((l) => l.status !== "Live" && l.status !== "Verworfen")
+          .slice().sort((a, b) => {
+            const sa = (a.expectedImpactEur || 0) / Math.max(a.effortHours || 1, 1);
+            const sb = (b.expectedImpactEur || 0) / Math.max(b.effortHours || 1, 1);
+            return sb - sa;
+          }).slice(0, 3);
+        $("stephan-levers").innerHTML = levers.length
+          ? levers.map((l, i) => `<article class="stephan-hebel"><strong>#${i+1} ${esc(l.title)}</strong><p style="margin:6px 0;">${esc(l.area || "")} · Wirkung <strong>${fmtEur(l.expectedImpactEur)}/Jahr</strong> bei <strong>${l.effortHours} h</strong> Aufwand · Status: ${esc(l.status)}</p>${l.dataBasis ? `<span class="muted">Annahme: ${esc(l.dataBasis)}</span>` : ""}</article>`).join("")
+          : '<p class="muted">Noch keine priorisierten Hebel.</p>';
+
+        // KPIs
+        $("stephan-kpis").innerHTML = `
+          <article class="metric"><span>Umsatz 15 Jahre</span><strong>${fmtEur(seboT.revenue15y)}</strong><p>${(seboT.orders15y || 0).toLocaleString("de-DE")} Bestellungen</p></article>
+          <article class="metric"><span>Ø Bestellwert</span><strong>${fmtEur(seboT.avgOrderValue)}</strong><p>aktuell</p></article>
+          <article class="metric ${seboT.grossMarginPct < 0 ? "metric-warn" : ""}"><span>Gesamt-Marge</span><strong>${seboT.grossMarginPct >= 0 ? "+" : ""}${seboT.grossMarginPct}%</strong><p>Rohertrag ${fmtEur(seboT.grossProfit)}</p></article>
+          <article class="metric"><span>Kunden (total)</span><strong>${(seboT.customersTotal || 0).toLocaleString("de-DE")}</strong><p>${(seboT.customersReturning || 0).toLocaleString("de-DE")} Stamm · ${(seboT.customersOnce || 0).toLocaleString("de-DE")} einmal</p></article>
+          <article class="metric ${escalated > 5 ? "metric-warn" : ""}"><span>Support eskaliert</span><strong>${escalated}</strong><p>${escalated > 5 ? "▲ braucht Aufmerksamkeit" : "im Griff"}</p></article>
+          <article class="metric"><span>Newsletter</span><strong>${(seboT.newsletterSubscribers || 0).toLocaleString("de-DE")}</strong><p>${seboT.brevoLists || 0} Listen aktiv</p></article>
+        `;
+
+        // Risks
+        const risks = (state.risks || []).filter((r) => r.status !== "gemindert" && r.status !== "irrelevant")
+          .slice().sort((a, b) => ((b.likelihood || 0) * (b.impact || 0)) - ((a.likelihood || 0) * (a.impact || 0)))
+          .filter((r) => (r.likelihood || 0) * (r.impact || 0) >= 9)
+          .slice(0, 5);
+        $("stephan-risks").innerHTML = risks.length
+          ? risks.map((r) => `<article class="stephan-decision overdue"><strong>${esc(r.title)}</strong><span class="muted">Score ${(r.likelihood||0)*(r.impact||0)} · ${esc(r.category)} · Owner: ${esc(r.owner || "—")}</span>${r.signals ? `<p style="margin:4px 0;"><strong>Warnsignal:</strong> ${esc(r.signals)}</p>` : ""}${r.mitigation ? `<p style="margin:4px 0;"><strong>Plan:</strong> ${esc(r.mitigation)}</p>` : ""}</article>`).join("")
+          : '<p class="muted">Keine kritischen Risiken aktuell.</p>';
+      }).catch((err) => {
+        document.body.insertAdjacentHTML("afterbegin", `<div class="notice danger" style="margin:20px;">Datenladung fehlgeschlagen: ${err.message}. Möglich: Auth aktiv, Stephan-View braucht Magic-Link.</div>`);
+      });
+    </script>
+  </body>
+</html>

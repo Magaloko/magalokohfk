@@ -1,0 +1,1839 @@
+<!doctype html>
+<html lang="de">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+    <meta name="theme-color" content="#1f1d19" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+    <meta name="apple-mobile-web-app-title" content="MAGALOKO" />
+    <meta name="mobile-web-app-capable" content="yes" />
+    <meta name="format-detection" content="telephone=no" />
+    <link rel="manifest" href="/manifest.json" />
+    <link rel="icon" href="/icon.svg" type="image/svg+xml" />
+    <link rel="apple-touch-icon" href="/icon.svg" />
+    <title>MAGALOKO</title>
+    <link rel="stylesheet" href="./styles.css" />
+  </head>
+  <body>
+    <div id="offline-banner" class="offline-banner" hidden></div>
+    <div class="app-shell">
+      <aside class="sidebar" id="sidebar">
+        <div class="brand">
+          <div class="brand-mark">M</div>
+          <div class="brand-text">
+            <h1>MAGALOKO</h1>
+            <p>Mago Cockpit</p>
+          </div>
+          <button class="brand-collapse" id="sidebar-collapse-toggle" type="button" title="Sidebar kompakt/normal">‹</button>
+        </div>
+        <div class="nav-search-wrap">
+          <input id="nav-search" class="nav-search" type="search" placeholder="Modul suchen …" autocomplete="off" aria-label="Module filtern" />
+        </div>
+        <nav class="nav" aria-label="Hauptnavigation">
+          <div class="nav-group">
+            <span class="nav-label">Projekt</span>
+            <button class="nav-item" data-view="home"><span class="nav-icon">⌂</span>Projekt wechseln</button>
+          </div>
+          <div class="nav-group">
+            <span class="nav-label">Heute</span>
+            <button class="nav-item active" data-view="dashboard"><span class="nav-icon">◆</span>Start</button>
+            <button class="nav-item" data-view="today"><span class="nav-icon">☀</span>Heute (Playbook)</button>
+            <button class="nav-item" data-view="calendar"><span class="nav-icon">📅</span>Kalender</button>
+            <button class="nav-item" data-view="levers"><span class="nav-icon">⚡</span>Hebel</button>
+            <button class="nav-item" data-view="anomalies"><span class="nav-icon">⚠</span>Anomalien</button>
+            <button class="nav-item" data-view="daily"><span class="nav-icon">☀</span>Morgen-Briefing</button>
+            <button class="nav-item" data-view="week"><span class="nav-icon">▤</span>Wochenplan</button>
+          </div>
+          <div class="nav-group">
+            <span class="nav-label">Vor Ort</span>
+            <button class="nav-item" data-view="orders-intake"><span class="nav-icon">🛒</span>Bestellung aufnehmen</button>
+            <button class="nav-item" data-view="produkt-lookup"><span class="nav-icon">🔍</span>Produkt-Lookup (JTL-Live)</button>
+            <button class="nav-item" data-view="kunden-lookup"><span class="nav-icon">👤</span>Kunden-Lookup (JTL-Live)</button>
+            <button class="nav-item" data-view="abc-uebersicht"><span class="nav-icon">🏆</span>ABC-Übersicht (Top-Seller)</button>
+            <button class="nav-item" data-view="lieferant-check"><span class="nav-icon">📦</span>Bestand-Check pro Lieferant</button>
+            <button class="nav-item" data-view="ma-validation"><span class="nav-icon">🎯</span>MA-2026 Validierung</button>
+            <button class="nav-item" data-view="marktanalyse"><span class="nav-icon">📊</span>Marktanalyse 2026</button>
+            <button class="nav-item" data-view="akademie"><span class="nav-icon">🎓</span>Akademie · Beratung+Training</button>
+            <button class="nav-item" data-view="lernsystem"><span class="nav-icon">📚</span>Lernsystem 2026 (Kimi)</button>
+          </div>
+          <div class="nav-group">
+            <span class="nav-label">Stephan (PA-Mode)</span>
+            <button class="nav-item" data-view="stephan-kalender"><span class="nav-icon">🗓</span>Stephans Tag</button>
+            <button class="nav-item" data-view="stephan-decisions"><span class="nav-icon">⚖</span>Decision-Pipeline</button>
+            <button class="nav-item" data-view="team-notizen"><span class="nav-icon">✉</span>Team-Notizen</button>
+          </div>
+          <div class="nav-group">
+            <span class="nav-label">Arbeit</span>
+            <button class="nav-item" data-view="roadmap"><span class="nav-icon">▦</span>Roadmap</button>
+            <button class="nav-item" data-view="access"><span class="nav-icon">⚷</span>Zugänge</button>
+            <button class="nav-item" data-view="briefing"><span class="nav-icon">✎</span>Briefing</button>
+            <button class="nav-item" data-view="meeting"><span class="nav-icon">◉</span>Gespräch</button>
+            <button class="nav-item" data-view="assistant"><span class="nav-icon">★</span>Stephan-Assistent</button>
+            <button class="nav-item" data-view="aitools"><span class="nav-icon">⚡</span>KI-Tools</button>
+            <button class="nav-item" data-view="purchase"><span class="nav-icon">🛒</span>Einkaufsplaner</button>
+          </div>
+          <div class="nav-group">
+            <span class="nav-label">Strategie</span>
+            <button class="nav-item" data-view="brands"><span class="nav-icon">◈</span>Marken (BCG)</button>
+            <button class="nav-item" data-view="champions"><span class="nav-icon">♛</span>Champions</button>
+            <button class="nav-item" data-view="crosssell"><span class="nav-icon">⛗</span>Cross-Selling</button>
+            <button class="nav-item" data-view="sortiment"><span class="nav-icon">▥</span>Sortiment</button>
+            <button class="nav-item" data-view="vip"><span class="nav-icon">★</span>VIP-Wächter</button>
+            <button class="nav-item" data-view="sebo"><span class="nav-icon">⬡</span>SeBo</button>
+            <button class="nav-item" data-view="risks"><span class="nav-icon">▲</span>Risiken</button>
+            <button class="nav-item" data-view="decisions"><span class="nav-icon">▣</span>Decision-Log</button>
+            <button class="nav-item" data-view="pitches"><span class="nav-icon">◆</span>Pitch-Builder</button>
+            <button class="nav-item" data-view="beforeafter"><span class="nav-icon">⇄</span>Vorher/Nachher</button>
+            <button class="nav-item" data-view="competitors"><span class="nav-icon">⚔</span>Wettbewerber</button>
+            <button class="nav-item" data-view="hypotheses"><span class="nav-icon">◎</span>Hypothesen</button>
+            <button class="nav-item" data-view="premortems"><span class="nav-icon">⚠</span>Pre-Mortems</button>
+            <button class="nav-item" data-view="saisonplan"><span class="nav-icon">❅</span>Saisonplan</button>
+            <button class="nav-item" data-view="verhandlungen"><span class="nav-icon">⚖</span>Verhandlungen</button>
+            <button class="nav-item" data-view="wirkungen"><span class="nav-icon">★</span>Wirkungsnachweis</button>
+            <button class="nav-item" data-view="capture"><span class="nav-icon">📥</span>Capture-Inbox</button>
+            <button class="nav-item" data-view="triggers"><span class="nav-icon">🔔</span>Trigger-Watcher</button>
+            <button class="nav-item" data-view="career"><span class="nav-icon">🚀</span>Karriere-Strategie</button>
+            <button class="nav-item" data-view="portfolio"><span class="nav-icon">📁</span>Portfolio-Builder</button>
+            <button class="nav-item" data-view="mentors"><span class="nav-icon">🧭</span>Mentor-Library</button>
+            <button class="nav-item" data-view="learnings"><span class="nav-icon">📚</span>Lese-Tracker</button>
+            <button class="nav-item" data-view="energy"><span class="nav-icon">⚡</span>Energie & Fokus</button>
+            <button class="nav-item" data-view="graph"><span class="nav-icon">◯</span>Knowledge-Graph</button>
+            <button class="nav-item" data-view="recap"><span class="nav-icon">🎯</span>Jahres-Recap</button>
+          </div>
+          <div class="nav-group">
+            <span class="nav-label">System</span>
+            <button class="nav-item" data-view="settings"><span class="nav-icon">⚙</span>Einstellungen</button>
+          </div>
+          <div class="nav-group">
+            <span class="nav-label">Selbst</span>
+            <button class="nav-item" data-view="time"><span class="nav-icon">⏱</span>Time-Tracking</button>
+            <button class="nav-item" data-view="monthly"><span class="nav-icon">📊</span>Monatsbericht</button>
+            <button class="nav-item" data-view="team"><span class="nav-icon">👥</span>Team</button>
+            <button class="nav-item" data-view="honorar"><span class="nav-icon">💰</span>Honorar</button>
+          </div>
+          <div class="nav-group">
+            <span class="nav-label">Wissen</span>
+            <button class="nav-item" data-view="systems"><span class="nav-icon">◧</span>Systeme</button>
+            <button class="nav-item" data-view="jobs"><span class="nav-icon">▣</span>Jobs & Aufgaben</button>
+            <button class="nav-item" data-view="knowledge"><span class="nav-icon">◐</span>Wissen</button>
+            <button class="nav-item" data-view="vendors"><span class="nav-icon">⊟</span>Dienstleister</button>
+            <button class="nav-item" data-view="glossary"><span class="nav-icon">📖</span>Glossar</button>
+            <button class="nav-item" data-view="usage"><span class="nav-icon">⊙</span>Nutzung</button>
+            <button class="nav-item" data-view="audit"><span class="nav-icon">⎙</span>Audit-Log</button>
+          </div>
+        </nav>
+        <div class="sidebar-footer">
+          <span class="status-dot"></span>
+          <span id="auth-status-label">Lokal gespeichert</span>
+        </div>
+      </aside>
+
+      <div id="mobile-backdrop" class="mobile-backdrop" hidden></div>
+
+      <main class="main">
+        <header class="topbar">
+          <button class="mobile-menu-trigger" id="mobile-menu-trigger" type="button" aria-label="Menü öffnen" aria-controls="sidebar">
+            <span aria-hidden="true">≡</span>
+          </button>
+          <button class="workspace-chip" id="workspace-chip" type="button" title="Projekt wechseln" hidden>—</button>
+          <div class="topbar-title">
+            <p class="eyebrow">HFK digitale Steuerung</p>
+            <h2 id="view-title">Start</h2>
+          </div>
+          <div class="topbar-actions">
+            <input type="file" id="import-file" accept="application/json,.json" hidden />
+            <div class="menu-wrap">
+              <button class="button ghost menu-trigger" id="actions-menu-trigger" type="button" aria-haspopup="true" aria-expanded="false" title="Daten verwalten">⋯</button>
+              <div class="menu" id="actions-menu" hidden>
+                <button type="button" id="export-json">Backup herunterladen</button>
+                <button type="button" id="import-json">Backup einspielen</button>
+                <div class="menu-divider"></div>
+                <button type="button" id="reset-seed">Seed-Daten neu laden</button>
+                <div class="menu-divider"></div>
+                <button type="button" id="stephan-link-copy">🔗 Stephan-Link kopieren</button>
+                <button type="button" id="install-app-btn" hidden>📱 Als App installieren</button>
+                <button type="button" id="notify-toggle-btn">🔔 Notifications aktivieren</button>
+                <button type="button" id="notify-test-btn" hidden>🔔 Test-Notification</button>
+                <button type="button" id="logout-btn" hidden>Abmelden</button>
+              </div>
+            </div>
+            <button class="button primary" id="export-update" type="button">Wochenupdate kopieren</button>
+          </div>
+        </header>
+
+        <section id="home" class="view">
+          <div class="home-header">
+            <h2>In welchem Projekt arbeitest du jetzt?</h2>
+            <p class="muted">Wähle einen Kontext — die App lädt dann nur die Module + Daten dieses Projekts. Wechseln jederzeit über den Workspace-Chip oben links.</p>
+          </div>
+          <div id="home-workspace-grid" class="home-workspace-grid"></div>
+          <section class="panel" style="margin-top:24px;">
+            <div class="panel-header"><h3>+ Neues Projekt</h3></div>
+            <p class="muted">Wenn du einen neuen Kunden bekommst — erstmal die 3 Default-Projekte nutzen. Custom-Workspaces kommen in einer späteren Session.</p>
+          </section>
+        </section>
+
+        <section id="abc-uebersicht" class="view">
+          <div class="lookup-header">
+            <h2 style="margin:0;font-size:20px;">ABC-Übersicht</h2>
+            <div class="segmented" id="abc-tabs">
+              <button class="active" data-abc-cls="A" type="button">A (Top)</button>
+              <button data-abc-cls="B" type="button">B (Mittel)</button>
+              <button data-abc-cls="C" type="button">C (Langweiler)</button>
+            </div>
+            <span class="muted" id="abc-status">Lade …</span>
+          </div>
+          <p class="view-intro muted">Sortimentsranking nach Umsatzanteil (klassische ABC). A = Top-80%-Umsatzbringer, B = mittlere 15%, C = untere 5%. Quelle: 1,25M Order-Positionen.</p>
+          <div id="abc-results" class="pl-results"></div>
+        </section>
+
+        <section id="lieferant-check" class="view">
+          <div class="lookup-header">
+            <h2 style="margin:0;font-size:20px;">Lieferanten-Bestand-Check</h2>
+            <select id="lc-manufacturer" class="lookup-filter"><option value="0">Wähle Hersteller …</option></select>
+            <span class="muted" id="lc-status">Bereit</span>
+          </div>
+          <p class="view-intro muted">Welche A/B-Artikel sind kritisch? OOS (rot) und niedriger Bestand (gelb) zuerst, sortiert nach Lifetime-Umsatz.</p>
+          <div id="lc-summary" class="lc-summary"></div>
+          <div id="lc-results" class="pl-results"></div>
+        </section>
+
+        <section id="kunden-detail" class="view">
+          <div id="kd-content"><p class="muted">Lade Kunden-Detail …</p></div>
+        </section>
+
+        <section id="ma-validation" class="view">
+          <div class="lookup-header">
+            <h2 style="margin:0;font-size:20px;">Marktanalyse-Validierung</h2>
+            <span class="muted" id="mav-status">Lade …</span>
+          </div>
+          <p class="view-intro muted">Vergleicht die 21 MA-2026-Hersteller-Empfehlungen mit ECHTEN Verkaufsdaten. Was war bereits A-Performer? Was ist echte Sortimentslücke? Wo ist die Empfehlung schon erfüllt?</p>
+          <div id="mav-results" class="mav-results"></div>
+        </section>
+
+        <section id="produkt-lookup" class="view">
+          <div class="lookup-header">
+            <input id="pl-search" type="search" placeholder="Artikel suchen — z.B. 'falk', 'tripp trapp', 'wobbel' …" autocomplete="off" />
+            <select id="pl-manufacturer" class="lookup-filter">
+              <option value="0">Alle Hersteller</option>
+            </select>
+            <select id="pl-abc-filter" class="lookup-filter">
+              <option value="all">Alle ABC</option>
+              <option value="A">Nur A (Top 80%)</option>
+              <option value="B">Nur B (mittlere)</option>
+              <option value="C">Nur C (Langweiler)</option>
+            </select>
+            <span class="muted" id="pl-status">Bereit</span>
+          </div>
+          <p class="view-intro muted">Live-Suche im JTL-Artikelstamm. Tippe min. 2 Zeichen ODER nutze Hersteller-Filter ohne Suchbegriff. ABC-Klassifizierung lädt im Hintergrund.</p>
+          <div id="pl-results" class="pl-results"></div>
+        </section>
+
+        <section id="kunden-lookup" class="view">
+          <div class="lookup-header">
+            <input id="kl-search" type="search" placeholder="Kunde suchen — Name, PLZ, Email, Tel …" autocomplete="off" />
+            <span class="muted" id="kl-status">Bereit</span>
+          </div>
+          <p class="view-intro muted">Live-Suche in 48k+ Kundenadressen. Tippe min. 2 Zeichen.</p>
+          <div id="kl-results" class="kl-results"></div>
+        </section>
+
+        <section id="stephan-kalender" class="view">
+          <div class="sk-header">
+            <div>
+              <h2>Stephans Tag</h2>
+              <p class="muted" id="sk-subtitle">—</p>
+            </div>
+            <button class="button primary" id="sk-add-slot" type="button">+ Slot</button>
+          </div>
+          <div class="sk-today-block panel">
+            <div class="panel-header"><h3>Heute</h3><span class="muted" id="sk-today-count"></span></div>
+            <div id="sk-today-list" class="sk-slot-list"></div>
+          </div>
+          <div class="sk-week-block panel">
+            <div class="panel-header"><h3>Nächste 7 Tage</h3></div>
+            <div id="sk-week-list" class="sk-week-list"></div>
+          </div>
+        </section>
+
+        <section id="team-notizen" class="view">
+          <div class="toolbar tn-compose">
+            <select id="tn-an" aria-label="Empfänger">
+              <option value="Stephan">→ Stephan</option>
+              <option value="Markus">→ Markus</option>
+              <option value="Lorna">→ Lorna</option>
+              <option value="Beate">→ Beate</option>
+              <option value="Team">→ Team (alle)</option>
+            </select>
+            <input id="tn-text" type="text" placeholder="Kurznotiz… z.B. 'Kundin Müller wünscht LIEWOOD Bademode Gr. 86 nachzubestellen'" />
+            <button class="button primary" id="tn-add" type="button">Notiz senden</button>
+          </div>
+          <div class="toolbar">
+            <select id="tn-filter" aria-label="Filter">
+              <option value="all">Alle Empfänger</option>
+              <option value="Stephan">Stephan</option>
+              <option value="Markus">Markus</option>
+              <option value="Lorna">Lorna</option>
+              <option value="Beate">Beate</option>
+              <option value="Team">Team</option>
+            </select>
+            <label class="muted" style="display:flex;align-items:center;gap:6px;"><input type="checkbox" id="tn-show-done" /> Erledigte zeigen</label>
+            <span class="muted" id="tn-count"></span>
+          </div>
+          <p class="view-intro muted">Schnelle interne Notizen an Team-Mitglieder. Vor Ort getippt, später abgehakt. Wer was wem mitteilen muss — an einem Ort.</p>
+          <div id="tn-list" class="tn-list"></div>
+        </section>
+
+        <section id="stephan-decisions" class="view">
+          <div class="toolbar">
+            <button class="button primary" id="sd-add" type="button">+ Neue Entscheidung</button>
+            <select id="sd-filter">
+              <option value="all">Alle</option>
+              <option value="offen">Offen</option>
+              <option value="vorbereitet">Vorbereitet</option>
+              <option value="entschieden">Entschieden</option>
+              <option value="verworfen">Verworfen</option>
+            </select>
+            <span class="muted" id="sd-count"></span>
+          </div>
+          <p class="view-intro muted">Pipeline der Entscheidungen die Stephan treffen muss — du bereitest sie vor mit Optionen, Empfehlung und Risiken. Stephan sieht eine Liste statt 50 Mails.</p>
+          <div id="sd-kanban" class="sd-kanban"></div>
+        </section>
+
+        <section id="lernsystem" class="view">
+          <div class="ma-header">
+            <div>
+              <h2>HFK Verkaufs-Lernsystem 2026</h2>
+              <p class="muted">16 Kapitel · Marken-Bibel · 32 Einwände · 30 Drills · 20 Rollenspiele · Bot-ready. Quelle: Kimi-Swarm 2026</p>
+            </div>
+            <a class="button small" href="/lernsystem-2026/HFK_Lernsystem_2026.agent.final.md" target="_blank" rel="noopener">Roh-MD ↗</a>
+          </div>
+          <nav class="ma-section-nav" id="ls-section-nav">
+            <button class="ma-section-btn active" data-ls-sec="00">0. Summary</button>
+            <button class="ma-section-btn" data-ls-sec="01">1. Marken-Bibel</button>
+            <button class="ma-section-btn" data-ls-sec="02">2. Produkt-Wissen</button>
+            <button class="ma-section-btn" data-ls-sec="03">3. Personas</button>
+            <button class="ma-section-btn" data-ls-sec="04">4. Verkaufstechniken</button>
+            <button class="ma-section-btn" data-ls-sec="05">5. Einwände</button>
+            <button class="ma-section-btn" data-ls-sec="06">6. Bundles</button>
+            <button class="ma-section-btn" data-ls-sec="07">7. Beratungs-Leitfäden</button>
+            <button class="ma-section-btn" data-ls-sec="08">8. Lernmethoden</button>
+            <button class="ma-section-btn" data-ls-sec="09">9. Drills</button>
+            <button class="ma-section-btn" data-ls-sec="10">10. Rollenspiele</button>
+            <button class="ma-section-btn" data-ls-sec="11">11. Onboarding</button>
+            <button class="ma-section-btn" data-ls-sec="12">12. Assessment</button>
+            <button class="ma-section-btn" data-ls-sec="13">13. Bot-Spec</button>
+            <button class="ma-section-btn" data-ls-sec="14">14. Content-Pipeline</button>
+            <button class="ma-section-btn" data-ls-sec="15">15. KPIs</button>
+          </nav>
+          <article id="ls-content" class="ma-content"><p class="muted">Lade …</p></article>
+        </section>
+
+        <section id="akademie" class="view">
+          <div class="ak-header">
+            <div>
+              <h2>HFK Verkaufs-Akademie</h2>
+              <p class="muted">Beratungsangebote · Kunden-Personas · Einwände-Bibliothek · Trainings-Szenarien · Mitarbeiter-Fortschritt</p>
+            </div>
+          </div>
+          <nav class="ak-tab-nav">
+            <button class="ak-tab-btn active" data-ak-tab="angebote">📋 Beratungsangebote</button>
+            <button class="ak-tab-btn" data-ak-tab="personas">👥 Personas</button>
+            <button class="ak-tab-btn" data-ak-tab="einwaende">💬 Einwände</button>
+            <button class="ak-tab-btn" data-ak-tab="szenarien">🎯 Szenarien</button>
+            <button class="ak-tab-btn" data-ak-tab="drills">⚡ Daily-Drills</button>
+            <button class="ak-tab-btn" data-ak-tab="rollenspiele">🎭 Rollenspiele</button>
+            <button class="ak-tab-btn" data-ak-tab="marken">📕 Marken-Bibel</button>
+            <button class="ak-tab-btn" data-ak-tab="mitarbeiter">🎓 Mitarbeiter</button>
+          </nav>
+          <div id="ak-tab-angebote" class="ak-tab-content active">
+            <div class="toolbar"><button class="button primary" id="ak-add-service" type="button">+ Neues Beratungsangebot</button></div>
+            <div id="ak-services-list" class="ak-services-list"></div>
+          </div>
+          <div id="ak-tab-personas" class="ak-tab-content">
+            <div class="toolbar"><button class="button primary" id="ak-add-persona" type="button">+ Neue Persona</button></div>
+            <div id="ak-personas-list" class="ak-personas-list"></div>
+          </div>
+          <div id="ak-tab-einwaende" class="ak-tab-content">
+            <div class="toolbar">
+              <button class="button primary" id="ak-add-objection" type="button">+ Neuer Einwand</button>
+              <select id="ak-objection-filter">
+                <option value="all">Alle Kategorien</option>
+                <option value="Preis">Preis</option>
+                <option value="Qualität">Qualität</option>
+                <option value="Marke">Marke</option>
+                <option value="Service">Service</option>
+                <option value="Lieferzeit">Lieferzeit</option>
+                <option value="Auswahl">Auswahl</option>
+              </select>
+              <span class="muted" id="ak-objection-count"></span>
+            </div>
+            <div id="ak-objections-list" class="ak-objections-list"></div>
+          </div>
+          <div id="ak-tab-szenarien" class="ak-tab-content">
+            <div class="toolbar"><button class="button primary" id="ak-add-scenario" type="button">+ Neues Szenario</button></div>
+            <div id="ak-scenarios-list" class="ak-scenarios-list"></div>
+          </div>
+          <div id="ak-tab-drills" class="ak-tab-content">
+            <div class="toolbar">
+              <button class="button primary" id="ak-drill-random" type="button">🎲 Zufalls-Drill starten</button>
+              <select id="ak-drill-marke-filter"><option value="all">Alle Marken</option></select>
+              <span class="muted" id="ak-drill-count"></span>
+            </div>
+            <p class="view-intro muted">30 Quiz-Drills mit Spaced-Repetition. Für tägliches Mikro-Training. Quelle: Kimi-Lernsystem 2026.</p>
+            <div id="ak-drills-list" class="ak-drills-list"></div>
+          </div>
+          <div id="ak-tab-rollenspiele" class="ak-tab-content">
+            <div class="toolbar">
+              <select id="ak-rp-schwierigkeit"><option value="all">Alle Schwierigkeiten</option><option value="leicht">Leicht</option><option value="mittel">Mittel</option><option value="schwer">Schwer</option></select>
+              <span class="muted" id="ak-rp-count"></span>
+            </div>
+            <p class="view-intro muted">Trainer-geführte Rollenspiele: Persona-Briefing → Verkaufs-Ablauf üben → Einwände meistern → Selbst-Bewertung mit Punkten. Quelle: Kimi-Lernsystem.</p>
+            <div id="ak-rp-list" class="ak-rp-list"></div>
+          </div>
+          <div id="ak-tab-marken" class="ak-tab-content">
+            <div class="toolbar"><span class="muted" id="ak-marken-count"></span></div>
+            <p class="view-intro muted">Marken-Bibel: Origin-Story, USPs, Hero-Produkte, Verkaufsargumente. Für Showroom-Beratung + Onboarding.</p>
+            <div id="ak-marken-list" class="ak-marken-list"></div>
+          </div>
+          <div id="ak-tab-mitarbeiter" class="ak-tab-content">
+            <div class="toolbar"><button class="button primary" id="ak-add-staff-training" type="button">+ Training erfassen</button></div>
+            <section class="panel" style="margin-bottom:14px;">
+              <div class="panel-header"><h3>🤖 Telegram-Bot-Aktivität (live)</h3></div>
+              <div id="ak-bot-scores" class="ak-bot-scores"><p class="muted">Lade …</p></div>
+            </section>
+            <div id="ak-staff-list" class="ak-staff-list"></div>
+          </div>
+        </section>
+
+        <dialog id="ak-rp-runner" class="edit-modal">
+          <form method="dialog">
+            <header class="edit-modal-header">
+              <h3 id="ak-rp-title">Rollenspiel</h3>
+              <button type="button" class="icon-button" id="ak-rp-close" aria-label="Schließen">×</button>
+            </header>
+            <div id="ak-rp-body" class="ak-rp-body"></div>
+            <footer class="edit-modal-footer">
+              <button type="button" class="button ghost" id="ak-rp-back">← Zurück</button>
+              <button type="button" class="button primary" id="ak-rp-next">Weiter →</button>
+            </footer>
+          </form>
+        </dialog>
+
+        <dialog id="ak-scenario-runner" class="edit-modal">
+          <form method="dialog">
+            <header class="edit-modal-header">
+              <h3 id="ak-runner-title">Szenario durchspielen</h3>
+              <button type="button" class="icon-button" id="ak-runner-close" aria-label="Schließen">×</button>
+            </header>
+            <div id="ak-runner-body" class="ak-runner-body"></div>
+            <footer class="edit-modal-footer">
+              <button type="button" class="button ghost" id="ak-runner-back">← Zurück</button>
+              <button type="button" class="button primary" id="ak-runner-next">Weiter →</button>
+            </footer>
+          </form>
+        </dialog>
+
+        <section id="marktanalyse" class="view">
+          <div class="ma-header">
+            <div>
+              <h2>Marktanalyse HFK 2026</h2>
+              <p class="muted">11 Kapitel · 1.146 Zeilen · 19 konkrete Maßnahmen · Stand: Kimi-Agent 2026</p>
+            </div>
+            <a class="button small" href="/marktanalyse-2026/HFK_Analyse_2026.agent.final.md" target="_blank" rel="noopener">Roh-MD ↗</a>
+          </div>
+          <nav class="ma-section-nav" id="ma-section-nav">
+            <button class="ma-section-btn active" data-ma-sec="00">Executive Summary</button>
+            <button class="ma-section-btn" data-ma-sec="01">1. Top-10-Trends</button>
+            <button class="ma-section-btn" data-ma-sec="02">2. Top-20-Produkte</button>
+            <button class="ma-section-btn" data-ma-sec="03">3. Preisvergleich</button>
+            <button class="ma-section-btn" data-ma-sec="04">4. Lieferanten</button>
+            <button class="ma-section-btn" data-ma-sec="05">5. Sortimentslücken</button>
+            <button class="ma-section-btn" data-ma-sec="06">6. Einkaufsstrategie</button>
+            <button class="ma-section-btn" data-ma-sec="07">7. Einkaufsplan konkret</button>
+            <button class="ma-section-btn" data-ma-sec="08">8. Bundles & Kampagnen</button>
+            <button class="ma-section-btn" data-ma-sec="09">9. Risiken</button>
+            <button class="ma-section-btn" data-ma-sec="10">10. Nächste Schritte Mago</button>
+          </nav>
+          <article id="ma-content" class="ma-content"><p class="muted">Lade …</p></article>
+        </section>
+
+        <section id="orders-intake" class="view">
+          <div class="toolbar">
+            <button class="button primary" id="order-intake-new" type="button">+ Neue Bestellung aufnehmen</button>
+            <select id="order-intake-filter">
+              <option value="all">Alle</option>
+              <option value="Entwurf">Entwurf</option>
+              <option value="Aufgenommen">Aufgenommen</option>
+              <option value="In Wawi">In Wawi übertragen</option>
+              <option value="Erledigt">Erledigt</option>
+            </select>
+            <span class="muted" id="order-intake-count"></span>
+          </div>
+          <p class="view-intro muted">Manuelle Bestell-Aufnahme für vor Ort: Walk-in-Kunden, Telefon-Bestellungen, B2B-Sammelbestellungen. Wird hier als Entwurf gehalten und später (manuell oder automatisch) in JTL-Wawi übertragen.</p>
+          <div id="order-intake-list" class="order-intake-list"></div>
+        </section>
+
+        <dialog id="order-intake-modal" class="edit-modal">
+          <form id="order-intake-form" method="dialog">
+            <header class="edit-modal-header">
+              <h3 id="order-intake-modal-title">Bestellung aufnehmen</h3>
+              <button type="button" class="icon-button" id="order-intake-close" aria-label="Schließen">×</button>
+            </header>
+            <div class="edit-modal-fields">
+              <div class="order-form-grid">
+                <label>Datum<input type="date" name="date" required /></label>
+                <label>Status
+                  <select name="status">
+                    <option>Entwurf</option>
+                    <option>Aufgenommen</option>
+                    <option>In Wawi</option>
+                    <option>Erledigt</option>
+                  </select>
+                </label>
+                <label class="full-row">Kanal
+                  <select name="channel">
+                    <option>Walk-in</option>
+                    <option>Telefon</option>
+                    <option>E-Mail</option>
+                    <option>B2B</option>
+                    <option>Sonstiges</option>
+                  </select>
+                </label>
+                <label class="full-row">Kundenname<input type="text" name="customerName" required placeholder="z.B. Frau Müller" /></label>
+                <label>Telefon<input type="tel" name="customerPhone" placeholder="+43 …" /></label>
+                <label>E-Mail<input type="email" name="customerEmail" placeholder="optional" /></label>
+                <label class="full-row">Adresse (falls Lieferung)<input type="text" name="customerAddress" placeholder="Straße, PLZ Ort" /></label>
+              </div>
+              <h4 class="order-section-title">Artikel</h4>
+              <div id="order-item-rows" class="order-item-rows"></div>
+              <button type="button" class="button small" id="order-add-row">+ Artikel-Zeile</button>
+              <div class="order-total">
+                <strong>Geschätzter Gesamtwert:</strong> <span id="order-total-display">€ 0,00</span>
+              </div>
+              <label>Notiz / Sonderwünsche<textarea name="notes" rows="3" placeholder="z.B. 'in Geschenkpapier', 'lieferdatum 15.06.', 'Bevorzugte Farbe rosa'"></textarea></label>
+              <label>Wawi-Referenz (falls schon übertragen)<input type="text" name="wawiRef" placeholder="z.B. AU-12345" /></label>
+            </div>
+            <footer class="edit-modal-footer">
+              <button type="button" class="button ghost" id="order-intake-cancel">Abbrechen</button>
+              <button type="button" class="button" id="order-intake-delete" hidden>Löschen</button>
+              <button type="button" class="button primary" id="order-intake-save">Speichern</button>
+            </footer>
+          </form>
+        </dialog>
+
+        <section id="settings" class="view">
+          <p class="view-intro muted">Einstellungen für KI-Zugang, Anzeige, Tages-Playbook und Daten. Werte werden teils lokal pro Gerät (localStorage), teils im MAGALOKO-State gespeichert — pro Sektion vermerkt.</p>
+
+          <section class="panel settings-panel">
+            <div class="panel-header"><h3>🔑 KI-Zugang (DeepSeek / OpenAI)</h3></div>
+            <p class="muted settings-hint">Key wird nicht im MAGALOKO-Backup gespeichert. Wahl: nur Session (Sicherheits-Default) oder dauerhaft auf diesem Gerät (localStorage, überlebt Reboot).</p>
+            <div class="settings-grid">
+              <label>Provider
+                <select id="settings-ai-provider">
+                  <option value="deepseek">DeepSeek (api.deepseek.com)</option>
+                  <option value="openai">OpenAI (api.openai.com)</option>
+                </select>
+              </label>
+              <label>Modell
+                <input type="text" id="settings-ai-model" placeholder="deepseek-chat / gpt-4o-mini" />
+              </label>
+              <label class="settings-fullrow">API-Key
+                <input type="password" id="settings-ai-key" autocomplete="off" placeholder="sk-…" />
+              </label>
+              <label class="settings-fullrow">Speicher-Modus
+                <select id="settings-ai-persist">
+                  <option value="session">Nur diese Browser-Session (wird beim Tab-Schließen gelöscht)</option>
+                  <option value="local">Dauerhaft auf diesem Gerät (localStorage — überlebt Reboot)</option>
+                </select>
+              </label>
+              <div class="settings-fullrow settings-status muted" id="settings-ai-status">—</div>
+            </div>
+            <div class="settings-actions">
+              <button class="button ghost" id="settings-ai-clear" type="button">Key löschen</button>
+              <button class="button primary" id="settings-ai-save" type="button">Speichern</button>
+            </div>
+          </section>
+
+          <section class="panel settings-panel">
+            <div class="panel-header"><h3>🖥️ Anzeige</h3></div>
+            <p class="muted settings-hint">Pro Gerät (localStorage). Wirkt sofort.</p>
+            <div class="settings-toggle-row">
+              <div>
+                <strong>Dichte: Dense</strong>
+                <p class="muted">Kompaktere Paddings, mehr Inhalt pro Bildschirm.</p>
+              </div>
+              <label class="switch"><input type="checkbox" id="settings-density-toggle" /><span></span></label>
+            </div>
+            <div class="settings-toggle-row">
+              <div>
+                <strong>Sidebar: Kompakt</strong>
+                <p class="muted">Nur Icons. Mehr Platz fürs Cockpit auf kleinen Bildschirmen.</p>
+              </div>
+              <label class="switch"><input type="checkbox" id="settings-sidebar-toggle" /><span></span></label>
+            </div>
+          </section>
+
+          <section class="panel settings-panel">
+            <div class="panel-header">
+              <h3>☀ Tages-Playbook</h3>
+              <button class="button small" id="settings-playbook-reset-default" type="button" title="Auf Default-7-Schritte zurücksetzen">↺ Default</button>
+            </div>
+            <p class="muted settings-hint">Schritte für deinen Tagesablauf. Zeit · Icon · Titel · kurze Beschreibung · Sprung-Modul. Wird im MAGALOKO-State gespeichert (synchron auf allen Geräten).</p>
+            <div id="settings-playbook-list" class="settings-playbook-list"></div>
+            <div class="settings-actions">
+              <button class="button" id="settings-playbook-add" type="button">+ Schritt anhängen</button>
+              <button class="button primary" id="settings-playbook-save" type="button">Schritte speichern</button>
+            </div>
+          </section>
+
+          <section class="panel settings-panel">
+            <div class="panel-header"><h3>💾 Daten</h3></div>
+            <p class="muted settings-hint">MAGALOKO-State sichern, einspielen oder zurücksetzen. Backups laufen automatisch täglich serverseitig (30 Tage rotierend) — diese Buttons sind für ad-hoc Aktionen.</p>
+            <div class="settings-actions wrap">
+              <button class="button" id="settings-backup-download" type="button">📥 Backup herunterladen</button>
+              <button class="button" id="settings-backup-import" type="button">📤 Backup einspielen</button>
+              <button class="button" data-jump="audit" type="button">⎙ Audit-Log öffnen</button>
+              <button class="button" data-jump="usage" type="button">⊙ Nutzungs-Audit</button>
+            </div>
+            <p class="muted settings-hint" style="margin-top:14px;color:var(--red);"><strong>Gefahrenzone:</strong> Seed neu laden ersetzt alle Daten mit dem Demo-Stand.</p>
+            <div class="settings-actions">
+              <button class="button danger" id="settings-seed-reset" type="button">⚠ Seed-Daten neu laden</button>
+            </div>
+          </section>
+        </section>
+
+        <section id="today" class="view">
+          <div class="today-header">
+            <div>
+              <h3 id="today-title">Heute</h3>
+              <p class="muted" id="today-subtitle"></p>
+            </div>
+            <button class="button small" id="today-reset" type="button" title="Status für heute zurücksetzen">↺ Reset</button>
+          </div>
+          <section class="panel">
+            <div class="panel-header">
+              <h3>Tages-Playbook</h3>
+              <span class="muted" id="playbook-progress"></span>
+            </div>
+            <ul id="playbook-list" class="playbook-list"></ul>
+          </section>
+          <section class="panel">
+            <div class="panel-header">
+              <h3>Heute & 7 Tage</h3>
+              <button class="button small" data-jump="calendar" type="button" title="Monatsansicht öffnen">📅 Kalender</button>
+            </div>
+            <div id="today-strip" class="today-strip"></div>
+          </section>
+        </section>
+
+        <section id="calendar" class="view">
+          <div class="toolbar calendar-toolbar">
+            <button class="button" id="calendar-prev" type="button" aria-label="Vorheriger Monat">‹</button>
+            <strong id="calendar-title" class="calendar-title"></strong>
+            <button class="button" id="calendar-next" type="button" aria-label="Nächster Monat">›</button>
+            <button class="button" id="calendar-today" type="button">Heute</button>
+            <button class="button primary" id="calendar-add" type="button">+ Termin</button>
+          </div>
+          <p class="view-intro muted">Aggregiert Aufgaben, Versprechen, Gespräche, OneSource-Phasen und eigene Termine. Klick auf einen Tag → Liste + neuen Termin anlegen.</p>
+          <div id="calendar-grid" class="calendar-grid"></div>
+          <section class="panel" id="calendar-day-panel" hidden>
+            <div class="panel-header">
+              <h3 id="calendar-day-title">Tag</h3>
+              <button class="button small" id="calendar-day-add" type="button">+ Termin an diesem Tag</button>
+            </div>
+            <div id="calendar-day-events" class="calendar-day-events"></div>
+          </section>
+        </section>
+
+        <section id="dashboard" class="view active">
+          <div class="dashboard-toolbar">
+            <button class="button small" id="dashboard-density-toggle" type="button" title="Dichte umschalten (Cozy/Dense)">⇅ Dense</button>
+            <button class="button small" id="dashboard-compact-toggle" type="button" title="Kompakte Ansicht — versteckt grüne KPIs">⛶ Compact</button>
+            <button class="button small" id="dashboard-personalize" type="button" title="Karten ein-/ausblenden">⚙ Anpassen</button>
+          </div>
+
+          <section id="stephan-anker" class="stephan-anker"></section>
+
+          <section id="hero-focus" class="hero-focus"></section>
+
+          <div id="mini-strip" class="mini-strip"></div>
+
+          <div class="dashboard-grid">
+            <section class="panel dashboard-col-main">
+              <div class="panel-header">
+                <h3>Heute zu tun</h3>
+                <span class="muted" id="today-meta"></span>
+              </div>
+              <div id="today-list" class="task-list"></div>
+            </section>
+
+            <section class="panel dashboard-col-side">
+              <div class="panel-header">
+                <h3>Stephan</h3>
+              </div>
+              <div id="stephan-summary" class="stephan-summary"></div>
+            </section>
+
+            <section class="panel dashboard-col-side">
+              <div class="panel-header">
+                <h3>Kritisch jetzt</h3>
+              </div>
+              <div id="dashboard-critical" class="compact-list"></div>
+            </section>
+
+            <section class="panel dashboard-col-side">
+              <div class="panel-header">
+                <h3>Hebel & Wert</h3>
+                <button class="button small" data-jump="levers" type="button">→</button>
+              </div>
+              <div id="dashboard-levers" class="compact-list"></div>
+            </section>
+
+            <section class="panel dashboard-col-main">
+              <div class="panel-header">
+                <h3>⚡ Smart Reminders</h3>
+                <span class="muted" id="reminders-count"></span>
+              </div>
+              <div id="reminders-list" class="reminders-list"></div>
+            </section>
+
+            <section class="panel dashboard-col-side">
+              <div class="panel-header">
+                <h3>Zahlen (SeBo)</h3>
+                <button class="button small" data-jump="sebo" type="button">→</button>
+              </div>
+              <div id="dashboard-numbers" class="dashboard-numbers"></div>
+            </section>
+          </div>
+
+          <!-- Legacy-Container für Personalisierungs-Logik (kompatibel) -->
+          <div id="legacy-containers" hidden>
+            <div id="decision-list"></div>
+            <div id="dashboard-vip"></div>
+            <div id="dashboard-crosssell"></div>
+            <div id="critical-access"></div>
+            <div id="next-meeting"></div>
+          </div>
+        </section>
+
+        <section id="daily" class="view">
+          <div class="toolbar">
+            <button class="button primary" id="daily-generate" type="button">▶ Neu generieren</button>
+            <span class="muted" id="daily-meta"></span>
+          </div>
+          <p class="view-intro muted">Tägliche KI-Zusammenfassung: was steht heute an, was ist überfällig, was wäre der wichtigste nächste Schritt. Wird automatisch beim ersten Öffnen jeden Tag erzeugt.</p>
+          <div id="daily-current" class="daily-current"></div>
+          <section class="panel">
+            <div class="panel-header">
+              <h3>Briefing-Historie</h3>
+              <span class="muted" id="daily-history-count"></span>
+            </div>
+            <div id="daily-history" class="daily-history"></div>
+          </section>
+        </section>
+
+        <section id="anomalies" class="view">
+          <div class="toolbar">
+            <button class="button primary" data-edit="week-kpi:" type="button">+ Woche eintragen</button>
+            <button class="button" data-edit="anomaly:" type="button">+ Anomalie</button>
+            <label class="threshold-control muted">Schwelle
+              <input type="number" id="anomaly-threshold" value="10" min="1" max="50" step="1" />
+              <span>%</span>
+            </label>
+            <button class="button" id="jtl-kpi-import" type="button">📥 Echte JTL-KPIs importieren</button>
+          </div>
+          <p class="view-intro muted">Aktuelle Woche im Vergleich zu Vorwoche, vor 4 Wochen und gleicher Woche im Vorjahr. Abweichungen über der Schwelle sind farbig markiert.</p>
+          <div id="anomaly-current" class="anomaly-current"></div>
+          <div class="layout-two">
+            <section class="panel">
+              <div class="panel-header">
+                <h3>Wochen-Historie</h3>
+                <span class="muted" id="weeks-count"></span>
+              </div>
+              <div id="weeks-table" class="data-table"></div>
+            </section>
+            <section class="panel">
+              <div class="panel-header">
+                <h3>Offene Anomalien</h3>
+                <span class="muted" id="anomalies-count"></span>
+              </div>
+              <div id="anomalies-list" class="anomalies-list"></div>
+            </section>
+          </div>
+        </section>
+
+        <section id="levers" class="view">
+          <div class="toolbar">
+            <div class="segmented" id="lever-mode">
+              <button class="active" data-mode="ranking" type="button">Ranking</button>
+              <button data-mode="whatif" type="button">What-if</button>
+            </div>
+            <select id="lever-area-filter" aria-label="Bereich">
+              <option value="all">Alle Bereiche</option>
+            </select>
+            <select id="lever-status-filter" aria-label="Status">
+              <option value="open">Nur offen</option>
+              <option value="all">Alle</option>
+              <option value="Idee">Idee</option>
+              <option value="Geprüft">Geprüft</option>
+              <option value="In Arbeit">In Arbeit</option>
+              <option value="Live">Live</option>
+              <option value="Verworfen">Verworfen</option>
+            </select>
+            <input id="lever-search" class="search-input" type="search" placeholder="Hebel durchsuchen…" />
+            <button class="button primary" data-edit="lever:" type="button">+ Hebel</button>
+          </div>
+          <p class="view-intro muted">Welche Maßnahme bringt am meisten Euro pro investierter Stunde? Score = (Wirkung/Aufwand) × Konfidenz × Risiko-Faktor.</p>
+          <div id="lever-summary" class="lever-summary"></div>
+          <div id="lever-ranking" class="lever-ranking"></div>
+          <div id="lever-whatif" class="lever-whatif" hidden></div>
+        </section>
+
+        <section id="sebo" class="view">
+          <div class="toolbar">
+            <a class="button primary" id="sebo-open-main" target="_blank" rel="noopener" href="https://sebo.dadakaev.tech/dashboard">⬡ SeBo öffnen ↗</a>
+            <button class="button" id="sebo-edit-config" type="button">⚙ Konfiguration</button>
+          </div>
+          <p class="view-intro muted">SeBo ist das operative Cockpit (Tickets, Kunden, Produkte, Newsletter). MAGALOKO ist das strategische Cockpit (Hebel, Promises, Briefings). Hier siehst du Magos wichtigste SeBo-Datenpunkte zusammengefasst und kannst direkt zu jedem Modul springen.</p>
+
+          <section class="panel">
+            <div class="panel-header">
+              <h3>Live-Snapshot (echte JTL-Daten via SeBo)</h3>
+              <span class="muted" id="sebo-snapshot-meta"></span>
+            </div>
+            <div id="sebo-snapshot-grid" class="sebo-snapshot-grid"></div>
+          </section>
+
+          <section class="panel">
+            <div class="panel-header">
+              <h3>Direkt-Sprünge nach SeBo</h3>
+            </div>
+            <div id="sebo-jumps" class="sebo-jumps"></div>
+          </section>
+
+          <div class="layout-two">
+            <section class="panel">
+              <div class="panel-header">
+                <h3>15-Jahres-Umsatzhistorie</h3>
+                <span class="muted">aus SeBo-Statistiken</span>
+              </div>
+              <div id="sebo-yearly" class="sebo-yearly"></div>
+            </section>
+            <section class="panel">
+              <div class="panel-header">
+                <h3>Retouren-Top-Gründe</h3>
+                <span class="muted">SeBo Retouren-Modul</span>
+              </div>
+              <div id="sebo-returns" class="sebo-returns"></div>
+            </section>
+          </div>
+
+          <section class="panel">
+            <div class="panel-header">
+              <h3>Saisonalitäts-Heatmap (Umsatz Jahr × Monat in k€)</h3>
+              <span class="muted">Februar-Bruch 2025 sichtbar</span>
+            </div>
+            <div id="sebo-heatmap" class="sebo-heatmap"></div>
+          </section>
+
+          <section class="panel">
+            <div class="panel-header">
+              <h3>Top-Margen-Produkte (Cross-Sell Add-Ons)</h3>
+              <span class="muted">99%+ DB, Bundle-Potenzial</span>
+            </div>
+            <div id="sebo-margin" class="sebo-margin"></div>
+          </section>
+        </section>
+
+        <section id="vendors" class="view">
+          <div class="toolbar">
+            <input id="vendor-search" class="search-input" type="search" placeholder="Dienstleister suchen…" />
+            <select id="vendor-category-filter" aria-label="Kategorie">
+              <option value="all">Alle Kategorien</option>
+            </select>
+            <button class="button primary" data-edit="vendor:" type="button">+ Dienstleister</button>
+          </div>
+          <p class="view-intro muted">Alle externen Helfer auf einen Blick: was machen sie, wie viel kosten sie, wann läuft der Vertrag aus, wer ist der Eskalationskontakt wenn etwas brennt.</p>
+          <div id="vendors-list" class="vendors-list"></div>
+        </section>
+
+        <section id="pitches" class="view">
+          <div class="toolbar">
+            <input id="pitch-search" class="search-input" type="search" placeholder="Pitch suchen…" />
+            <button class="button primary" data-edit="pitch:" type="button">+ Pitch</button>
+            <button class="button" id="pitch-from-lever" type="button">⚡ Aus Top-Hebel ableiten</button>
+          </div>
+          <p class="view-intro muted">Strukturierte Vorlage für jeden Vorschlag an Stephan: <strong>Problem → Beweis → Lösung → Alternativen → Risiken → Nächster Schritt → Erwartetes Ergebnis</strong>. Macht Argumentation wasserdicht.</p>
+          <div id="pitches-list" class="pitches-list"></div>
+        </section>
+
+        <section id="beforeafter" class="view">
+          <div class="toolbar">
+            <button class="button primary" data-edit="beforeafter:" type="button">+ Vorher/Nachher erfassen</button>
+          </div>
+          <p class="view-intro muted">Jede Maßnahme mit Beweis: was hat sich geändert (Zahl/Beobachtung), wann, mit welchem €-Effekt. Macht Magos Wert über Monate sichtbar — Beleg fürs Vergütungsgespräch.</p>
+          <div id="beforeafter-summary" class="lever-summary"></div>
+          <div id="beforeafter-list" class="beforeafter-list"></div>
+        </section>
+
+        <section id="learnings" class="view">
+          <div class="toolbar">
+            <select id="learning-status-filter">
+              <option value="all">Alle Status</option>
+              <option value="in Bearbeitung">In Bearbeitung</option>
+              <option value="durchgearbeitet">Fertig</option>
+              <option value="geplant">Geplant</option>
+            </select>
+            <select id="learning-type-filter">
+              <option value="all">Alle Typen</option>
+              <option value="Buch">Buch</option>
+              <option value="Artikel">Artikel</option>
+              <option value="Podcast">Podcast</option>
+              <option value="Video">Video</option>
+              <option value="Kurs">Kurs</option>
+              <option value="Webinar">Webinar</option>
+            </select>
+            <button class="button primary" data-edit="learning:" type="button">+ Lerneintrag</button>
+          </div>
+          <p class="view-intro muted">Was Mago liest, hört, schaut — mit Kernlernerträgen und Verknüpfung zu Hebeln. Macht aus Konsum echten Output. Suchbar via Cmd+K.</p>
+          <div id="learning-summary" class="lever-summary"></div>
+          <div id="learning-list" class="learning-list"></div>
+        </section>
+
+        <section id="energy" class="view">
+          <div class="toolbar">
+            <button class="button primary" id="energy-quick-add" type="button">+ Schnell-Eintrag jetzt</button>
+            <button class="button" data-edit="energyentry:" type="button">+ Manuell</button>
+            <span class="muted" id="energy-week-label"></span>
+          </div>
+          <p class="view-intro muted">Wann arbeitet Mago am besten? Welche Aufgaben kosten überproportional Energie? Pattern erkennen → Tagesplanung optimieren.</p>
+          <div id="energy-summary" class="lever-summary"></div>
+          <section class="panel">
+            <div class="panel-header">
+              <h3>Energie-Verteilung diese Woche</h3>
+              <span class="muted">je Tageszeit × Aufgabentyp</span>
+            </div>
+            <div id="energy-heatmap" class="energy-heatmap"></div>
+          </section>
+          <section class="panel">
+            <div class="panel-header">
+              <h3>Letzte 30 Einträge</h3>
+            </div>
+            <div id="energy-list" class="energy-list"></div>
+          </section>
+        </section>
+
+        <section id="graph" class="view">
+          <div class="toolbar">
+            <select id="graph-focus">
+              <option value="all">Alle Beziehungen</option>
+              <option value="levers">Nur Hebel-Vernetzung</option>
+              <option value="risks">Nur Risiken-Vernetzung</option>
+              <option value="learnings">Nur Lerntransfer</option>
+            </select>
+            <button class="button" id="graph-refresh" type="button">↻ Neu zeichnen</button>
+          </div>
+          <p class="view-intro muted">Wie hängen Magos Konzepte zusammen? Hebel werden zu Hypothesen, Hypothesen zu Wirkungen, Risiken zu Pre-Mortems, Bücher zu Hebeln. Macht implizites Wissen explizit.</p>
+          <div id="graph-stats" class="lever-summary"></div>
+          <div id="graph-container" class="graph-container"></div>
+        </section>
+
+        <section id="recap" class="view">
+          <div class="toolbar">
+            <select id="recap-year">
+              <option value="2026">2026</option>
+              <option value="2025">2025</option>
+              <option value="2027">2027</option>
+            </select>
+            <button class="button primary" id="recap-generate" type="button">🤖 Recap generieren</button>
+            <button class="button" id="recap-print" type="button">🖨 Drucken / PDF</button>
+            <button class="button" id="recap-send-mail" type="button">✉ An mich selbst</button>
+          </div>
+          <p class="view-intro muted">Jahres-Recap aus allen Modulen: was geliefert, was gelernt, was gescheitert, was Pattern war. KI generiert aus den echten MAGALOKO-Daten — keine Bullshit-Zusammenfassung.</p>
+          <div id="recap-summary" class="lever-summary"></div>
+          <div id="recap-output" class="recap-output"></div>
+          <div id="recap-history" class="recap-history"></div>
+        </section>
+
+        <section id="career" class="view">
+          <div class="toolbar">
+            <button class="button" id="career-edit-vision" type="button">✎ Vision bearbeiten</button>
+            <button class="button" id="career-coach-ai" type="button">🤖 KI: Skill-Gap analysieren</button>
+          </div>
+          <p class="view-intro muted">Wo will Mago in 1, 3, 5 Jahren stehen? Welche Skills braucht es bis dann? Was sind die nächsten 4 konkreten Schritte? Karriere als bewusster Plan, nicht als Zufall.</p>
+          <div id="career-vision" class="career-vision"></div>
+          <div class="layout-two">
+            <section class="panel">
+              <div class="panel-header">
+                <h3>Karriere-Ziele</h3>
+                <button class="button primary small" data-edit="careergoal:" type="button">+ Ziel</button>
+              </div>
+              <div id="career-goals-list" class="career-goals-list"></div>
+            </section>
+            <section class="panel">
+              <div class="panel-header">
+                <h3>Skill-Map</h3>
+                <button class="button primary small" data-edit="careerskill:" type="button">+ Skill</button>
+              </div>
+              <div id="career-skills-list" class="career-skills-list"></div>
+            </section>
+          </div>
+          <div id="career-coach-output" class="aitool-result" hidden></div>
+        </section>
+
+        <section id="portfolio" class="view">
+          <div class="toolbar">
+            <button class="button primary" data-edit="portfoliocase:" type="button">+ Case</button>
+            <button class="button" id="portfolio-anonymize-ai" type="button">🤖 KI: Wirkung anonymisieren</button>
+            <button class="button" id="portfolio-export" type="button">📤 Public-Cases exportieren</button>
+          </div>
+          <p class="view-intro muted">Eigene Case-Studies aus den erfassten Wirkungen — anonymisiert, exportierbar, wiederverwendbar. Für LinkedIn, Webseite, Bewerbung, neue Mandanten.</p>
+          <div id="portfolio-summary" class="lever-summary"></div>
+          <div id="portfolio-ai-output" class="aitool-result" hidden></div>
+          <div id="portfolio-list" class="portfolio-list"></div>
+        </section>
+
+        <section id="mentors" class="view">
+          <div class="toolbar">
+            <input id="mentor-search" class="search-input" type="search" placeholder="Mentor / Framework suchen…" />
+            <button class="button primary" data-edit="mentor:" type="button">+ Mentor</button>
+            <button class="button" id="mentor-search-ai" type="button">🤖 KI: Vorbild zu Thema X finden</button>
+          </div>
+          <p class="view-intro muted">Bibliothek von Vorbildern + Frameworks + Büchern. „Auf wessen Schultern steht Mago?" Macht implizite Inspiration explizit + nachschlagbar.</p>
+          <div id="mentors-summary" class="lever-summary"></div>
+          <div id="mentor-ai-output" class="aitool-result" hidden></div>
+          <div id="mentors-list" class="mentors-list"></div>
+        </section>
+
+        <section id="capture" class="view">
+          <div class="toolbar">
+            <button class="button primary" id="capture-add" type="button">+ Manuell erfassen</button>
+            <button class="button" id="capture-voice" type="button">🎤 Sprachdatei hochladen</button>
+            <input type="file" id="capture-voice-file" accept="audio/*" hidden />
+            <select id="capture-status-filter">
+              <option value="all">Alle</option>
+              <option value="open">Nur unverarbeitet</option>
+              <option value="processed">Nur verarbeitet</option>
+            </select>
+          </div>
+          <p class="view-intro muted">Schneller Eingang für alles was unterwegs kommt — Sprachnotizen, Mails per POST an <code>/api/capture</code>, manuelle Notizen. KI klassifiziert nach Aufgabe/Versprechen/Notiz/Hebel. Mago entscheidet pro Eintrag was draus wird.</p>
+          <div id="capture-summary" class="lever-summary"></div>
+          <div id="capture-list" class="capture-list"></div>
+        </section>
+
+        <section id="triggers" class="view">
+          <div class="toolbar">
+            <button class="button primary" data-edit="trigger:" type="button">+ Trigger</button>
+            <button class="button" id="trigger-run-now" type="button">▶ Jetzt prüfen</button>
+            <span class="muted" id="trigger-last-run"></span>
+          </div>
+          <p class="view-intro muted">Automatische Frühwarnung. Jeder Trigger prüft eine Bedingung (z.B. „VIP-Artikel unter 50% Soll") und löst Web-Push aus. Server-Cron läuft alle 4h, plus manuelle Prüfung.</p>
+          <div id="triggers-summary" class="lever-summary"></div>
+          <div id="triggers-list" class="triggers-list"></div>
+        </section>
+
+        <section id="hypotheses" class="view">
+          <div class="toolbar">
+            <select id="hypothesis-status-filter">
+              <option value="all">Alle</option>
+              <option value="offen">Offen</option>
+              <option value="in Test">In Test</option>
+              <option value="bestätigt">Bestätigt</option>
+              <option value="widerlegt">Widerlegt</option>
+              <option value="teilweise">Teilweise</option>
+            </select>
+            <button class="button primary" data-edit="hypothesis:" type="button">+ Hypothese</button>
+          </div>
+          <p class="view-intro muted">Jede Vermutung („+0,5% Conversion wenn X") wird festgehalten und nach Wirkung kalibriert. Nach 12 Monaten weißt du welche Vorhersagen treffen — und Stephan auch.</p>
+          <div id="hypotheses-summary" class="lever-summary"></div>
+          <div id="hypotheses-list" class="hypotheses-list"></div>
+        </section>
+
+        <section id="premortems" class="view">
+          <div class="toolbar">
+            <button class="button primary" data-edit="premortem:" type="button">+ Pre-Mortem</button>
+          </div>
+          <p class="view-intro muted">Vor jeder Maßnahme: „in 6 Monaten ist das gescheitert — woran?". Fängt 50% der teuren Fehler ab. Pflicht-Routine vor jedem Pitch.</p>
+          <div id="premortems-list" class="premortems-list"></div>
+        </section>
+
+        <section id="wirkungen" class="view">
+          <div class="toolbar">
+            <select id="wirkung-quartal-filter">
+              <option value="all">Alle Quartale</option>
+            </select>
+            <button class="button primary" data-edit="wirkung:" type="button">+ Wirkung erfassen</button>
+            <button class="button" id="wirkung-generate-report" type="button">📊 Quartals-Bilanz</button>
+          </div>
+          <p class="view-intro muted">Was Mago geliefert hat — in €, Zeit gespart, Risiko reduziert. Beweis-Sammlung für Vergütungsgespräche und Stephan-Vertrauen. Auto-generiert aus erledigten Hebeln + manueller Pflege.</p>
+          <div id="wirkungen-summary" class="lever-summary"></div>
+          <div id="wirkungen-report" class="wirkungen-report" hidden></div>
+          <div id="wirkungen-list" class="wirkungen-list"></div>
+        </section>
+
+        <section id="saisonplan" class="view">
+          <div class="toolbar">
+            <select id="saison-filter">
+              <option value="all">Alle Saisons</option>
+              <option value="Weihnachten">Weihnachten</option>
+              <option value="Winter (Dez-Feb)">Winter</option>
+              <option value="Frühling (Mär-Mai)">Frühling</option>
+              <option value="Sommer (Jun-Aug)">Sommer</option>
+              <option value="Herbst (Sep-Nov)">Herbst</option>
+              <option value="Schulanfang">Schulanfang</option>
+              <option value="Ostern">Ostern</option>
+            </select>
+            <button class="button primary" data-edit="saisonitem:" type="button">+ Plan-Eintrag</button>
+            <button class="button" id="saison-ai" type="button">🤖 KI: Was muss ich jetzt für 90/120/180 T bestellen?</button>
+          </div>
+          <p class="view-intro muted">Basierend auf 15-Jahres-Historie aus SeBo. „Was solltest du jetzt für November einkaufen?" Vermeidet OOS bei Bestsellern + Penner-Aufbau. KI-Vorschläge nutzen Saisonalität + Lieferzeit.</p>
+          <div id="saison-summary" class="lever-summary"></div>
+          <div id="saison-ai-output" class="aitool-result" hidden></div>
+          <div id="saison-list" class="saison-list"></div>
+        </section>
+
+        <section id="verhandlungen" class="view">
+          <div class="toolbar">
+            <select id="verhandlung-status-filter">
+              <option value="all">Alle</option>
+              <option value="geplant">Geplant</option>
+              <option value="vorbereitet">Vorbereitet</option>
+              <option value="verhandelt">Verhandelt</option>
+              <option value="gewonnen">Gewonnen</option>
+              <option value="verloren">Verloren</option>
+            </select>
+            <button class="button primary" data-edit="verhandlung:" type="button">+ Verhandlung</button>
+            <button class="button" id="verhandlung-ai" type="button">🤖 KI: Argumentations-Stack aus Daten bauen</button>
+          </div>
+          <p class="view-intro muted">Vor jedem Lieferanten-Call: Daten + KI-Argumentations-Stack. Macht Mago zum gefürchteten Verhandler. Lernerträge nach jedem Termin → besser werden über Zeit.</p>
+          <div id="verhandlungen-summary" class="lever-summary"></div>
+          <div id="verhandlung-ai-output" class="aitool-result" hidden></div>
+          <div id="verhandlungen-list" class="verhandlungen-list"></div>
+        </section>
+
+        <section id="competitors" class="view">
+          <div class="toolbar">
+            <input id="competitor-search" class="search-input" type="search" placeholder="Wettbewerber suchen…" />
+            <select id="competitor-threat-filter" aria-label="Bedrohung">
+              <option value="all">Alle Bedrohungen</option>
+              <option value="kritisch">Kritisch</option>
+              <option value="hoch">Hoch</option>
+              <option value="mittel">Mittel</option>
+              <option value="niedrig">Niedrig</option>
+            </select>
+            <button class="button primary" data-edit="competitor:" type="button">+ Wettbewerber</button>
+          </div>
+          <p class="view-intro muted">Wer macht es ähnlich wie HFK? Stärken, Schwächen, Preisniveau, was sie gerade tun. Lessons → wie HFK darauf reagiert oder lernt.</p>
+          <div id="competitors-list" class="competitors-list"></div>
+        </section>
+
+        <section id="glossary" class="view">
+          <div class="toolbar">
+            <input id="glossary-search" class="search-input" type="search" placeholder="Begriff suchen…" />
+            <select id="glossary-category-filter" aria-label="Kategorie">
+              <option value="all">Alle Kategorien</option>
+            </select>
+            <button class="button primary" data-edit="glossaryEntry:" type="button">+ Begriff</button>
+          </div>
+          <p class="view-intro muted">HFK-/JTL-/E-Com-Begriffe nachschlagbar. Hilft beim Onboarding neuer Teammitglieder und Mago selbst wenn er einen Begriff vergessen hat.</p>
+          <div id="glossary-list" class="glossary-list"></div>
+        </section>
+
+        <section id="risks" class="view">
+          <div class="toolbar">
+            <select id="risk-status-filter" aria-label="Status">
+              <option value="all">Alle</option>
+              <option value="beobachten">Beobachten</option>
+              <option value="in Arbeit">In Arbeit</option>
+              <option value="gemindert">Gemindert</option>
+              <option value="eingetreten">Eingetreten</option>
+            </select>
+            <button class="button primary" data-edit="risk:" type="button">+ Risiko</button>
+          </div>
+          <p class="view-intro muted">Was kann HFK ernsthaft schaden? Wahrscheinlichkeit × Schaden = Risikoscore. Frühwarnsignale erkennen, bevor es brennt. Monatlich reviewen.</p>
+          <div id="risks-matrix" class="risks-matrix"></div>
+          <div id="risks-list" class="risks-list"></div>
+        </section>
+
+        <section id="decisions" class="view">
+          <div class="toolbar">
+            <input id="decision-search" class="search-input" type="search" placeholder="Entscheidung suchen…" />
+            <button class="button primary" data-edit="decision:" type="button">+ Entscheidung</button>
+          </div>
+          <p class="view-intro muted">Jede wichtige Entscheidung mit Begründung und Alternativen. Nach 30 Tagen: Ergebnis dokumentieren. Lernschleife für bessere Entscheidungen.</p>
+          <div id="decisions-summary" class="lever-summary"></div>
+          <div id="decisions-list" class="decisions-list"></div>
+        </section>
+
+        <section id="time" class="view">
+          <p class="view-intro muted">Stunden pro Bereich erfassen. Pomodoro-Timer für fokussiertes Arbeiten. Output-Journal als Beleg für jede Woche.</p>
+          <section class="panel pomodoro-panel">
+            <div class="panel-header">
+              <h3>⏱ Aktuelle Session</h3>
+              <span class="muted" id="pomodoro-status">Bereit</span>
+            </div>
+            <div class="pomodoro-row">
+              <input type="text" id="pomodoro-task" placeholder="Woran arbeitest du gerade? (z.B. Februar-Bruch klären)" />
+              <select id="pomodoro-area">
+                <option>Support</option><option>Shop</option><option>JTL</option>
+                <option>Daten</option><option>Einkauf</option><option>Stephan-Management</option>
+                <option>SeBo-Dev</option><option>Lernen</option><option>Sonstiges</option>
+              </select>
+              <div class="pomodoro-time" id="pomodoro-time">25:00</div>
+              <button class="button primary" id="pomodoro-start">▶ Start</button>
+              <button class="button" id="pomodoro-stop" hidden>■ Stop & Speichern</button>
+            </div>
+          </section>
+          <section class="panel">
+            <div class="panel-header">
+              <h3>Diese Woche</h3>
+              <button class="button small" data-edit="time-entry:" type="button">+ Manuell erfassen</button>
+            </div>
+            <div id="time-week-summary" class="time-week-summary"></div>
+            <div id="time-entries-list" class="time-entries-list"></div>
+          </section>
+        </section>
+
+        <section id="monthly" class="view">
+          <div class="toolbar">
+            <select id="monthly-month-picker"></select>
+            <button class="button" id="monthly-generate" type="button">▶ Neu zusammenstellen</button>
+            <button class="button" id="monthly-print" type="button">🖨 Drucken / PDF</button>
+            <button class="button" id="monthly-send-mail" type="button">✉ Per Mail an Stephan</button>
+          </div>
+          <p class="view-intro muted">Monatsbericht aus allen Modulen: was wurde geliefert, welche Hebel sind in Arbeit, welche Risiken sind gestiegen. Druckbar als A4, mailbar an Stephan.</p>
+          <div id="monthly-report" class="monthly-report"></div>
+        </section>
+
+        <section id="team" class="view">
+          <div class="toolbar">
+            <input id="team-search" class="search-input" type="search" placeholder="Person suchen…" />
+            <button class="button primary" data-edit="person:" type="button">+ Person</button>
+          </div>
+          <p class="view-intro muted">Wer macht was bei HFK. Was tickt jeden, wie redet man am besten mit ihnen. Wann war der letzte Kontakt.</p>
+          <div id="team-grid" class="team-grid"></div>
+        </section>
+
+        <section id="honorar" class="view">
+          <p class="view-intro muted">Tagessatz, monatliche Abrechnung aus Time-Tracking, Cashflow-Übersicht. Bleibt lokal — keine echten Rechnungsdaten ins Backup.</p>
+          <section class="panel">
+            <div class="panel-header">
+              <h3>Konditionen</h3>
+              <button class="button small" id="honorar-edit" type="button">✎ Bearbeiten</button>
+            </div>
+            <div id="honorar-conditions" class="honorar-conditions"></div>
+          </section>
+          <section class="panel">
+            <div class="panel-header">
+              <h3>Diesen Monat</h3>
+              <button class="button primary small" id="honorar-create-invoice" type="button">+ Rechnung erfassen</button>
+            </div>
+            <div id="honorar-current-month" class="honorar-current"></div>
+          </section>
+          <section class="panel">
+            <div class="panel-header">
+              <h3>Rechnungs-Historie</h3>
+              <span class="muted" id="honorar-history-count"></span>
+            </div>
+            <div id="honorar-history" class="honorar-history"></div>
+          </section>
+        </section>
+
+        <section id="systems" class="view">
+          <div class="toolbar">
+            <div class="segmented" id="system-filter">
+              <button class="active" data-filter="all" type="button">Alle</button>
+              <button data-filter="blockiert" type="button">Blockiert</button>
+              <button data-filter="ungeprüft" type="button">Ungeprüft</button>
+              <button data-filter="bereit" type="button">Bereit</button>
+            </div>
+            <button class="button primary" data-edit="system:" type="button">+ System</button>
+          </div>
+          <div id="system-grid" class="system-grid"></div>
+        </section>
+
+        <section id="access" class="view">
+          <div class="notice danger">
+            <strong>Keine Secrets speichern.</strong>
+            <span>MAGALOKO dokumentiert nur Status, Owner und Zweck. Passwoerter, API-Keys und Kundendaten bleiben ausserhalb.</span>
+          </div>
+          <form id="access-form" class="form-row">
+            <select name="systemId" aria-label="System"></select>
+            <input name="accessType" placeholder="Zugangstyp" required />
+            <input name="neededFor" placeholder="Benötigt für" required />
+            <input name="owner" placeholder="Owner" />
+            <select name="status" aria-label="Status">
+              <option>angefragt</option>
+              <option>vorhanden</option>
+              <option>geprüft</option>
+              <option>blockiert</option>
+            </select>
+            <select name="priority" aria-label="Priorität">
+              <option>hoch</option>
+              <option>mittel</option>
+              <option>niedrig</option>
+            </select>
+            <button class="button primary" type="submit">Hinzufügen</button>
+          </form>
+          <div id="access-table" class="data-table"></div>
+        </section>
+
+        <section id="roadmap" class="view">
+          <div class="toolbar">
+            <input id="task-search" class="search-input" type="search" placeholder="Aufgaben durchsuchen (Titel, Bereich, Notiz)…" />
+            <select id="task-area-filter" aria-label="Bereich filtern">
+              <option value="all">Alle Bereiche</option>
+              <option>Support</option>
+              <option>SeBo</option>
+              <option>JTL</option>
+              <option>Shop</option>
+              <option>Einkauf</option>
+              <option>Analytics</option>
+              <option>Kundenreaktivierung</option>
+            </select>
+          </div>
+          <form id="task-form" class="form-row task-form">
+            <input name="title" placeholder="Neue Aufgabe" required />
+            <select name="area" aria-label="Bereich">
+              <option>Support</option>
+              <option>SeBo</option>
+              <option>JTL</option>
+              <option>Shop</option>
+              <option>Einkauf</option>
+              <option>Analytics</option>
+              <option>Kundenreaktivierung</option>
+            </select>
+            <select name="priority" aria-label="Priorität">
+              <option>hoch</option>
+              <option>mittel</option>
+              <option>niedrig</option>
+            </select>
+            <input name="dueDate" type="date" />
+            <button class="button primary" type="submit">Aufgabe anlegen</button>
+          </form>
+          <div id="kanban" class="kanban"></div>
+        </section>
+
+        <section id="week" class="view">
+          <div class="toolbar">
+            <button class="button ghost" id="print-week" type="button">Drucken / PDF</button>
+            <a href="/api/calendar.ics" class="button" download="magaloko.ics" title="Termine als .ics herunterladen oder in Kalender abonnieren">📅 .ics Export</a>
+            <span class="muted" id="week-summary"></span>
+          </div>
+          <div id="week-grid" class="week-grid"></div>
+        </section>
+
+        <section id="briefing" class="view">
+          <section class="panel" id="briefing-history-panel">
+            <div class="panel-header">
+              <h3>Gespeicherte Briefings</h3>
+              <span class="muted" id="briefing-count"></span>
+            </div>
+            <div id="briefing-history" class="compact-list"></div>
+          </section>
+          <div class="briefing-layout">
+            <form id="briefing-form" class="panel form-panel">
+              <h3>Stephan Briefing</h3>
+              <label>Vorlage
+                <select id="briefing-template">
+                  <option value="">— Vorlage wählen —</option>
+                  <option value="support">Support-Prozess</option>
+                  <option value="access">Zugangsanfrage</option>
+                  <option value="data">Datenfrage / Umsatzbruch</option>
+                  <option value="procurement">Einkaufsentscheidung</option>
+                  <option value="crm">Kundenreaktivierung</option>
+                  <option value="weekly">Wochenupdate</option>
+                  <option value="pitch">Pitch / Strategischer Vorschlag</option>
+                  <option value="risk">Risiko-Eskalation</option>
+                  <option value="decision">Entscheidungs-Vorlage</option>
+                </select>
+              </label>
+              <label>Titel<input name="title" value="Support-Prozess mit SeBo starten" /></label>
+              <label>Problem<textarea name="problem">50-100 Support-E-Mails pro Tag laufen aktuell über E-Mail und müssen strukturierter bearbeitet werden.</textarea></label>
+              <label>Datenlage<textarea name="dataSituation">6 Mitarbeiter bearbeiten Support. service@herrundfrauklein.com ist als Support-Adresse vorgesehen. All-inkl ist Mail-/Domain-Hoster.</textarea></label>
+              <label>Empfehlung<textarea name="recommendation">SeBo zuerst als Support-Cockpit stabilisieren: IMAP/SMTP anbinden, Kategorien, Eskalation, Mitarbeiter-Zuweisung und Wochenreport einrichten.</textarea></label>
+              <label>Entscheidung<textarea name="decisionNeeded">Freigabe für Zugänge zu All-inkl, SeBo/N8N und Festlegung der Support-Verantwortlichen.</textarea></label>
+              <label>Nächster Schritt<textarea name="nextStep">Zugänge anlegen, service@herrundfrauklein.com testen, erste Ticket-Kategorien live vorbereiten.</textarea></label>
+              <button class="button primary" type="submit">Briefing speichern</button>
+            </form>
+            <section class="panel">
+              <div class="panel-header">
+                <h3>Ausgabe</h3>
+                <div class="topbar-actions">
+                  <div class="segmented" id="briefing-mode">
+                    <button class="active" data-mode="md" type="button">Markdown</button>
+                    <button data-mode="preview" type="button">Vorschau</button>
+                  </div>
+                  <button class="button small" id="send-briefing-mail" type="button">✉ Mail</button>
+                  <button class="button small" id="send-briefing-slack" type="button">💬 Slack</button>
+                  <button class="button small" id="print-briefing" type="button">Drucken</button>
+                  <button class="button small" id="copy-briefing" type="button">Kopieren</button>
+                </div>
+              </div>
+              <pre id="briefing-output" class="briefing-output"></pre>
+              <div id="briefing-preview" class="briefing-preview" hidden></div>
+            </section>
+          </div>
+        </section>
+
+        <section id="meeting" class="view">
+          <div class="layout-two">
+            <section class="panel" id="stephan-profile-panel">
+              <div class="panel-header">
+                <h3>Stephan-Profil</h3>
+                <button class="button small" id="edit-profile" type="button">✎ Profil bearbeiten</button>
+              </div>
+              <div id="stephan-profile-body" class="profile-body"></div>
+            </section>
+            <section class="panel" id="stephan-mood-panel">
+              <div class="panel-header">
+                <h3>Mood-Reading</h3>
+                <span class="muted">Wie war Stephan?</span>
+              </div>
+              <form id="mood-form" class="mood-form">
+                <div class="mood-buttons">
+                  <button type="button" data-mood="🟢" title="entspannt">🟢</button>
+                  <button type="button" data-mood="🟡" title="angespannt">🟡</button>
+                  <button type="button" data-mood="🔴" title="gereizt">🔴</button>
+                  <button type="button" data-mood="🔵" title="nachdenklich">🔵</button>
+                </div>
+                <input name="note" placeholder="kurze Beobachtung (optional) …" />
+              </form>
+              <div id="mood-log" class="mood-log"></div>
+            </section>
+          </div>
+          <div class="layout-two">
+            <form id="meeting-form" class="panel form-panel">
+              <h3>Gespräch vorbereiten</h3>
+              <label>Typ
+                <select name="type">
+                  <option>Erstgespräch</option>
+                  <option>Follow-up</option>
+                  <option>Gehalt</option>
+                  <option>Technik</option>
+                  <option>Support</option>
+                  <option>Einkauf</option>
+                </select>
+              </label>
+              <label>Datum<input name="date" type="date" /></label>
+              <label>Ziel<textarea name="goal">Stephan zeigen, dass Mago JTL als Zentrale versteht und SeBo als Cockpit für Support, Daten und Entscheidungen aufbauen kann.</textarea></label>
+              <label>Agenda<textarea name="agenda">1. Systemverständnis bestätigen
+2. Support als Startpunkt festlegen
+3. Zugänge und Verantwortlichkeiten klären
+4. 30-Tage-Pilot vorschlagen</textarea></label>
+              <label>Aussagen<textarea name="talkingPoints">JTL Wawi bleibt zentrale Wahrheit. SeBo ersetzt JTL nicht, sondern macht JTL, Support und Entscheidungen schneller nutzbar.</textarea></label>
+              <label>Fragen<textarea name="questions">Was wäre nach 30 Tagen ein sichtbarer Erfolg?
+Welche Zahlen willst du wöchentlich sehen?
+Soll SeBo langfristig HFK-Cockpit werden?</textarea></label>
+              <button class="button primary" type="submit">Gespräch speichern</button>
+            </form>
+            <section class="panel">
+              <div class="panel-header">
+                <h3>Gespeicherte Gespräche</h3>
+              </div>
+              <div id="meeting-list" class="compact-list"></div>
+            </section>
+          </div>
+          <section class="panel" id="promises-panel">
+            <div class="panel-header">
+              <h3>Versprechen-Tracker</h3>
+              <button class="button primary small" data-edit="promise:" type="button">+ Versprechen</button>
+            </div>
+            <p class="muted view-intro" style="margin-bottom:12px;">Jedes „ich melde mich" / „ich liefere dir die Zahl" mit Frist. Nichts geht verloren.</p>
+            <div id="promises-list" class="promises-list"></div>
+          </section>
+
+          <section class="panel" id="meeting-drill-panel">
+            <div class="panel-header">
+              <h3>Vorbereitung & Erfassung</h3>
+              <span class="muted">Stephan-Assistent verknüpft</span>
+            </div>
+            <div class="meeting-drill-row">
+              <button class="button primary" id="meeting-drill-all" type="button">Drill: alle Themen</button>
+              <button class="button" data-meeting-drill="Support" type="button">Support</button>
+              <button class="button" data-meeting-drill="JTL/Shop" type="button">JTL/Shop</button>
+              <button class="button" data-meeting-drill="Daten" type="button">Daten</button>
+              <button class="button" data-meeting-drill="Einkauf" type="button">Einkauf</button>
+              <button class="button" data-meeting-drill="Strategie" type="button">Strategie</button>
+              <button class="button" data-meeting-drill="Gehalt" type="button">Gehalt</button>
+              <button class="button" data-meeting-drill="Rolle" type="button">Rolle</button>
+            </div>
+            <form id="capture-question-form" class="form-row">
+              <input name="question" placeholder="Frage die Stephan gerade gestellt hat …" required />
+              <select name="topic" aria-label="Thema">
+                <option value="">Thema wählen</option>
+                <option>Rolle</option>
+                <option>Gehalt</option>
+                <option>Support</option>
+                <option>JTL/Shop</option>
+                <option>Daten</option>
+                <option>Einkauf</option>
+                <option>Strategie</option>
+                <option>Technik</option>
+              </select>
+              <button class="button" type="submit">Frage erfassen</button>
+            </form>
+          </section>
+        </section>
+
+        <section id="assistant" class="view">
+          <div class="toolbar">
+            <div class="segmented" id="assistant-mode">
+              <button class="active" data-mode="catalog" type="button">Katalog</button>
+              <button data-mode="drill" type="button">Drill</button>
+            </div>
+            <select id="assistant-topic" aria-label="Thema filtern">
+              <option value="all">Alle Themen</option>
+            </select>
+            <input id="assistant-search" class="search-input" type="search" placeholder="Fragen durchsuchen…" />
+            <button class="button" id="assistant-settings" type="button" title="KI-Settings (DeepSeek/OpenAI)">⚙ KI</button>
+            <button class="button" id="assistant-ai-live" type="button" title="KI generiert spontane Stephan-Frage">🎲 Stephan live</button>
+            <button class="button primary" data-edit="question:" type="button">+ Frage</button>
+          </div>
+          <div id="assistant-stats" class="assistant-stats"></div>
+          <div id="assistant-catalog" class="assistant-grid"></div>
+          <div id="assistant-drill" class="assistant-drill" hidden></div>
+        </section>
+
+        <section id="brands" class="view">
+          <div class="toolbar">
+            <select id="brand-category-filter" aria-label="Kategorie">
+              <option value="all">Alle Kategorien</option>
+              <option>Star</option>
+              <option>Question Mark</option>
+              <option>Cash Cow</option>
+              <option>Dog</option>
+            </select>
+            <input id="brand-search" class="search-input" type="search" placeholder="Marke durchsuchen…" />
+            <button class="button" id="brands-ai" type="button">🤖 KI-Analyse</button>
+            <button class="button primary" data-edit="brand:" type="button">+ Marke</button>
+          </div>
+          <p class="view-intro muted">BCG-Klassifizierung der HFK-Marken. Stars ausbauen, Cash Cows halten, Dogs reduzieren, Question Marks selektiv testen.</p>
+          <section class="panel jtl-live-panel" id="jtl-manufacturers-panel">
+            <div class="panel-header">
+              <h3>Live aus JTL — Hersteller</h3>
+              <button class="button small" id="jtl-manufacturers-load" type="button">↻ Aus JTL laden</button>
+            </div>
+            <div id="jtl-manufacturers-content" class="jtl-live-content"></div>
+          </section>
+          <div id="bcg-matrix" class="bcg-matrix"></div>
+          <div id="brands-list" class="brands-list"></div>
+        </section>
+
+        <section id="champions" class="view">
+          <div class="toolbar">
+            <button class="button" id="champions-ai" type="button">🤖 KI-Analyse</button>
+          </div>
+          <p class="view-intro muted">Kundensegmente aus der HFK-Analyse. 4.228 Champions erzeugen 74,4% des Umsatzes, 2.979 schlafende Champions sind das größte Reaktivierungs-Potential.</p>
+          <div id="segments-grid" class="segments-grid"></div>
+          <section class="panel" id="campaigns-panel">
+            <div class="panel-header">
+              <h3>Reaktivierungs-Kampagnen</h3>
+              <button class="button primary small" data-edit="campaign:" type="button">+ Kampagne</button>
+            </div>
+            <div id="campaigns-list" class="campaigns-list"></div>
+          </section>
+        </section>
+
+        <section id="crosssell" class="view">
+          <div class="toolbar">
+            <button class="button primary" data-edit="crosspair:" type="button">+ Warenkorb-Paar</button>
+            <button class="button" data-edit="bundle:" type="button">+ Bundle-Idee</button>
+            <button class="button" id="bundle-ai" type="button">🤖 KI: 5 neue Bundles generieren</button>
+          </div>
+          <p class="view-intro muted">Echte Warenkorb-Kombinationen aus 14 Jahren JTL-Historie. Top-Pärchen werden zu Bundle-Vorschlägen — geschätztes Uplift-Potential: 5-10% Gesamtumsatz.</p>
+          <div class="layout-two">
+            <section class="panel">
+              <div class="panel-header">
+                <h3>Top Warenkorb-Kombinationen</h3>
+                <span class="muted" id="crosspairs-count"></span>
+              </div>
+              <div id="crosspairs-list" class="crosspairs-list"></div>
+            </section>
+            <section class="panel">
+              <div class="panel-header">
+                <h3>Bundle-Ideen</h3>
+                <span class="muted" id="bundles-count"></span>
+              </div>
+              <div id="bundles-list" class="bundles-list"></div>
+            </section>
+          </div>
+          <div id="bundle-ai-output" class="aitool-result" hidden></div>
+        </section>
+
+        <section id="sortiment" class="view">
+          <div class="toolbar">
+            <button class="button" id="sortiment-ai" type="button">🤖 KI-Analyse</button>
+          </div>
+          <p class="view-intro muted">114.676 Artikel im System, davon 92.326 inaktiv und 68.467 unter 1.000 € Jahresumsatz. Sortimentsbereinigung schafft Übersicht, spart Pflege und macht VIP-Artikel sichtbarer.</p>
+          <div id="sortiment-stats" class="sortiment-stats"></div>
+          <section class="panel">
+            <div class="panel-header">
+              <h3>Bereinigungs-Regeln</h3>
+              <button class="button primary small" data-edit="sortimentrule:" type="button">+ Regel</button>
+            </div>
+            <div id="sortiment-rules-list" class="sortiment-rules-list"></div>
+          </section>
+        </section>
+
+        <section id="vip" class="view">
+          <div class="toolbar">
+            <select id="vip-status-filter" aria-label="Status">
+              <option value="all">Alle</option>
+              <option value="kritisch">Nur kritisch</option>
+              <option value="warnung">Warnung + kritisch</option>
+              <option value="ok">Nur ok</option>
+            </select>
+            <button class="button" id="vip-ai" type="button">🤖 KI-Analyse</button>
+            <button class="button primary" data-edit="vip:" type="button">+ VIP-Artikel</button>
+          </div>
+          <p class="view-intro muted">Top-Umsatzartikel mit Soll-Bestand. Wenn Verfügbarkeit unter Ziel fällt → Frühwarnung, weil OOS hier den größten Umsatzschaden anrichtet.</p>
+          <div id="vip-summary" class="vip-summary"></div>
+          <div id="vip-list" class="vip-list"></div>
+        </section>
+
+        <section id="purchase" class="view">
+          <p class="view-intro muted">Einkaufsplaner v1.5 — drei Module: Messen-Einkauf (März-April, One-Time mit Größen/Farb-Mix aus LYSS + Tausch-Optionen + CSV-Export für Beate) · Saison-Tracking (Mai-Juli, Weekly-LYSS-Vergleich + Penner-Radar W8+ + Lorna-Input) · JTL-Live-Daten (Produktgruppen, Bestellmatrix).</p>
+          <div class="toolbar">
+            <div class="segmented" id="purchase-tabs">
+              <button class="active" data-purchase-tab="messen" type="button">📅 Modul 1 · Messen-Einkauf</button>
+              <button data-purchase-tab="saison" type="button">🌞 Modul 2 · Saison-Tracking</button>
+              <button data-purchase-tab="jtl" type="button">📊 JTL-Live-Daten</button>
+            </div>
+          </div>
+
+          <!-- ===== MODUL 1: MESSEN-EINKAUF ===== -->
+          <div id="purchase-messen-pane" class="purchase-pane">
+            <div class="toolbar">
+              <button class="button primary" data-edit="messenartikel:" type="button">+ Messe-Artikel</button>
+              <button class="button" id="messen-export-csv" type="button">📥 CSV-Export für Beate</button>
+              <button class="button" id="messen-ai-mix" type="button">🤖 KI: Größen-/Farb-Mix aus Historik vorschlagen</button>
+              <span class="muted" id="messen-summary-pill"></span>
+            </div>
+            <div id="messen-summary" class="lever-summary"></div>
+            <div id="messen-ai-output" class="aitool-result" hidden></div>
+            <div id="messen-list" class="messen-list"></div>
+          </div>
+
+          <!-- ===== MODUL 2: SAISON-TRACKING ===== -->
+          <div id="purchase-saison-pane" class="purchase-pane" hidden>
+            <div class="toolbar">
+              <select id="saison-woche-select" aria-label="Saison-Woche">
+                <option value="1">W1</option><option value="2">W2</option><option value="3">W3</option>
+                <option value="4">W4</option><option value="5" selected>W5</option><option value="6">W6</option>
+                <option value="7">W7</option><option value="8">W8</option><option value="9">W9</option>
+                <option value="10">W10</option><option value="11">W11</option><option value="12">W12</option><option value="13">W13</option>
+              </select>
+              <button class="button primary" data-edit="lornafeedback:" type="button">+ Lorna-Feedback</button>
+              <button class="button" id="saison-ai-markdown" type="button">🤖 KI: Markdown-Plan für W8+ Penner</button>
+              <span class="muted" id="saison-lifecycle-info"></span>
+            </div>
+            <div id="saison-summary" class="lever-summary"></div>
+            <div id="saison-ai-output-md" class="aitool-result" hidden></div>
+            <div id="saison-tracking-list" class="saison-tracking-list"></div>
+            <section class="panel" id="lorna-feedback-panel">
+              <div class="panel-header">
+                <h3>Lorna-Feedback-Historie</h3>
+                <span class="muted">jeden Freitag UTC+3</span>
+              </div>
+              <div id="lorna-feedback-list" class="lorna-feedback-list"></div>
+            </section>
+          </div>
+
+          <!-- ===== JTL-LIVE-DATEN (alt) ===== -->
+          <div id="purchase-jtl-pane" class="purchase-pane" hidden>
+          <div class="toolbar">
+            <button class="button primary" id="purchase-reload" type="button">↻ JTL-Daten laden</button>
+            <select id="purchase-sort" aria-label="Sortierung">
+              <option value="revenue">Sortiert nach Umsatz</option>
+              <option value="qty">Sortiert nach Absatz</option>
+              <option value="margin">Sortiert nach DB %</option>
+              <option value="stock_days">Sortiert nach Reichweite</option>
+              <option value="risk">Sortiert nach Risiko</option>
+            </select>
+            <select id="purchase-signal" aria-label="Signal-Filter">
+              <option value="all">Alle Signale</option>
+              <option value="oos">OOS-Risiko</option>
+              <option value="db">DB unter Ziel</option>
+              <option value="lyss">LYSS vorhanden</option>
+              <option value="data">Datenpunkte offen</option>
+            </select>
+            <select id="purchase-supplier" aria-label="Lieferant">
+              <option value="all">Alle Lieferanten</option>
+            </select>
+            <input id="purchase-search" class="search-input" type="search" placeholder="Produkt, SKU, Farbe, Größe …" />
+          </div>
+          <div id="purchase-kpis" class="purchase-kpis"></div>
+          <section class="panel jtl-live-panel" id="jtl-suppliers-panel">
+            <div class="panel-header">
+              <h3>Live aus JTL — Lieferanten</h3>
+              <button class="button small" id="jtl-suppliers-load" type="button">↻ Aus JTL laden</button>
+            </div>
+            <div id="jtl-suppliers-content" class="jtl-live-content"></div>
+          </section>
+          <p class="view-intro muted" id="purchase-source-info"></p>
+          <div id="purchase-grid" class="purchase-grid"></div>
+          </div>
+        </section>
+
+        <section id="aitools" class="view">
+          <div class="toolbar">
+            <div class="segmented" id="aitool-tabs">
+              <button class="active" data-tool="devils" type="button">⚔ Devils Advocate</button>
+              <button data-tool="translate" type="button">↔ Übersetzer</button>
+              <button data-tool="mail" type="button">✉ Mail-Optimierer</button>
+              <button data-tool="ideas" type="button">💡 10 Ideen</button>
+              <button data-tool="data" type="button">📊 Daten-Erklärer</button>
+              <button data-tool="explain" type="button">📖 Begriff erklären</button>
+              <button data-tool="stephanReply" type="button">📧 Stephan-Antwort</button>
+              <button data-tool="library" type="button">📚 Bibliothek</button>
+            </div>
+            <button class="button" id="aitools-settings" type="button" title="KI-Settings">⚙ KI</button>
+          </div>
+          <p class="view-intro muted" id="aitool-intro"></p>
+          <div id="aitool-workspace" class="aitool-workspace"></div>
+        </section>
+
+        <section id="jobs" class="view">
+          <div class="layout-two">
+            <section class="panel">
+              <div class="panel-header">
+                <h3>Rollen, die Mago abdecken kann</h3>
+              </div>
+              <div id="job-role-list" class="job-role-list"></div>
+            </section>
+            <section class="panel">
+              <div class="panel-header">
+                <h3>Aufgabenbereiche</h3>
+              </div>
+              <div id="job-area-list" class="job-area-list"></div>
+            </section>
+          </div>
+          <section class="panel">
+            <div class="panel-header">
+              <h3>Anleitungen zur Erledigung</h3>
+              <span class="muted">Stephan-Wunsch -> Auftrag -> Umsetzung -> Abnahme</span>
+            </div>
+            <div id="playbook-list" class="playbook-list"></div>
+          </section>
+        </section>
+
+        <section id="usage" class="view">
+          <p class="view-intro muted">Welche Views nutzt du wirklich? Welche sind tot? Buch-Prinzip: Wenn eine View 30 Tage nicht geöffnet wurde → ausblenden oder löschen. Wenn ein KPI immer grün ist → vom Dashboard nehmen.</p>
+          <div id="usage-summary" class="lever-summary"></div>
+          <section class="panel">
+            <div class="panel-header">
+              <h3>Views nach Häufigkeit (kumuliert)</h3>
+              <button class="button small" id="usage-reset" type="button">Zähler zurücksetzen</button>
+            </div>
+            <div id="usage-list" class="usage-list"></div>
+          </section>
+        </section>
+
+        <section id="audit" class="view">
+          <div class="toolbar">
+            <select id="audit-event-filter" aria-label="Event-Typ">
+              <option value="all">Alle Events</option>
+            </select>
+            <button class="button" id="audit-reload" type="button">↻ Neu laden</button>
+          </div>
+          <p class="view-intro muted">Server-seitiges Audit-Log (<code>data/audit.jsonl</code>): jede Auth-Aktion, jedes Backup, jeder Mail-/Slack-Versand, jeder Anhang. Wer hat wann was gemacht.</p>
+          <div id="audit-summary" class="lever-summary"></div>
+          <div id="audit-list" class="audit-list"></div>
+        </section>
+
+        <section id="knowledge" class="view">
+          <div class="toolbar">
+            <button class="button primary" data-edit="knowledge:" type="button">+ Wissenskarte</button>
+          </div>
+          <div id="knowledge-grid" class="knowledge-grid"></div>
+        </section>
+      </main>
+    </div>
+
+    <button id="quick-add-fab" class="quick-add-fab" type="button" aria-label="Schnell erfassen" title="Schnell erfassen (Q)">+</button>
+
+    <dialog id="quick-add-modal" class="quick-add-modal">
+      <form method="dialog">
+        <header class="quick-add-header">
+          <h3 id="quick-add-title">Schnell erfassen</h3>
+          <button type="button" class="icon-button" id="quick-add-close" aria-label="Schließen">×</button>
+        </header>
+        <div id="quick-add-body" class="quick-add-body"></div>
+      </form>
+    </dialog>
+
+    <dialog id="search-overlay" class="search-overlay">
+      <form method="dialog" id="search-form">
+        <input id="search-input" type="search" placeholder="Suche überall — Aufgaben, Versprechen, Hebel, Marken, VIP, Knowledge …" autocomplete="off" />
+        <div id="search-results" class="search-results"></div>
+        <div class="search-footer muted">
+          <kbd>↑↓</kbd> navigieren · <kbd>Enter</kbd> öffnen · <kbd>Esc</kbd> schließen
+        </div>
+      </form>
+    </dialog>
+
+    <nav class="bottom-nav" aria-label="Mobile Navigation">
+      <button class="bottom-nav-item" data-view="dashboard"><span>◆</span><em>Start</em></button>
+      <button class="bottom-nav-item" data-view="levers"><span>⚡</span><em>Hebel</em></button>
+      <button class="bottom-nav-item" data-view="today"><span>☀</span><em>Heute</em></button>
+      <button class="bottom-nav-item" data-view="assistant"><span>★</span><em>Stephan</em></button>
+      <button class="bottom-nav-item" id="bottom-nav-more"><span>≡</span><em>Mehr</em></button>
+    </nav>
+
+    <div id="toast" class="toast" role="status" aria-live="polite"></div>
+
+    <dialog id="ai-modal" class="edit-modal">
+      <form method="dialog">
+        <header class="edit-modal-header">
+          <h3>KI-Stephan-Simulator</h3>
+          <button type="button" class="icon-button" id="ai-modal-close" aria-label="Schließen">×</button>
+        </header>
+        <div class="edit-modal-fields">
+          <p class="notice danger" style="margin:0;">
+            <strong>API-Key bleibt nur in dieser Browser-Sitzung.</strong>
+            <span>Beim Schließen des Tabs gelöscht. Nicht in MAGALOKO-Backup.</span>
+          </p>
+          <label>Provider
+            <select name="provider" id="ai-provider">
+              <option value="deepseek">DeepSeek (api.deepseek.com)</option>
+              <option value="openai">OpenAI (api.openai.com)</option>
+            </select>
+          </label>
+          <label>Modell
+            <input type="text" name="model" id="ai-model" placeholder="deepseek-chat / gpt-4o-mini" />
+          </label>
+          <label>API-Key (nur Session)
+            <input type="password" name="apiKey" id="ai-key" autocomplete="off" />
+          </label>
+          <label>Status
+            <span id="ai-status" class="muted">Kein Key geladen</span>
+          </label>
+        </div>
+        <footer class="edit-modal-footer">
+          <button type="button" class="button ghost" id="ai-modal-clear">Key löschen</button>
+          <button type="button" class="button primary" id="ai-modal-save">Speichern (Session)</button>
+        </footer>
+      </form>
+    </dialog>
+
+    <dialog id="edit-modal" class="edit-modal">
+      <form id="edit-form" method="dialog">
+        <header class="edit-modal-header">
+          <h3 id="edit-modal-title">Bearbeiten</h3>
+          <button type="button" class="icon-button" id="edit-modal-close" aria-label="Schließen">×</button>
+        </header>
+        <div id="edit-modal-fields" class="edit-modal-fields"></div>
+        <footer class="edit-modal-footer">
+          <button type="button" class="button ghost" id="edit-modal-cancel">Abbrechen</button>
+          <button type="button" class="button danger" id="edit-modal-delete" hidden>🗑 Löschen</button>
+          <button type="submit" class="button primary">Speichern</button>
+        </footer>
+      </form>
+    </dialog>
+
+    <script src="./app.js"></script>
+  </body>
+</html>

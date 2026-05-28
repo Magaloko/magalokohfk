@@ -1,0 +1,25 @@
+# === SECRETS — niemals committen, niemals zu externen Tools hochladen ===
+config/auth.json
+config/telegram.json
+config/sessions.json
+
+# === Laufzeit-Daten (Geschäftsdaten + Kunden-bezogen) ===
+data/state.json
+data/state.*.json
+data/backups/
+data/audit.jsonl
+data/bot-scores.jsonl
+data/sessions.json
+data/last-magic-link.txt
+
+# === Große Importe / generierte Inhalte (nicht Teil des Code-Audits) ===
+lernsystem-2026/
+marktanalyse-2026/
+
+# === System ===
+node_modules/
+*.log
+.DS_Store
+Thumbs.db
+qa-*.png
+qa-*.html

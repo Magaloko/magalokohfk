@@ -1,0 +1,161 @@
+<!doctype html>
+<html lang="de">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+    <meta name="theme-color" content="#1f1d19" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+    <meta name="apple-mobile-web-app-title" content="MAGALOKO" />
+    <link rel="manifest" href="/manifest.json" />
+    <link rel="icon" href="/icon.svg" type="image/svg+xml" />
+    <link rel="apple-touch-icon" href="/icon.svg" />
+    <title>MAGALOKO Login</title>
+    <link rel="stylesheet" href="./styles.css" />
+    <style>
+      body { display: grid; place-items: center; min-height: 100vh; background: var(--bg); }
+      .login-card {
+        width: min(420px, 92vw);
+        padding: 32px 36px;
+        background: var(--surface);
+        border: 1px solid var(--line);
+        border-radius: var(--radius);
+        box-shadow: var(--shadow-lift);
+      }
+      .login-brand {
+        display: flex;
+        align-items: center;
+        gap: 14px;
+        margin-bottom: 24px;
+      }
+      .login-brand .brand-mark {
+        width: 44px;
+        height: 44px;
+        font-size: 18px;
+      }
+      .login-card h1 {
+        margin: 0 0 4px;
+        font-size: 22px;
+      }
+      .login-card .muted {
+        margin: 0 0 22px;
+        font-size: 13px;
+      }
+      .login-card label {
+        display: block;
+        margin-bottom: 6px;
+        font-size: 11px;
+        font-weight: 800;
+        letter-spacing: 0.06em;
+        text-transform: uppercase;
+        color: var(--muted);
+      }
+      .login-card input {
+        width: 100%;
+        min-height: 44px;
+        padding: 10px 14px;
+        border: 1px solid var(--line);
+        border-radius: var(--radius-sm);
+        background: #fff;
+        font-size: 15px;
+        margin-bottom: 16px;
+      }
+      .login-card button {
+        width: 100%;
+        min-height: 44px;
+        font-size: 15px;
+        cursor: pointer;
+      }
+      .login-status {
+        margin-top: 16px;
+        padding: 12px 14px;
+        background: var(--blue-soft);
+        color: var(--blue);
+        border: 1px solid rgba(47, 95, 150, 0.25);
+        border-radius: var(--radius-sm);
+        font-size: 13px;
+        line-height: 1.5;
+        display: none;
+      }
+      .login-status.error {
+        background: var(--red-soft);
+        color: var(--red);
+        border-color: rgba(177, 59, 53, 0.25);
+      }
+      .login-status.success {
+        background: var(--green-soft);
+        color: var(--green);
+        border-color: rgba(47, 125, 89, 0.25);
+      }
+      .login-status.show { display: block; }
+      .login-footer {
+        margin-top: 20px;
+        font-size: 11px;
+        color: var(--muted-2);
+        text-align: center;
+      }
+    </style>
+  </head>
+  <body>
+    <main class="login-card">
+      <div class="login-brand">
+        <div class="brand-mark">M</div>
+        <div>
+          <h1>MAGALOKO</h1>
+          <p class="muted" style="margin:0;font-size:12px;">Mago Cockpit</p>
+        </div>
+      </div>
+      <p class="muted">Gib deine E-Mail ein — du bekommst einen Login-Link, gültig 15 Minuten.</p>
+      <form id="login-form" autocomplete="off">
+        <label for="email">E-Mail-Adresse</label>
+        <input type="email" id="email" name="email" placeholder="mago@beispiel.de" required autofocus />
+        <button type="submit" class="button primary" id="submit-btn">Link senden</button>
+      </form>
+      <div id="login-status" class="login-status"></div>
+      <p class="login-footer">Keine Passwörter. Kein Tracking. Nur ein Link an deine Mail.</p>
+    </main>
+    <script>
+      const form = document.getElementById("login-form");
+      const status = document.getElementById("login-status");
+      const submit = document.getElementById("submit-btn");
+      const emailInput = document.getElementById("email");
+
+      function showStatus(message, type) {
+        status.textContent = message;
+        status.className = "login-status show " + (type || "");
+      }
+
+      form.addEventListener("submit", async (event) => {
+        event.preventDefault();
+        const email = emailInput.value.trim();
+        if (!email) return;
+        submit.disabled = true;
+        submit.textContent = "Sende …";
+        try {
+          const response = await fetch("/auth/request", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ email })
+          });
+          const data = await response.json();
+          if (!response.ok) throw new Error(data.error || "Fehler");
+          if (data.smtp) {
+            showStatus("Mail unterwegs! Schau in dein Postfach und klick den Link.", "success");
+          } else {
+            showStatus(data.message || "Link erzeugt — siehe Server-Konsole / data/last-magic-link.txt (Dev-Modus)", "success");
+          }
+        } catch (error) {
+          showStatus(error.message, "error");
+        } finally {
+          submit.disabled = false;
+          submit.textContent = "Link senden";
+        }
+      });
+
+      // Wenn schon eingeloggt, redirect zur Hauptseite
+      fetch("/auth/status").then((r) => r.json()).then((s) => {
+        if (s.authenticated) location.href = "/";
+      });
+    </script>
+  </body>
+</html>
