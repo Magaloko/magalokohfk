@@ -1354,8 +1354,10 @@ async function copyText(text, successMessage) {
 }
 
 function statusPill(value, extraClass = "") {
-  const className = `${value || ""}`.toLowerCase().replace(/\s+/g, "-");
-  return `<span class="pill ${className} ${extraClass}">${value}</span>`;
+  // Audit-Finding R6: escapeHtml für Text, safeToken für CSS-Klassen
+  const className = safeToken(value);
+  const extraSafe = safeToken(extraClass);
+  return `<span class="pill ${className} ${extraSafe}">${escapeHtml(String(value || ""))}</span>`;
 }
 
 function setView(view) {
@@ -11543,8 +11545,10 @@ async function callAi(systemPrompt, userPrompt) {
     })
   });
   if (!response.ok) {
+    // Audit-Finding R6: Provider-Response-Details nicht in die UI durchreichen (Policy/Account-Leaks)
     const text = await response.text();
-    throw new Error(`KI-Fehler ${response.status}: ${text.slice(0, 200)}`);
+    console.warn("[KI-Fehler]", response.status, text.slice(0, 500));
+    throw new Error(`KI-Fehler ${response.status} — Details in der Browser-Konsole`);
   }
   const data = await response.json();
   return data.choices?.[0]?.message?.content?.trim() || "(leere Antwort)";

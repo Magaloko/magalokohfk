@@ -6,7 +6,7 @@
 //   /api/state PUT                       → durchreichen, bei Fehler: in IDB-Queue (vom Client)
 //   /auth/*                              → network-only (nie cachen, sensibel)
 
-const VERSION = "magaloko-v26-audit-fixes-5";
+const VERSION = "magaloko-v26-audit-fixes-6";
 const STATIC_CACHE = `${VERSION}-static`;
 const DATA_CACHE = `${VERSION}-data`;
 
@@ -38,11 +38,12 @@ self.addEventListener("activate", (event) => {
   );
 });
 
+// Audit-Finding R6: nur explizit gelistete Assets cachen — kein Wildcard-Caching
+const CACHED_STATIC = new Set(["/icon.svg", "/manifest.json", "/login.html"]);
+
 function isStaticRequest(url) {
   if (url.origin !== self.location.origin) return false;
-  if (url.pathname.startsWith("/api/")) return false;
-  if (url.pathname.startsWith("/auth/")) return false;
-  return true;
+  return CACHED_STATIC.has(url.pathname);
 }
 
 function isDataRequest(url) {

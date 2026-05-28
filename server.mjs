@@ -1204,6 +1204,13 @@ async function handleApi(request, response, url) {
         response.end(JSON.stringify({ error: "to, subject und text/html sind Pflicht" }));
         return true;
       }
+      // Audit-Finding R6: Mail-Relay verhindern — nur konfigurierte Empfänger erlaubt
+      const allowedRecipients = authConfig.allowedEmails || [];
+      if (allowedRecipients.length > 0 && !allowedRecipients.includes(to)) {
+        response.writeHead(403, { "Content-Type": mimeTypes[".json"] });
+        response.end(JSON.stringify({ error: "Empfänger nicht in allowedEmails" }));
+        return true;
+      }
       await sendMailGeneric({ to, subject, text, html });
       await audit("mail.sent", { to, subject, source: source || "manual" });
       response.writeHead(200, { "Content-Type": mimeTypes[".json"] });
@@ -1382,12 +1389,18 @@ async function handleApi(request, response, url) {
     const fileId = parts[4]?.replace(/[^a-z0-9_.-]/gi, "");
     const folder = join(attachmentsDir, entityType, entityId);
 
+    // Audit-Finding R6: aktive Extensions blockieren — kein same-origin Script-Execution via Upload
+    const BLOCKED_EXTS = new Set([".html", ".htm", ".svg", ".js", ".mjs", ".ts", ".jsx", ".tsx",
+      ".php", ".py", ".rb", ".sh", ".bash", ".ps1", ".bat", ".cmd", ".vbs", ".xml", ".xhtml"]);
+
     if (request.method === "GET" && !fileId) {
-      // Liste
+      // Audit-Finding R6: kein mkdir auf GET → verhindert Directory-Anlage-DoS
       try {
         const { readdir, stat } = await import("node:fs/promises");
-        await mkdir(folder, { recursive: true });
-        const files = await readdir(folder);
+        let files = [];
+        try {
+          files = await readdir(folder);
+        } catch { /* Ordner existiert nicht = leere Liste */ }
         const list = await Promise.all(files.map(async (name) => {
           const s = await stat(join(folder, name));
           return { name, size: s.size, mtime: s.mtime.toISOString() };
@@ -1396,18 +1409,25 @@ async function handleApi(request, response, url) {
         response.end(JSON.stringify({ entityType, entityId, files: list }));
       } catch (error) {
         response.writeHead(500, { "Content-Type": mimeTypes[".json"] });
-        response.end(JSON.stringify({ error: error.message }));
+        response.end(JSON.stringify({ error: "Fehler beim Lesen der Anhänge" }));
       }
       return true;
     }
 
     if (request.method === "GET" && fileId) {
-      // Download
+      // Audit-Finding R6: immer als Download ausliefern (nie inline), nosniff, sicheres MIME
       try {
         const data = await readFile(join(folder, fileId));
         const ext = extname(fileId).toLowerCase();
-        const ct = mimeTypes[ext] || "application/octet-stream";
-        response.writeHead(200, { "Content-Type": ct, "Content-Disposition": `inline; filename="${fileId}"` });
+        // Aktive Typen auf octet-stream downgraden
+        const safeTypes = new Set([".pdf", ".png", ".jpg", ".jpeg", ".gif", ".webp", ".avif",
+          ".mp4", ".webm", ".mp3", ".ogg", ".zip", ".csv", ".txt"]);
+        const ct = safeTypes.has(ext) ? (mimeTypes[ext] || "application/octet-stream") : "application/octet-stream";
+        response.writeHead(200, {
+          "Content-Type": ct,
+          "Content-Disposition": `attachment; filename="${fileId}"`,
+          "X-Content-Type-Options": "nosniff"
+        });
         response.end(data);
       } catch {
         response.writeHead(404, { "Content-Type": "text/plain; charset=utf-8" });
@@ -1428,6 +1448,9 @@ async function handleApi(request, response, url) {
         const { filename, dataBase64 } = body;
         if (!filename || !dataBase64) throw new Error("filename + dataBase64 sind Pflicht");
         const safeName = filename.replace(/[^a-z0-9._-]/gi, "_").slice(0, 200);
+        // Audit-Finding R6: aktive Extensions beim Upload blockieren
+        const uploadExt = extname(safeName).toLowerCase();
+        if (BLOCKED_EXTS.has(uploadExt)) throw new Error(`Dateityp ${uploadExt} nicht erlaubt`);
         const fileName = `${Date.now()}-${safeName}`;
         const buffer = Buffer.from(dataBase64, "base64");
         if (buffer.length > MAX_ATTACHMENT) throw new Error("Datei zu groß (max 20 MB)");
@@ -1455,9 +1478,9 @@ async function handleApi(request, response, url) {
         await audit("attachment.delete", { entityType, entityId, fileId });
         response.writeHead(200, { "Content-Type": mimeTypes[".json"] });
         response.end(JSON.stringify({ ok: true }));
-      } catch (error) {
+      } catch {
         response.writeHead(500, { "Content-Type": mimeTypes[".json"] });
-        response.end(JSON.stringify({ error: error.message }));
+        response.end(JSON.stringify({ error: "Anhang konnte nicht gelöscht werden" }));
       }
       return true;
     }
@@ -1928,11 +1951,14 @@ async function handleApi(request, response, url) {
     try {
       const text = await readFile(hfkSources.products, "utf8");
       const rows = parseCsv(text, ";");
+      // Audit-Finding R6: internen Dateipfad nicht exponieren
       response.writeHead(200, { "Content-Type": mimeTypes[".json"] });
-      response.end(JSON.stringify({ source: hfkSources.products, count: rows.length, rows }));
+      response.end(JSON.stringify({ count: rows.length, rows }));
     } catch (error) {
+      // Audit-Finding R6: nur generische Meldung an Client, Details serverseitig loggen
+      console.error("[hfk/products]", error.message);
       response.writeHead(error.code === "ENOENT" ? 404 : 500, { "Content-Type": "text/plain; charset=utf-8" });
-      response.end(error.code === "ENOENT" ? "CSV nicht gefunden: " + hfkSources.products : "CSV-Lesefehler: " + error.message);
+      response.end(error.code === "ENOENT" ? "Produktdaten nicht gefunden" : "Fehler beim Lesen der Produktdaten");
     }
     return true;
   }
