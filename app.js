@@ -2114,18 +2114,18 @@ function renderSystems(filter = document.querySelector("#system-filter .active")
   byId("system-grid").innerHTML = items.map((system) => `
     <article class="system-card">
       <div class="item-line"><h3>${escapeHtml(system.name)}</h3><span>${statusPill(system.healthStatus)} <button class="icon-button edit" data-edit="system:${system.id}" title="Bearbeiten" aria-label="Bearbeiten">✎</button></span></div>
-      <p>${system.purpose}</p>
+      <p>${escapeHtml(String(system.purpose || ""))}</p>
       <div class="system-meta">
-        <span class="muted">Kategorie: ${system.category}</span>
-        <span class="muted">Owner: ${system.owner}</span>
-        <span class="muted">Zugang: ${system.accessStatus}</span>
+        <span class="muted">Kategorie: ${escapeHtml(String(system.category || ""))}</span>
+        <span class="muted">Owner: ${escapeHtml(String(system.owner || ""))}</span>
+        <span class="muted">Zugang: ${escapeHtml(String(system.accessStatus || ""))}</span>
       </div>
       <label class="muted">Status
-        <select data-system-status="${system.id}">
+        <select data-system-status="${escapeHtml(String(system.id || ""))}">
           ${["unbekannt", "angefragt", "vorhanden", "geprüft", "blockiert"].map((status) => `<option ${system.accessStatus === status ? "selected" : ""}>${status}</option>`).join("")}
         </select>
       </label>
-      <p><strong>Nächste Aktion:</strong> ${system.nextAction}</p>
+      <p><strong>Nächste Aktion:</strong> ${escapeHtml(String(system.nextAction || ""))}</p>
     </article>
   `).join("");
 

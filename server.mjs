@@ -59,6 +59,14 @@ function requireSameOrigin(request) {
 const _stephanOtps = new Map(); // otp → { createdAt }
 const STEPHAN_OTP_TTL_MS = 60 * 60 * 1000; // 1 Stunde
 
+// Audit-Finding R9: Session-Email aus Cookie lesen (für Autorisierungsprüfungen)
+function getSessionEmail(request) {
+  const cookies = parseCookies(request.headers.cookie);
+  const token = cookies.magaloko_session;
+  if (!token) return null;
+  return sessions[hashToken(token)]?.email || null;
+}
+
 function generateStephanOtp() {
   const now = Date.now();
   // Abgelaufene OTPs aufräumen
@@ -70,11 +78,19 @@ function generateStephanOtp() {
   return otp;
 }
 
+const STEPHAN_OTP_MAX_USES = 60; // Audit-Finding R9: max. Abrufe pro OTP (1 Page-Session ≈ 60 API-Calls)
+
 function isValidStephanOtp(otp) {
   if (!otp) return false;
   const entry = _stephanOtps.get(otp);
   if (!entry) return false;
   if (Date.now() - entry.createdAt > STEPHAN_OTP_TTL_MS) {
+    _stephanOtps.delete(otp);
+    return false;
+  }
+  // Audit-Finding R9: Nutzungszähler — verhindert unbegrenzte Wiederverwendung geleakter Links
+  entry.uses = (entry.uses || 0) + 1;
+  if (entry.uses > STEPHAN_OTP_MAX_USES) {
     _stephanOtps.delete(otp);
     return false;
   }
@@ -916,6 +932,12 @@ async function handleAuth(request, response, url) {
   }
 
   if (url.pathname === "/auth/request" && request.method === "POST") {
+    // Audit-Finding R9: CSRF-Schutz für Magic-Link-Request
+    if (!requireSameOrigin(request)) {
+      response.writeHead(403, { "Content-Type": mimeTypes[".json"] });
+      response.end(JSON.stringify({ error: "CSRF: Origin nicht erlaubt" }));
+      return true;
+    }
     const ip = clientIp(request);
     if (!checkRateLimit(ip)) {
       audit("auth.rate_limit", { ip });
@@ -1259,8 +1281,10 @@ async function handleApi(request, response, url) {
       response.writeHead(200, { "Content-Type": mimeTypes[".json"] });
       response.end(JSON.stringify({ ok: true }));
     } catch (error) {
+      // Audit-Finding R9: keine internen Fehlerdetails an Client
+      console.error("[mail/send]", error.message);
       response.writeHead(500, { "Content-Type": mimeTypes[".json"] });
-      response.end(JSON.stringify({ error: error.message }));
+      response.end(JSON.stringify({ error: "Mail konnte nicht gesendet werden" }));
     }
     return true;
   }
@@ -1298,8 +1322,9 @@ async function handleApi(request, response, url) {
       response.writeHead(200, { "Content-Type": mimeTypes[".json"] });
       response.end(JSON.stringify({ ok: true }));
     } catch (error) {
+      console.error("[slack/send]", error.message);
       response.writeHead(500, { "Content-Type": mimeTypes[".json"] });
-      response.end(JSON.stringify({ error: error.message }));
+      response.end(JSON.stringify({ error: "Slack-Nachricht konnte nicht gesendet werden" }));
     }
     return true;
   }
@@ -1368,8 +1393,9 @@ async function handleApi(request, response, url) {
       response.writeHead(200, { "Content-Type": mimeTypes[".json"] });
       response.end(JSON.stringify({ ok: true, entryId: entry.id }));
     } catch (error) {
+      console.error("[capture]", error.message);
       response.writeHead(500, { "Content-Type": mimeTypes[".json"] });
-      response.end(JSON.stringify({ error: error.message }));
+      response.end(JSON.stringify({ error: "Capture konnte nicht gespeichert werden" }));
     }
     return true;
   }
@@ -1506,8 +1532,9 @@ async function handleApi(request, response, url) {
         response.writeHead(200, { "Content-Type": mimeTypes[".json"] });
         response.end(JSON.stringify({ ok: true, fileName, size: buffer.length }));
       } catch (error) {
+        console.error("[attachments/upload]", error.message);
         response.writeHead(400, { "Content-Type": mimeTypes[".json"] });
-        response.end(JSON.stringify({ error: error.message }));
+        response.end(JSON.stringify({ error: "Anhang konnte nicht hochgeladen werden" }));
       }
       return true;
     }
@@ -1568,7 +1595,15 @@ async function handleApi(request, response, url) {
   }
 
   if (url.pathname === "/api/stephan-link" && request.method === "GET") {
-    // Audit-Finding R8: kurzlebiges OTP (1 h) — permanenter stephanToken verlässt den Server nie
+    // Audit-Finding R9: nur Admin (allowedEmails[0]) darf Stephan-Links erzeugen
+    const sessionEmail = getSessionEmail(request);
+    const adminEmail = (authConfig.allowedEmails || [])[0] || null;
+    if (authConfig.requireAuth && adminEmail && sessionEmail !== adminEmail) {
+      response.writeHead(403, { "Content-Type": mimeTypes[".json"] });
+      response.end(JSON.stringify({ error: "Nur der Admin-Account darf Stephan-Links erzeugen" }));
+      return true;
+    }
+    // Audit-Finding R8: kurzlebiges OTP (1 h, max 60 Abrufe) — permanenter Token verlässt Server nie
     const base = authConfig.publicUrl || `http://127.0.0.1:${port}`;
     const otp = generateStephanOtp();
     response.writeHead(200, { "Content-Type": mimeTypes[".json"] });
@@ -1924,11 +1959,14 @@ async function handleApi(request, response, url) {
 
   // Bot-Score-Aggregat (liest data/bot-scores.jsonl, vom Telegram-Bot geschrieben)
   if (url.pathname === "/api/bot/scores" && request.method === "GET") {
+    const BOT_SCORES_MAX_BYTES = 2 * 1024 * 1024; // 2 MB — Audit-Finding R9: DoS-Schutz
     try {
       let lines = [];
       try {
         const raw = await readFile(join(dataDir, "bot-scores.jsonl"), "utf8");
-        lines = raw.split(/\r?\n/).filter(Boolean).map((l) => { try { return JSON.parse(l); } catch { return null; } }).filter(Boolean);
+        // Nur die letzten 2 MB auswerten — verhindert Memory-DoS bei wachsender Datei
+        const slice = raw.length > BOT_SCORES_MAX_BYTES ? raw.slice(-BOT_SCORES_MAX_BYTES) : raw;
+        lines = slice.split(/\r?\n/).filter(Boolean).map((l) => { try { return JSON.parse(l); } catch { return null; } }).filter(Boolean);
       } catch { /* Datei existiert noch nicht */ }
       const byUser = new Map();
       for (const s of lines) {
@@ -2033,6 +2071,16 @@ async function handleApi(request, response, url) {
   }
 
   if (url.pathname === "/api/state/stream" && request.method === "GET") {
+    // Audit-Finding R9: max. SSE-Verbindungen pro IP begrenzen (DoS-Schutz)
+    const sseIp = clientIp(request);
+    const SSE_MAX_PER_IP = 5;
+    const SSE_GLOBAL_MAX = 50;
+    const existingForIp = [...sseClients.values()].filter((c) => c._magalokoIp === sseIp).length;
+    if (existingForIp >= SSE_MAX_PER_IP || sseClients.size >= SSE_GLOBAL_MAX) {
+      response.writeHead(429, { "Content-Type": mimeTypes[".json"], "Retry-After": "30" });
+      response.end(JSON.stringify({ error: "Zu viele SSE-Verbindungen" }));
+      return true;
+    }
     response.writeHead(200, {
       "Content-Type": "text/event-stream",
       "Cache-Control": "no-cache",
@@ -2040,6 +2088,7 @@ async function handleApi(request, response, url) {
       "X-Accel-Buffering": "no"
     });
     const clientId = Math.random().toString(36).slice(2, 10);
+    response._magalokoIp = sseIp;
     sseClients.set(clientId, response);
     response.write(`: connected ${clientId}\n\n`);
     // Heartbeat alle 25s
