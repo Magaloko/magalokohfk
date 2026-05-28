@@ -2144,9 +2144,12 @@ function renderSystems(filter = document.querySelector("#system-filter .active")
 }
 
 function renderAccessOptions() {
+  // Audit-Finding R8: escapeHtml für id (Attribut) und name (Text)
   const select = document.querySelector("#access-form select[name='systemId']");
   if (!select) return;
-  select.innerHTML = state.systems.map((system) => `<option value="${system.id}">${system.name}</option>`).join("");
+  select.innerHTML = state.systems.map((system) =>
+    `<option value="${escapeHtml(String(system.id || ""))}">${escapeHtml(String(system.name || ""))}</option>`
+  ).join("");
 }
 
 function renderAccess() {

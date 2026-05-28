@@ -6,7 +6,7 @@
 //   /api/state PUT                       → durchreichen, bei Fehler: in IDB-Queue (vom Client)
 //   /auth/*                              → network-only (nie cachen, sensibel)
 
-const VERSION = "magaloko-v26-audit-fixes-6";
+const VERSION = "magaloko-v26-audit-fixes-7";
 const STATIC_CACHE = `${VERSION}-static`;
 const DATA_CACHE = `${VERSION}-data`;
 
@@ -46,14 +46,16 @@ function isStaticRequest(url) {
   return CACHED_STATIC.has(url.pathname);
 }
 
+// Audit-Finding R8: nur explizit harmlose Referenzdaten cachen — keine Geschäfts-/Preisdaten
+const CACHEABLE_DATA_PATHS = new Set([
+  "/api/jtl/manufacturers",
+  "/api/jtl/suppliers",
+  "/api/jtl/manufacturers/list"
+]);
+
 function isDataRequest(url) {
-  // /api/state NICHT cachen (Audit-Finding #8: sensible Geschäfts-/Kundendaten)
-  if (!url.pathname.startsWith("/api/hfk/") && !url.pathname.startsWith("/api/jtl/")) return false;
-  // Audit-Finding R5: Kunden- und Bestelldaten enthalten PII → niemals cachen (DSGVO)
-  if (url.pathname.startsWith("/api/jtl/customers")) return false;
-  if (url.pathname.includes("/orders")) return false;
-  // Nur explizit sichere Read-only-Referenzdaten cachen
-  return true;
+  // Explizite Allowlist: nur unveränderliche Stammdaten ohne Preis-/Umsatz-/Kundenbezug
+  return CACHEABLE_DATA_PATHS.has(url.pathname);
 }
 
 // App-Shell: network-first damit neuer Code sofort kommt (Audit-Finding #9 — löst 2×-Reload)

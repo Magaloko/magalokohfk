@@ -55,6 +55,32 @@ function requireSameOrigin(request) {
   }
 }
 
+// Audit-Finding R8: Stephan-Zugang über kurzlebige OTPs — permanenter Token nie an Clients
+const _stephanOtps = new Map(); // otp → { createdAt }
+const STEPHAN_OTP_TTL_MS = 60 * 60 * 1000; // 1 Stunde
+
+function generateStephanOtp() {
+  const now = Date.now();
+  // Abgelaufene OTPs aufräumen
+  for (const [otp, { createdAt }] of _stephanOtps.entries()) {
+    if (now - createdAt > STEPHAN_OTP_TTL_MS) _stephanOtps.delete(otp);
+  }
+  const otp = randomBytes(24).toString("base64url");
+  _stephanOtps.set(otp, { createdAt: now });
+  return otp;
+}
+
+function isValidStephanOtp(otp) {
+  if (!otp) return false;
+  const entry = _stephanOtps.get(otp);
+  if (!entry) return false;
+  if (Date.now() - entry.createdAt > STEPHAN_OTP_TTL_MS) {
+    _stephanOtps.delete(otp);
+    return false;
+  }
+  return true;
+}
+
 // Audit-Finding R7: Rate-Limit für rechenintensive JTL-Endpoints (DoS-Schutz)
 const _jtlHeavyLastCall = new Map(); // key → timestamp
 const JTL_HEAVY_COOLDOWN_MS = 15_000; // 15 Sekunden zwischen gleichartigen schweren Requests
@@ -1015,12 +1041,12 @@ function requireAuthFor(request, url) {
   if (url.pathname === "/login.html") return false;
   // Stephan-View braucht Token im URL (?token=...)
   if (url.pathname === "/stephan.html" || url.pathname === "/stephan") {
-    const token = url.searchParams.get("token");
-    return !(token && authConfig.stephanToken && token === authConfig.stephanToken);
+    // Audit-Finding R8: kurzlebiges OTP statt permanentem stephanToken
+    return !isValidStephanOtp(url.searchParams.get("token"));
   }
-  // Stephan-Token darf /api/state NUR lesen (GET), niemals schreiben (Audit-Finding #2)
+  // Stephan-OTP darf /api/state NUR lesen (GET), niemals schreiben (Audit-Finding #2)
   if (method === "GET" && url.pathname === "/api/state" &&
-      url.searchParams.get("token") && authConfig.stephanToken === url.searchParams.get("token")) {
+      isValidStephanOtp(url.searchParams.get("token"))) {
     return false;
   }
   return true;
@@ -1240,10 +1266,10 @@ async function handleApi(request, response, url) {
   }
 
   if (url.pathname === "/api/mail/status" && request.method === "GET") {
+    // Audit-Finding R8: SMTP-Adresse nicht an Client senden (Infrastruktur-Information)
     response.writeHead(200, { "Content-Type": mimeTypes[".json"] });
     response.end(JSON.stringify({
-      configured: !!(authConfig.smtp?.host && authConfig.smtp?.user && authConfig.smtp?.pass),
-      from: authConfig.smtp?.from || authConfig.smtp?.user || null
+      configured: !!(authConfig.smtp?.host && authConfig.smtp?.user && authConfig.smtp?.pass)
     }));
     return true;
   }
@@ -1542,11 +1568,13 @@ async function handleApi(request, response, url) {
   }
 
   if (url.pathname === "/api/stephan-link" && request.method === "GET") {
-    // Audit-Finding R7: Token nicht roh zurückgeben + kein Host-Header in URL
+    // Audit-Finding R8: kurzlebiges OTP (1 h) — permanenter stephanToken verlässt den Server nie
     const base = authConfig.publicUrl || `http://127.0.0.1:${port}`;
+    const otp = generateStephanOtp();
     response.writeHead(200, { "Content-Type": mimeTypes[".json"] });
     response.end(JSON.stringify({
-      url: `${base}/stephan.html?token=${encodeURIComponent(authConfig.stephanToken || "")}`
+      url: `${base}/stephan.html?token=${encodeURIComponent(otp)}`,
+      expiresIn: "1h"
     }));
     return true;
   }
@@ -1712,8 +1740,8 @@ async function handleApi(request, response, url) {
   // Kunden-Detail mit Lieblings-Marken
   const customerDetailMatch = url.pathname.match(/^\/api\/jtl\/customers\/(\d+)\/detail$/);
   if (customerDetailMatch && request.method === "GET") {
-    // Audit-Finding R7: DoS-Schutz — voller File-Stream pro Request, daher Rate-Limit
-    const rlKey = `customer-detail:${customerDetailMatch[1]}`;
+    // Audit-Finding R7/R8: DoS-Schutz — voller File-Stream pro Request, daher Rate-Limit pro IP
+    const rlKey = `customer-detail:${customerDetailMatch[1]}:${clientIp(request)}`;
     if (!jtlHeavyAllowed(rlKey)) {
       response.writeHead(429, { "Content-Type": mimeTypes[".json"], "Retry-After": "15" });
       response.end(JSON.stringify({ error: "Bitte 15 Sekunden warten bevor erneut laden" }));
@@ -1866,8 +1894,9 @@ async function handleApi(request, response, url) {
       response.writeHead(200, { "Content-Type": mimeTypes[".json"] });
       response.end(JSON.stringify({ rows: results }));
     } catch (error) {
+      console.error("[marktanalyse/validation]", error.message);
       response.writeHead(500, { "Content-Type": "text/plain; charset=utf-8" });
-      response.end(error.message);
+      response.end("Fehler bei der Marktanalyse-Validierung");
     }
     return true;
   }
@@ -1886,8 +1915,9 @@ async function handleApi(request, response, url) {
         loadMs: abc.totalMs
       }));
     } catch (error) {
+      console.error("[jtl/abc-summary]", error.message);
       response.writeHead(500, { "Content-Type": "text/plain; charset=utf-8" });
-      response.end(error.message);
+      response.end("Fehler beim Laden der ABC-Auswertung");
     }
     return true;
   }
@@ -1919,8 +1949,9 @@ async function handleApi(request, response, url) {
       response.writeHead(200, { "Content-Type": mimeTypes[".json"] });
       response.end(JSON.stringify({ users, totalDrills: lines.length, totalUsers: users.length }));
     } catch (error) {
+      console.error("[bot/scores]", error.message);
       response.writeHead(500, { "Content-Type": "text/plain; charset=utf-8" });
-      response.end(error.message);
+      response.end("Fehler beim Laden der Bot-Scores");
     }
     return true;
   }
@@ -2035,37 +2066,37 @@ async function handleApi(request, response, url) {
     try {
       const body = await readBody(request);
       const parsed = JSON.parse(body);
-      // Optimistic-Concurrency (Audit-Finding #4): verhindert dass ein Gerät
-      // die Änderung eines anderen überschreibt (Handy/Tablet/PC parallel).
-      // Audit-Finding R5: Header-Pflicht wenn State existiert → 428 Precondition Required
       const baseHeader = request.headers["x-base-updated-at"];
       const base = Number(baseHeader || 0);
-      let diskUpdatedAt = 0;
-      try {
-        const cur = JSON.parse(await readFile(statePath, "utf8"));
-        diskUpdatedAt = Number(cur.updatedAt || 0);
-      } catch { /* keine Datei = kein Konflikt */ }
-      if (!baseHeader && diskUpdatedAt > 0) {
-        response.writeHead(428, { "Content-Type": mimeTypes[".json"] });
-        response.end(JSON.stringify({ error: "X-Base-Updated-At erforderlich", serverUpdatedAt: diskUpdatedAt }));
-        return true;
+      const clientId = request.headers["x-client-id"] || null;
+      // Audit-Finding R8: gesamten Read-Check-Write in withStateLock → kein paralleler PUT-Race
+      const result = await withStateLock(async () => {
+        // Optimistic-Concurrency (Audit-Finding #4)
+        // Audit-Finding R5: Header-Pflicht wenn State existiert → 428 Precondition Required
+        let diskUpdatedAt = 0;
+        try {
+          const cur = JSON.parse(await readFile(statePath, "utf8"));
+          diskUpdatedAt = Number(cur.updatedAt || 0);
+        } catch { /* keine Datei = kein Konflikt */ }
+        if (!baseHeader && diskUpdatedAt > 0) return { status: 428, body: JSON.stringify({ error: "X-Base-Updated-At erforderlich", serverUpdatedAt: diskUpdatedAt }) };
+        if (base > 0 && diskUpdatedAt > base) return { status: 409, body: JSON.stringify({ error: "conflict", serverUpdatedAt: diskUpdatedAt, base }) };
+        await mkdir(dataDir, { recursive: true });
+        // Audit-Finding R5: Gefährliche Schlüssel bereinigen (__proto__ etc.) vor dem Schreiben
+        const sanitized = sanitizeStateJson(parsed);
+        // Audit-Finding R4: pro Request eindeutiger Tmp-Name
+        const putTmp = `${statePath}.${clientId || process.pid}.${Date.now()}.tmp`;
+        await writeFile(putTmp, JSON.stringify(sanitized), "utf8");
+        await rename(putTmp, statePath);
+        broadcastSse("state-updated", { updatedAt: sanitized.updatedAt || Date.now(), clientId });
+        return { status: 204 };
+      });
+      if (result.status === 204) {
+        response.writeHead(204);
+        response.end();
+      } else {
+        response.writeHead(result.status, { "Content-Type": mimeTypes[".json"] });
+        response.end(result.body);
       }
-      if (base > 0 && diskUpdatedAt > base) {
-        response.writeHead(409, { "Content-Type": mimeTypes[".json"] });
-        response.end(JSON.stringify({ error: "conflict", serverUpdatedAt: diskUpdatedAt, base }));
-        return true;
-      }
-      await mkdir(dataDir, { recursive: true });
-      // Audit-Finding R5: Gefährliche Schlüssel bereinigen (__proto__ etc.) vor dem Schreiben
-      const sanitized = sanitizeStateJson(parsed);
-      // Audit-Finding R4: pro Request eindeutiger Tmp-Name → Race-Condition-sicher
-      const putTmp = `${statePath}.${request.headers["x-client-id"] || process.pid}.${Date.now()}.tmp`;
-      await writeFile(putTmp, JSON.stringify(sanitized), "utf8");
-      await rename(putTmp, statePath);
-      // Andere Tabs/Geräte benachrichtigen
-      broadcastSse("state-updated", { updatedAt: sanitized.updatedAt || Date.now(), clientId: request.headers["x-client-id"] || null });
-      response.writeHead(204);
-      response.end();
     } catch (error) {
       response.writeHead(error.message === "body too large" ? 413 : 400, {
         "Content-Type": "text/plain; charset=utf-8"
