@@ -2709,31 +2709,32 @@ function renderBriefingHistory() {
 }
 
 function renderJobs() {
+  // Audit-Finding R5: alle State-Werte in renderJobs() mit escapeHtml() schützen (Stored-XSS)
   byId("job-role-list").innerHTML = state.jobRoles.map((role) => `
     <article class="job-card">
-      <div class="item-line"><strong>${role.title}</strong>${statusPill("Rolle", "entscheidung")}</div>
-      <p>${role.mission}</p>
-      <div class="tag-row">${role.responsibilities.map((item) => `<span>${item}</span>`).join("")}</div>
-      <div class="muted"><strong>Outputs:</strong> ${role.outputs.join(", ")}</div>
+      <div class="item-line"><strong>${escapeHtml(role.title)}</strong>${statusPill("Rolle", "entscheidung")}</div>
+      <p>${escapeHtml(role.mission)}</p>
+      <div class="tag-row">${role.responsibilities.map((item) => `<span>${escapeHtml(item)}</span>`).join("")}</div>
+      <div class="muted"><strong>Outputs:</strong> ${role.outputs.map(escapeHtml).join(", ")}</div>
     </article>
   `).join("");
 
   byId("job-area-list").innerHTML = state.jobAreas.map((area) => `
     <article class="area-card">
-      <strong>${area.name}</strong>
-      <p>${area.goal}</p>
-      <ul>${area.tasks.map((task) => `<li>${task}</li>`).join("")}</ul>
+      <strong>${escapeHtml(area.name)}</strong>
+      <p>${escapeHtml(area.goal)}</p>
+      <ul>${area.tasks.map((task) => `<li>${escapeHtml(task)}</li>`).join("")}</ul>
     </article>
   `).join("");
 
   byId("playbook-list").innerHTML = state.playbooks.map((playbook, index) => `
     <details class="playbook" ${index < 2 ? "open" : ""}>
       <summary>
-        <span>${playbook.title}</span>
-        <em>${playbook.trigger}</em>
+        <span>${escapeHtml(playbook.title)}</span>
+        <em>${escapeHtml(playbook.trigger)}</em>
       </summary>
-      <ol>${playbook.steps.map((step) => `<li>${step}</li>`).join("")}</ol>
-      <div class="done-box"><strong>Erledigt wenn:</strong> ${playbook.done}</div>
+      <ol>${playbook.steps.map((step) => `<li>${escapeHtml(step)}</li>`).join("")}</ol>
+      <div class="done-box"><strong>Erledigt wenn:</strong> ${escapeHtml(playbook.done)}</div>
     </details>
   `).join("");
 }
@@ -9664,10 +9665,12 @@ function mdToHtml(md) {
     if (/^https?:\/\//i.test(t) || t.startsWith("/") || t.startsWith("#") || t.startsWith("./")) return t;
     return "#blocked"; // blockt javascript:, data:, vbscript: etc.
   };
+  // Audit-Finding R5: Anführungszeichen in Attribut-Werten escapen (< > & bereits oben escaped)
+  const safeAttr = (v) => v.replace(/"/g, "&quot;");
   // Bilder ![alt](url)
-  text = text.replace(/!\[([^\]]*)\]\(([^)]+)\)/g, (_, alt, url) => `<img alt="${alt}" src="${safeUrl(url)}" loading="lazy" />`);
+  text = text.replace(/!\[([^\]]*)\]\(([^)]+)\)/g, (_, alt, url) => `<img alt="${safeAttr(alt)}" src="${safeAttr(safeUrl(url))}" loading="lazy" />`);
   // Links [text](url)
-  text = text.replace(/\[([^\]]+)\]\(([^)]+)\)/g, (_, label, url) => `<a href="${safeUrl(url)}" target="_blank" rel="noopener">${label}</a>`);
+  text = text.replace(/\[([^\]]+)\]\(([^)]+)\)/g, (_, label, url) => `<a href="${safeAttr(safeUrl(url))}" target="_blank" rel="noopener">${label}</a>`);
   // Footnote refs [^1^] oder [^1]
   text = text.replace(/\[\^(\d+)\^?\]/g, '<sup>[$1]</sup>');
   // Bold **text**
@@ -11444,25 +11447,32 @@ const AI_LOCAL_KEY = "magaloko:ai:persistent:v1";
 
 function loadAiConfig() {
   try {
-    // localStorage hat Vorrang wenn vorhanden (dauerhaft)
+    // Audit-Finding R5: apiKey NIEMALS aus localStorage lesen (Sicherheitsrisiko)
+    // localStorage darf nur provider + model enthalten; apiKey immer aus sessionStorage
     const local = localStorage.getItem(AI_LOCAL_KEY);
-    if (local) return { ...JSON.parse(local), _storage: "local" };
     const sess = sessionStorage.getItem(AI_SESSION_KEY);
-    if (sess) return { ...JSON.parse(sess), _storage: "session" };
-    return {};
+    const localCfg = local ? JSON.parse(local) : {};
+    const sessCfg = sess ? JSON.parse(sess) : {};
+    // apiKey strikt auf sessionStorage beschränken
+    const { apiKey: _ignored, ...localSafe } = localCfg;
+    const merged = { ...localSafe, ...sessCfg };
+    if (local || sess) merged._storage = local ? "local" : "session";
+    return merged;
   } catch {
     return {};
   }
 }
 
 function saveAiConfig(cfg, storage = "session") {
-  const persistable = { provider: cfg.provider, model: cfg.model, apiKey: cfg.apiKey };
+  // Audit-Finding R5: API-Key NIEMALS in localStorage (Profil-Kompromittierung exponiert dauerhaften Key)
+  // provider + model dürfen persistent gespeichert werden, apiKey nur in sessionStorage
+  const nonSensitive = { provider: cfg.provider, model: cfg.model };
   if (storage === "local") {
-    localStorage.setItem(AI_LOCAL_KEY, JSON.stringify(persistable));
-    sessionStorage.removeItem(AI_SESSION_KEY);
+    try { localStorage.setItem(AI_LOCAL_KEY, JSON.stringify(nonSensitive)); } catch {}
+    try { sessionStorage.setItem(AI_SESSION_KEY, JSON.stringify({ apiKey: cfg.apiKey })); } catch {}
   } else {
-    sessionStorage.setItem(AI_SESSION_KEY, JSON.stringify(persistable));
-    localStorage.removeItem(AI_LOCAL_KEY);
+    try { sessionStorage.setItem(AI_SESSION_KEY, JSON.stringify({ ...nonSensitive, apiKey: cfg.apiKey })); } catch {}
+    try { localStorage.removeItem(AI_LOCAL_KEY); } catch {}
   }
 }
 

@@ -6,7 +6,7 @@
 //   /api/state PUT                       → durchreichen, bei Fehler: in IDB-Queue (vom Client)
 //   /auth/*                              → network-only (nie cachen, sensibel)
 
-const VERSION = "magaloko-v26-audit-fixes-4";
+const VERSION = "magaloko-v26-audit-fixes-5";
 const STATIC_CACHE = `${VERSION}-static`;
 const DATA_CACHE = `${VERSION}-data`;
 
@@ -47,8 +47,12 @@ function isStaticRequest(url) {
 
 function isDataRequest(url) {
   // /api/state NICHT cachen (Audit-Finding #8: sensible Geschäfts-/Kundendaten)
-  return url.pathname.startsWith("/api/hfk/") ||
-    url.pathname.startsWith("/api/jtl/");
+  if (!url.pathname.startsWith("/api/hfk/") && !url.pathname.startsWith("/api/jtl/")) return false;
+  // Audit-Finding R5: Kunden- und Bestelldaten enthalten PII → niemals cachen (DSGVO)
+  if (url.pathname.startsWith("/api/jtl/customers")) return false;
+  if (url.pathname.includes("/orders")) return false;
+  // Nur explizit sichere Read-only-Referenzdaten cachen
+  return true;
 }
 
 // App-Shell: network-first damit neuer Code sofort kommt (Audit-Finding #9 — löst 2×-Reload)
@@ -151,7 +155,13 @@ self.addEventListener("message", (event) => {
 // Click auf Notification → App fokussieren oder öffnen
 self.addEventListener("notificationclick", (event) => {
   event.notification.close();
-  const targetUrl = (event.notification.data && event.notification.data.url) || "/";
+  // Audit-Finding R5: Open-Redirect-Schutz — nur Same-Origin-URLs erlaubt
+  const rawUrl = (event.notification.data && event.notification.data.url) || "/";
+  let targetUrl = "/";
+  try {
+    const u = new URL(rawUrl, self.location.origin);
+    if (u.origin === self.location.origin) targetUrl = u.pathname + u.search + u.hash;
+  } catch { /* ungültige URL → Fallback auf / */ }
   event.waitUntil(
     self.clients.matchAll({ type: "window", includeUncontrolled: true }).then((clients) => {
       for (const client of clients) {

@@ -43,6 +43,42 @@ function broadcastSse(event, data, excludeClientId = null) {
   }
 }
 
+// Audit-Finding R5: CSRF-Schutz — Origin gegen Host-Header prüfen
+function requireSameOrigin(request) {
+  const origin = request.headers.origin;
+  if (!origin) return true; // kein Origin-Header = kein Browser-Cross-Origin-Request
+  const host = request.headers.host || `localhost:${port}`;
+  try {
+    return new URL(origin).host === host;
+  } catch {
+    return false;
+  }
+}
+
+// Audit-Finding R5: Serialisiert State-Mutationen → kein Read-Modify-Write Race bei /api/capture
+let _stateMutex = Promise.resolve();
+function withStateLock(fn) {
+  const next = _stateMutex.then(() => fn());
+  _stateMutex = next.catch(() => {});
+  return next;
+}
+
+// Audit-Finding R5: Bereinigt gefährliche Schlüssel + begrenzt Array-Tiefe
+function sanitizeStateJson(obj, depth = 0) {
+  const FORBIDDEN = new Set(["__proto__", "prototype", "constructor"]);
+  if (depth > 30) return null;
+  if (Array.isArray(obj)) return obj.slice(0, 100000).map((v) => sanitizeStateJson(v, depth + 1));
+  if (obj !== null && typeof obj === "object") {
+    const out = Object.create(null);
+    for (const [k, v] of Object.entries(obj)) {
+      if (FORBIDDEN.has(k)) continue;
+      out[k] = sanitizeStateJson(v, depth + 1);
+    }
+    return out;
+  }
+  return obj;
+}
+
 async function loadAuthConfig() {
   try {
     const raw = await readFile(authConfigPath, "utf8");
@@ -929,6 +965,11 @@ async function handleAuth(request, response, url) {
   }
 
   if (url.pathname === "/auth/logout" && request.method === "POST") {
+    if (!requireSameOrigin(request)) {
+      response.writeHead(403, { "Content-Type": mimeTypes[".json"] });
+      response.end(JSON.stringify({ error: "CSRF: Origin nicht erlaubt" }));
+      return true;
+    }
     const cookies = parseCookies(request.headers.cookie);
     const token = cookies.magaloko_session;
     if (token) {
@@ -1150,6 +1191,11 @@ async function sendMailGeneric({ to, subject, text, html }) {
 
 async function handleApi(request, response, url) {
   if (url.pathname === "/api/mail/send" && request.method === "POST") {
+    if (!requireSameOrigin(request)) {
+      response.writeHead(403, { "Content-Type": mimeTypes[".json"] });
+      response.end(JSON.stringify({ error: "CSRF: Origin nicht erlaubt" }));
+      return true;
+    }
     try {
       const body = await readBody(request);
       const { to, subject, text, html, source } = JSON.parse(body);
@@ -1179,6 +1225,11 @@ async function handleApi(request, response, url) {
   }
 
   if (url.pathname === "/api/slack/send" && request.method === "POST") {
+    if (!requireSameOrigin(request)) {
+      response.writeHead(403, { "Content-Type": mimeTypes[".json"] });
+      response.end(JSON.stringify({ error: "CSRF: Origin nicht erlaubt" }));
+      return true;
+    }
     try {
       const body = await readBody(request);
       const { text, source } = JSON.parse(body);
@@ -1219,6 +1270,11 @@ async function handleApi(request, response, url) {
   }
 
   if (url.pathname === "/api/capture" && request.method === "POST") {
+    if (!requireSameOrigin(request)) {
+      response.writeHead(403, { "Content-Type": mimeTypes[".json"] });
+      response.end(JSON.stringify({ error: "CSRF: Origin nicht erlaubt" }));
+      return true;
+    }
     try {
       const body = await readJsonBody(request, MAX_BODY);
       const { source, subject, text, sender, sentAt } = body;
@@ -1227,31 +1283,34 @@ async function handleApi(request, response, url) {
         response.end(JSON.stringify({ error: "text ist Pflicht" }));
         return true;
       }
-      const stateRaw = await readFile(statePath, "utf8").catch(() => "{}");
-      const state = JSON.parse(stateRaw);
-      if (!Array.isArray(state.captureInbox)) state.captureInbox = [];
-      const entry = {
-        id: "cap-" + Date.now() + "-" + Math.round(Math.random() * 1000),
-        source: source || "manual",
-        subject: subject || "",
-        text: String(text).slice(0, 10000),
-        sender: sender || "",
-        sentAt: sentAt || new Date().toISOString(),
-        receivedAt: new Date().toISOString(),
-        processed: false,
-        parsedKind: null,
-        parsedRefId: null
-      };
-      state.captureInbox.unshift(entry);
-      state.captureInbox = state.captureInbox.slice(0, 500);
-      state.updatedAt = Date.now();
-      await mkdir(dataDir, { recursive: true });
-      // Audit-Finding R4: pro Request eindeutiger Tmp-Name → keine Race-Condition zwischen /api/capture + /api/state
-      const captureTmp = `${statePath}.${process.pid}.${Date.now()}.tmp`;
-      await writeFile(captureTmp, JSON.stringify(state), "utf8");
-      await rename(captureTmp, statePath);
-      // SSE-Broadcast (Multi-Device-Sync) — Audit-Finding #5: hieß fälschlich broadcastStateUpdate
-      broadcastSse("state-updated", { updatedAt: state.updatedAt, source: "capture" });
+      // Audit-Finding R5: withStateLock serialisiert Read-Modify-Write → kein Concurrent-Capture Race
+      const entry = await withStateLock(async () => {
+        const stateRaw = await readFile(statePath, "utf8").catch(() => "{}");
+        const state = JSON.parse(stateRaw);
+        if (!Array.isArray(state.captureInbox)) state.captureInbox = [];
+        const e = {
+          id: "cap-" + Date.now() + "-" + Math.round(Math.random() * 1000),
+          source: source || "manual",
+          subject: subject || "",
+          text: String(text).slice(0, 10000),
+          sender: sender || "",
+          sentAt: sentAt || new Date().toISOString(),
+          receivedAt: new Date().toISOString(),
+          processed: false,
+          parsedKind: null,
+          parsedRefId: null
+        };
+        state.captureInbox.unshift(e);
+        state.captureInbox = state.captureInbox.slice(0, 500);
+        state.updatedAt = Date.now();
+        await mkdir(dataDir, { recursive: true });
+        // Audit-Finding R4: pro Request eindeutiger Tmp-Name → keine Tmp-Race-Condition
+        const captureTmp = `${statePath}.${process.pid}.${Date.now()}.tmp`;
+        await writeFile(captureTmp, JSON.stringify(state), "utf8");
+        await rename(captureTmp, statePath);
+        broadcastSse("state-updated", { updatedAt: state.updatedAt, source: "capture" });
+        return e;
+      });
       await audit("capture.received", { source, subject, sender });
       response.writeHead(200, { "Content-Type": mimeTypes[".json"] });
       response.end(JSON.stringify({ ok: true, entryId: entry.id }));
@@ -1298,6 +1357,11 @@ async function handleApi(request, response, url) {
   }
 
   if (url.pathname === "/api/backups/now" && request.method === "POST") {
+    if (!requireSameOrigin(request)) {
+      response.writeHead(403, { "Content-Type": mimeTypes[".json"] });
+      response.end(JSON.stringify({ error: "CSRF: Origin nicht erlaubt" }));
+      return true;
+    }
     await performDailyBackup();
     response.writeHead(200, { "Content-Type": mimeTypes[".json"] });
     response.end(JSON.stringify({ ok: true }));
@@ -1353,6 +1417,11 @@ async function handleApi(request, response, url) {
     }
 
     if (request.method === "POST") {
+      if (!requireSameOrigin(request)) {
+        response.writeHead(403, { "Content-Type": mimeTypes[".json"] });
+        response.end(JSON.stringify({ error: "CSRF: Origin nicht erlaubt" }));
+        return true;
+      }
       // Upload via JSON: { filename, dataBase64 }
       try {
         const body = await readJsonBody(request, MAX_ATTACHMENT * 1.4);
@@ -1375,6 +1444,11 @@ async function handleApi(request, response, url) {
     }
 
     if (request.method === "DELETE" && fileId) {
+      if (!requireSameOrigin(request)) {
+        response.writeHead(403, { "Content-Type": mimeTypes[".json"] });
+        response.end(JSON.stringify({ error: "CSRF: Origin nicht erlaubt" }));
+        return true;
+      }
       try {
         const { unlink } = await import("node:fs/promises");
         await unlink(join(folder, fileId));
@@ -1889,31 +1963,43 @@ async function handleApi(request, response, url) {
   }
 
   if (url.pathname === "/api/state" && request.method === "PUT") {
+    if (!requireSameOrigin(request)) {
+      response.writeHead(403, { "Content-Type": mimeTypes[".json"] });
+      response.end(JSON.stringify({ error: "CSRF: Origin nicht erlaubt" }));
+      return true;
+    }
     try {
       const body = await readBody(request);
       const parsed = JSON.parse(body);
       // Optimistic-Concurrency (Audit-Finding #4): verhindert dass ein Gerät
       // die Änderung eines anderen überschreibt (Handy/Tablet/PC parallel).
-      const base = Number(request.headers["x-base-updated-at"] || 0);
-      if (base > 0) {
-        let diskUpdatedAt = 0;
-        try {
-          const cur = JSON.parse(await readFile(statePath, "utf8"));
-          diskUpdatedAt = Number(cur.updatedAt || 0);
-        } catch { /* keine Datei = kein Konflikt */ }
-        if (diskUpdatedAt > base) {
-          response.writeHead(409, { "Content-Type": mimeTypes[".json"] });
-          response.end(JSON.stringify({ error: "conflict", serverUpdatedAt: diskUpdatedAt, base }));
-          return true;
-        }
+      // Audit-Finding R5: Header-Pflicht wenn State existiert → 428 Precondition Required
+      const baseHeader = request.headers["x-base-updated-at"];
+      const base = Number(baseHeader || 0);
+      let diskUpdatedAt = 0;
+      try {
+        const cur = JSON.parse(await readFile(statePath, "utf8"));
+        diskUpdatedAt = Number(cur.updatedAt || 0);
+      } catch { /* keine Datei = kein Konflikt */ }
+      if (!baseHeader && diskUpdatedAt > 0) {
+        response.writeHead(428, { "Content-Type": mimeTypes[".json"] });
+        response.end(JSON.stringify({ error: "X-Base-Updated-At erforderlich", serverUpdatedAt: diskUpdatedAt }));
+        return true;
+      }
+      if (base > 0 && diskUpdatedAt > base) {
+        response.writeHead(409, { "Content-Type": mimeTypes[".json"] });
+        response.end(JSON.stringify({ error: "conflict", serverUpdatedAt: diskUpdatedAt, base }));
+        return true;
       }
       await mkdir(dataDir, { recursive: true });
+      // Audit-Finding R5: Gefährliche Schlüssel bereinigen (__proto__ etc.) vor dem Schreiben
+      const sanitized = sanitizeStateJson(parsed);
       // Audit-Finding R4: pro Request eindeutiger Tmp-Name → Race-Condition-sicher
       const putTmp = `${statePath}.${request.headers["x-client-id"] || process.pid}.${Date.now()}.tmp`;
-      await writeFile(putTmp, body, "utf8");
+      await writeFile(putTmp, JSON.stringify(sanitized), "utf8");
       await rename(putTmp, statePath);
       // Andere Tabs/Geräte benachrichtigen
-      broadcastSse("state-updated", { updatedAt: parsed.updatedAt || Date.now(), clientId: request.headers["x-client-id"] || null });
+      broadcastSse("state-updated", { updatedAt: sanitized.updatedAt || Date.now(), clientId: request.headers["x-client-id"] || null });
       response.writeHead(204);
       response.end();
     } catch (error) {
