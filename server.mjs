@@ -55,6 +55,22 @@ function requireSameOrigin(request) {
   }
 }
 
+// Audit-Finding R7: Rate-Limit für rechenintensive JTL-Endpoints (DoS-Schutz)
+const _jtlHeavyLastCall = new Map(); // key → timestamp
+const JTL_HEAVY_COOLDOWN_MS = 15_000; // 15 Sekunden zwischen gleichartigen schweren Requests
+function jtlHeavyAllowed(key) {
+  const now = Date.now();
+  const last = _jtlHeavyLastCall.get(key) || 0;
+  if (now - last < JTL_HEAVY_COOLDOWN_MS) return false;
+  _jtlHeavyLastCall.set(key, now);
+  if (_jtlHeavyLastCall.size > 500) {
+    for (const [k, ts] of _jtlHeavyLastCall.entries()) {
+      if (now - ts > JTL_HEAVY_COOLDOWN_MS * 4) _jtlHeavyLastCall.delete(k);
+    }
+  }
+  return true;
+}
+
 // Audit-Finding R5: Serialisiert State-Mutationen → kein Read-Modify-Write Race bei /api/capture
 let _stateMutex = Promise.resolve();
 function withStateLock(fn) {
@@ -907,7 +923,8 @@ async function handleAuth(request, response, url) {
       for (const [h, t] of Object.entries(pendingTokens)) {
         if (t.createdAt < cutoff) delete pendingTokens[h];
       }
-      const baseUrl = authConfig.publicUrl || `http://${request.headers.host || `127.0.0.1:${port}`}`;
+      // Audit-Finding R7: Host-Header-Injection verhindern — niemals Host-Header für Auth-Links nutzen
+      const baseUrl = authConfig.publicUrl || `http://127.0.0.1:${port}`;
       const link = `${baseUrl}/auth/verify?token=${encodeURIComponent(token)}`;
       const result = await sendMagicLink(cleanEmail, link);
       audit("auth.request.sent", { ip, email: cleanEmail, smtp: result.sent });
@@ -1263,15 +1280,18 @@ async function handleApi(request, response, url) {
 
   if (url.pathname === "/api/audit/log" && request.method === "GET") {
     try {
-      const limit = Math.min(Number(url.searchParams.get("limit")) || 500, 5000);
+      // Audit-Finding R7: negativen limit-Wert verhindern (slice(-1) liefert fast alles)
+      const limit = Math.max(1, Math.min(Number(url.searchParams.get("limit")) || 500, 5000));
       const text = await readFile(auditPath, "utf8").catch(() => "");
       const lines = text.split("\n").filter(Boolean).slice(-limit).reverse();
       const events = lines.map((line) => { try { return JSON.parse(line); } catch { return null; } }).filter(Boolean);
+      // Audit-Finding R7: IP-Adressen aus Client-Response redakten (PII)
+      const redacted = events.map(({ ip: _ip, ...rest }) => rest);
       response.writeHead(200, { "Content-Type": mimeTypes[".json"] });
-      response.end(JSON.stringify({ total: lines.length, events }));
-    } catch (error) {
+      response.end(JSON.stringify({ total: lines.length, events: redacted }));
+    } catch {
       response.writeHead(500, { "Content-Type": mimeTypes[".json"] });
-      response.end(JSON.stringify({ error: error.message }));
+      response.end(JSON.stringify({ error: "Audit-Log konnte nicht gelesen werden" }));
     }
     return true;
   }
@@ -1513,18 +1533,20 @@ async function handleApi(request, response, url) {
       });
       response.end(ics);
     } catch (error) {
+      // Audit-Finding R7: keine internen Fehlermeldungen an Client
+      console.error("[calendar]", error.message);
       response.writeHead(500, { "Content-Type": "text/plain; charset=utf-8" });
-      response.end("Calendar error: " + error.message);
+      response.end("Kalender konnte nicht erzeugt werden");
     }
     return true;
   }
 
   if (url.pathname === "/api/stephan-link" && request.method === "GET") {
-    const base = authConfig.publicUrl || `http://${request.headers.host || `${bindHost}:${port}`}`;
+    // Audit-Finding R7: Token nicht roh zurückgeben + kein Host-Header in URL
+    const base = authConfig.publicUrl || `http://127.0.0.1:${port}`;
     response.writeHead(200, { "Content-Type": mimeTypes[".json"] });
     response.end(JSON.stringify({
-      url: `${base}/stephan.html?token=${encodeURIComponent(authConfig.stephanToken || "")}`,
-      token: authConfig.stephanToken || null
+      url: `${base}/stephan.html?token=${encodeURIComponent(authConfig.stephanToken || "")}`
     }));
     return true;
   }
@@ -1560,11 +1582,13 @@ async function handleApi(request, response, url) {
     try {
       const text = await readFile(hfkSources.manufacturers, "utf8");
       const rows = parseJtlPipe(text, jtlSchemas.manufacturers);
+      // Audit-Finding R7: source-Pfad nicht an Client senden
       response.writeHead(200, { "Content-Type": mimeTypes[".json"] });
-      response.end(JSON.stringify({ source: hfkSources.manufacturers, count: rows.length, rows }));
+      response.end(JSON.stringify({ count: rows.length, rows }));
     } catch (error) {
+      console.error("[jtl/manufacturers]", error.message);
       response.writeHead(error.code === "ENOENT" ? 404 : 500, { "Content-Type": "text/plain; charset=utf-8" });
-      response.end(error.message);
+      response.end(error.code === "ENOENT" ? "Hersteller-Daten nicht gefunden" : "Fehler beim Lesen der Hersteller-Daten");
     }
     return true;
   }
@@ -1573,11 +1597,13 @@ async function handleApi(request, response, url) {
     try {
       const text = await readFile(hfkSources.suppliers, "utf8");
       const rows = parseJtlPipe(text, jtlSchemas.suppliers);
+      // Audit-Finding R7: source-Pfad nicht an Client senden
       response.writeHead(200, { "Content-Type": mimeTypes[".json"] });
-      response.end(JSON.stringify({ source: hfkSources.suppliers, count: rows.length, rows }));
+      response.end(JSON.stringify({ count: rows.length, rows }));
     } catch (error) {
+      console.error("[jtl/suppliers]", error.message);
       response.writeHead(error.code === "ENOENT" ? 404 : 500, { "Content-Type": "text/plain; charset=utf-8" });
-      response.end(error.message);
+      response.end(error.code === "ENOENT" ? "Lieferanten-Daten nicht gefunden" : "Fehler beim Lesen der Lieferanten-Daten");
     }
     return true;
   }
@@ -1594,8 +1620,10 @@ async function handleApi(request, response, url) {
       response.writeHead(200, { "Content-Type": mimeTypes[".json"] });
       response.end(JSON.stringify({ ...result, indexSize: idx.rows.length, loadedAt: idx.loadedAt, loadMs: idx.loadMs }));
     } catch (error) {
+      // Audit-Finding R7: keine internen Fehlermeldungen an Client
+      console.error("[jtl/articles/search]", error.message);
       response.writeHead(error.code === "ENOENT" ? 404 : 500, { "Content-Type": "text/plain; charset=utf-8" });
-      response.end(error.message);
+      response.end(error.code === "ENOENT" ? "Artikel-Index nicht gefunden" : "Fehler bei der Artikelsuche");
     }
     return true;
   }
@@ -1684,6 +1712,13 @@ async function handleApi(request, response, url) {
   // Kunden-Detail mit Lieblings-Marken
   const customerDetailMatch = url.pathname.match(/^\/api\/jtl\/customers\/(\d+)\/detail$/);
   if (customerDetailMatch && request.method === "GET") {
+    // Audit-Finding R7: DoS-Schutz — voller File-Stream pro Request, daher Rate-Limit
+    const rlKey = `customer-detail:${customerDetailMatch[1]}`;
+    if (!jtlHeavyAllowed(rlKey)) {
+      response.writeHead(429, { "Content-Type": mimeTypes[".json"], "Retry-After": "15" });
+      response.end(JSON.stringify({ error: "Bitte 15 Sekunden warten bevor erneut laden" }));
+      return true;
+    }
     try {
       await loadAddressIndex();
       await loadArticleIndex();
@@ -1897,8 +1932,9 @@ async function handleApi(request, response, url) {
       response.writeHead(200, { "Content-Type": mimeTypes[".json"] });
       response.end(JSON.stringify({ rows: arr, total: arr.length }));
     } catch (error) {
+      console.error("[jtl/manufacturers/map]", error.message);
       response.writeHead(500, { "Content-Type": "text/plain; charset=utf-8" });
-      response.end(error.message);
+      response.end("Fehler beim Laden der Hersteller-Zuordnung");
     }
     return true;
   }
@@ -1918,8 +1954,9 @@ async function handleApi(request, response, url) {
         indexInfo: { orderCount: idx.orderCount, customerCount: idx.customerCount, totalMs: idx.totalMs }
       }));
     } catch (error) {
+      console.error("[jtl/orders]", error.message);
       response.writeHead(error.code === "ENOENT" ? 404 : 500, { "Content-Type": "text/plain; charset=utf-8" });
-      response.end(error.message);
+      response.end(error.code === "ENOENT" ? "Bestell-Index nicht gefunden" : "Fehler beim Laden der Bestellungen");
     }
     return true;
   }
@@ -1941,8 +1978,9 @@ async function handleApi(request, response, url) {
         vipStatsReady: !!orderIndexCache
       }));
     } catch (error) {
+      console.error("[jtl/customers/search]", error.message);
       response.writeHead(error.code === "ENOENT" ? 404 : 500, { "Content-Type": "text/plain; charset=utf-8" });
-      response.end(error.message);
+      response.end(error.code === "ENOENT" ? "Kunden-Index nicht gefunden" : "Fehler bei der Kundensuche");
     }
     return true;
   }
