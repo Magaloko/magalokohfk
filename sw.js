@@ -6,7 +6,7 @@
 //   /api/state PUT                       → durchreichen, bei Fehler: in IDB-Queue (vom Client)
 //   /auth/*                              → network-only (nie cachen, sensibel)
 
-const VERSION = "magaloko-v26-audit-fixes-3";
+const VERSION = "magaloko-v26-audit-fixes-4";
 const STATIC_CACHE = `${VERSION}-static`;
 const DATA_CACHE = `${VERSION}-data`;
 

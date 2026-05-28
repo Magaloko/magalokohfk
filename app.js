@@ -1166,7 +1166,8 @@ async function syncFromServer(force = false) {
     lastServerRevision = remoteUpdated;
     if (force || remoteUpdated > localUpdated) {
       state = applyWorkspaceLayer(mergeWithSeed(remote));
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+      // Audit-Finding R4: localStorage kann in Private-Mode oder bei Quota werfen
+      try { localStorage.setItem(STORAGE_KEY, JSON.stringify(state)); } catch (e) { console.warn("[localStorage]", e.message); }
       applyWorkspaceUI();
       render();
     }
@@ -1186,7 +1187,8 @@ let lastServerRevision = Number((typeof state !== "undefined" && state.updatedAt
 
 function saveState() {
   state.updatedAt = Date.now();
-  localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+  // Audit-Finding R4: localStorage kann in Private-Mode oder bei Quota werfen
+  try { localStorage.setItem(STORAGE_KEY, JSON.stringify(state)); } catch (e) { console.warn("[localStorage]", e.message); }
   clearTimeout(saveTimer);
   saveTimer = setTimeout(pushToServer, 500);
 }
@@ -1279,11 +1281,17 @@ async function flushOfflineQueue() {
       return;
     }
     if (response.ok) {
+      // Audit-Finding R4: Revision aktualisieren damit nächster Push keinen unnötigen 409 auslöst
+      lastServerRevision = Number(last.state?.updatedAt || Date.now());
       clearPendingSave();
       updateOfflineIndicator();
       showToast("Offline-Änderungen synchronisiert");
     }
-  } catch {}
+  } catch (error) {
+    // Audit-Finding R4: Fehler loggen statt verschlucken
+    console.warn("[offline-sync]", error?.message || error);
+    updateOfflineIndicator();
+  }
 }
 
 function updateOfflineIndicator() {
@@ -1824,6 +1832,29 @@ function renderDashboard() {
 
 function escapeHtml(value) {
   return String(value ?? "").replace(/[&<>"']/g, (ch) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[ch]));
+}
+
+// Audit-Finding R4: Externe URLs (website-Felder aus State) — nur http(s) erlaubt.
+// Verhindert javascript:/data:-Ausführung wenn jemand via Backup eine manipulierte URL einspielt.
+function safeExternalUrl(value) {
+  try {
+    const u = new URL(String(value || ""), location.origin);
+    return ["http:", "https:"].includes(u.protocol) ? u.href : "#blocked";
+  } catch { return "#blocked"; }
+}
+
+// Audit-Finding R4: CSS-Klassen aus State sicher machen (kein CSS-Injection über status/threat etc.)
+function safeToken(value) {
+  return String(value || "").toLowerCase().replace(/[^a-z0-9_-]/g, "").slice(0, 40);
+}
+
+// Audit-Finding R4: Farb-Werte aus State (ws.color, wsColor) für style-Attribute absichern.
+function safeCssColor(value) {
+  const v = String(value || "").trim();
+  // Hex #rgb, #rrggbb, #rrggbbaa oder bekannte CSS-Keywords erlaubt
+  if (/^#[0-9a-f]{3,8}$/i.test(v)) return v;
+  if (/^[a-z]{2,20}$/i.test(v)) return v; // z.B. "red", "blue", "transparent"
+  return "#999999"; // Fallback-Farbe
 }
 
 // === Mini-Strip: 8 Mikro-Metriken in einer Zeile ===
@@ -4074,7 +4105,7 @@ function renderVendors() {
 
   byId("vendors-list").innerHTML = filtered.length ? filtered
     .sort((a, b) => (a.name || "").localeCompare(b.name || ""))
-    .map((v) => `<article class="vendor-card vendor-status-${v.status || "aktiv"}">
+    .map((v) => `<article class="vendor-card vendor-status-${safeToken(v.status || "aktiv")}">
       <div class="item-line">
         <strong>${escapeHtml(v.name)}</strong>
         <span class="topbar-actions">
@@ -4088,7 +4119,7 @@ function renderVendors() {
         ${v.contactPerson ? `<span><strong>Kontakt:</strong> ${escapeHtml(v.contactPerson)}</span>` : ""}
         ${v.contactMail ? `<span><a href="mailto:${escapeHtml(v.contactMail)}">${escapeHtml(v.contactMail)}</a></span>` : ""}
         ${v.contactPhone ? `<span><a href="tel:${escapeHtml(v.contactPhone)}">${escapeHtml(v.contactPhone)}</a></span>` : ""}
-        ${v.website ? `<span><a href="${escapeHtml(v.website)}" target="_blank" rel="noopener">${escapeHtml(v.website.replace(/^https?:\/\//, ""))} ↗</a></span>` : ""}
+        ${v.website ? `<span><a href="${safeExternalUrl(v.website)}" target="_blank" rel="noopener">${escapeHtml(v.website.replace(/^https?:\/\//, ""))} ↗</a></span>` : ""}
         ${v.hourlyRate ? `<span><strong>${formatEur(v.hourlyRate)}/h</strong></span>` : ""}
         ${v.contractType ? `<span class="muted">${escapeHtml(v.contractType)}</span>` : ""}
         ${v.contractEnd ? `<span class="muted">Vertrag bis: ${escapeHtml(v.contractEnd)}</span>` : ""}
@@ -4121,7 +4152,7 @@ function renderPitches() {
   const sorted = filtered.slice().sort((a, b) => (b.createdAt || "").localeCompare(a.createdAt || ""));
 
   byId("pitches-list").innerHTML = sorted.length ? sorted.map((p) => `
-    <article class="pitch-card pitch-status-${(p.status || "").toLowerCase()}">
+    <article class="pitch-card pitch-status-${safeToken(p.status || "")}">
       <div class="item-line">
         <strong>${escapeHtml(p.title)}</strong>
         <span class="topbar-actions">
@@ -5506,7 +5537,7 @@ function renderCompetitors() {
       <div class="item-line">
         <strong>${escapeHtml(c.name)}</strong>
         <span class="topbar-actions">
-          ${c.website ? `<a href="${escapeHtml(c.website)}" target="_blank" rel="noopener" class="button small" title="Website öffnen">↗</a>` : ""}
+          ${c.website ? `<a href="${safeExternalUrl(c.website)}" target="_blank" rel="noopener" class="button small" title="Website öffnen">↗</a>` : ""}
           <span class="pill ${c.threat === "kritisch" || c.threat === "hoch" ? "kritisch" : c.threat === "mittel" ? "mittel" : "niedrig"}">${escapeHtml(c.threat || "niedrig")}</span>
           <span class="pill entscheidung">${escapeHtml(c.priceLevel || "—")}</span>
           ${stale ? `<span class="pill kritisch">▲ ${lastDays}T alt</span>` : ""}
@@ -9934,9 +9965,9 @@ function renderHome() {
     const promisesOpen = (data.promises || []).filter((p) => !p.kept && !p.broken).length;
     const upcomingEvents = (data.calendarEvents || []).filter((e) => e.date && e.date >= todayIso()).length;
     const isActive = id === state.currentWorkspace ? "active" : "";
-    return `<button type="button" class="workspace-card ${isActive}" data-ws-id="${id}" style="border-left-color:${ws.color}">
+    return `<button type="button" class="workspace-card ${isActive}" data-ws-id="${id}" style="border-left-color:${safeCssColor(ws.color)}">
       <div class="workspace-card-header">
-        <span class="workspace-card-dot" style="background:${ws.color}"></span>
+        <span class="workspace-card-dot" style="background:${safeCssColor(ws.color)}"></span>
         <h3>${escapeHtml(ws.label)}</h3>
       </div>
       <div class="workspace-card-meta">${ws.isMeta ? "Übergreifend · Privat · Mago-Selbst" : ws.enabledModules.length + " Module"}</div>
@@ -10021,7 +10052,7 @@ function renderCrossProjectFeed() {
     const isToday = it.date === today;
     const cls = overdue ? "is-overdue" : isToday ? "is-today" : "";
     return `<div class="cross-project-item ${cls}" data-target-ws="${it.ws}" data-target-view="${it.view}">
-      <span class="cp-ws" style="background:${it.wsColor}">${escapeHtml((it.wsLabel || "").split(" · ")[0])}</span>
+      <span class="cp-ws" style="background:${safeCssColor(it.wsColor)}">${escapeHtml((it.wsLabel || "").split(" · ")[0])}</span>
       <div>
         <div class="cp-title">${escapeHtml(it.type)}: ${escapeHtml(it.title || "")}</div>
         <div class="cp-meta">${escapeHtml(it.meta || "")}</div>

@@ -1246,8 +1246,10 @@ async function handleApi(request, response, url) {
       state.captureInbox = state.captureInbox.slice(0, 500);
       state.updatedAt = Date.now();
       await mkdir(dataDir, { recursive: true });
-      await writeFile(stateTmp, JSON.stringify(state), "utf8");
-      await rename(stateTmp, statePath);
+      // Audit-Finding R4: pro Request eindeutiger Tmp-Name → keine Race-Condition zwischen /api/capture + /api/state
+      const captureTmp = `${statePath}.${process.pid}.${Date.now()}.tmp`;
+      await writeFile(captureTmp, JSON.stringify(state), "utf8");
+      await rename(captureTmp, statePath);
       // SSE-Broadcast (Multi-Device-Sync) — Audit-Finding #5: hieß fälschlich broadcastStateUpdate
       broadcastSse("state-updated", { updatedAt: state.updatedAt, source: "capture" });
       await audit("capture.received", { source, subject, sender });
@@ -1873,7 +1875,11 @@ async function handleApi(request, response, url) {
     response.write(`: connected ${clientId}\n\n`);
     // Heartbeat alle 25s
     const heartbeat = setInterval(() => {
-      try { response.write(`: ping\n\n`); } catch { clearInterval(heartbeat); }
+      try { response.write(`: ping\n\n`); } catch {
+        // Audit-Finding R4: bei Schreib-Fehler Client aus Map entfernen (Memory-Leak)
+        clearInterval(heartbeat);
+        sseClients.delete(clientId);
+      }
     }, 25000);
     request.on("close", () => {
       clearInterval(heartbeat);
@@ -1902,8 +1908,10 @@ async function handleApi(request, response, url) {
         }
       }
       await mkdir(dataDir, { recursive: true });
-      await writeFile(stateTmp, body, "utf8");
-      await rename(stateTmp, statePath);
+      // Audit-Finding R4: pro Request eindeutiger Tmp-Name → Race-Condition-sicher
+      const putTmp = `${statePath}.${request.headers["x-client-id"] || process.pid}.${Date.now()}.tmp`;
+      await writeFile(putTmp, body, "utf8");
+      await rename(putTmp, statePath);
       // Andere Tabs/Geräte benachrichtigen
       broadcastSse("state-updated", { updatedAt: parsed.updatedAt || Date.now(), clientId: request.headers["x-client-id"] || null });
       response.writeHead(204);
@@ -2015,7 +2023,9 @@ async function start() {
     // 2. Deny-Liste: sensible Verzeichnisse + Server-Code niemals ausliefern
     const rel = safePath.replace(/\\/g, "/").toLowerCase();
     const DENY_PREFIXES = ["config/", "data/", ".git/", ".claude/", "node_modules/"];
-    const DENY_FILES = ["server.mjs", "telegram-bot.mjs", ".gitignore", "audit_brief.md", "kimi_swarm_hfk_verkaufslernsystem.md"];
+    // Audit-Finding R4: package.json / .env / lock-files dürfen nicht ausgeliefert werden
+    const DENY_FILES = ["server.mjs", "telegram-bot.mjs", ".gitignore", "audit_brief.md", "kimi_swarm_hfk_verkaufslernsystem.md",
+      "package.json", "package-lock.json", ".env", ".env.local", ".env.production"];
     if (
       DENY_PREFIXES.some((p) => rel.startsWith(p)) ||
       DENY_FILES.includes(rel) ||
@@ -2047,6 +2057,19 @@ async function start() {
       if (extension === ".html") {
         headers["X-Content-Type-Options"] = "nosniff";
         headers["Referrer-Policy"] = "same-origin";
+        // Audit-Finding R4: CSP + Framing-Schutz (kein frame-ancestors, kein XSS über inline-scripts)
+        headers["Content-Security-Policy"] = [
+          "default-src 'self'",
+          "script-src 'self'",
+          "style-src 'self' 'unsafe-inline'",   // nötig für inline style="" in Templates
+          "img-src 'self' data: blob:",
+          "connect-src 'self' https://api.openai.com https://api.deepseek.com",
+          "font-src 'self'",
+          "frame-ancestors 'none'",
+          "base-uri 'self'",
+          "form-action 'self'"
+        ].join("; ");
+        headers["X-Frame-Options"] = "DENY";
       }
       // Service Worker darf nie gecached werden
       if (safePath === "sw.js") {
