@@ -9,6 +9,8 @@ export type Stats = {
   byType: Partial<Record<TrainingType, number>>;
   lastChallenge?: string; // YYYY-MM-DD der letzten Tages-Challenge
   weak?: Record<string, number>; // itemKey ("drill:<id>" …) -> Fehlversuch-Gewicht (Spaced Repetition)
+  paths?: Record<string, number[]>; // pathId -> erledigte Schritt-Indizes (Lernpfade)
+  pathsAwarded?: string[]; // bereits mit Abschluss-Bonus belohnte Pfade
 };
 
 export type Progress = {
@@ -55,6 +57,8 @@ function normStats(s: unknown): Stats {
     byType: (o.byType && typeof o.byType === "object" ? o.byType : {}) as Stats["byType"],
     lastChallenge: typeof o.lastChallenge === "string" ? o.lastChallenge : undefined,
     weak: (o.weak && typeof o.weak === "object" ? o.weak : {}) as Record<string, number>,
+    paths: (o.paths && typeof o.paths === "object" ? o.paths : {}) as Record<string, number[]>,
+    pathsAwarded: Array.isArray(o.pathsAwarded) ? (o.pathsAwarded as string[]) : [],
   };
 }
 
@@ -195,6 +199,34 @@ export async function recordResult(
     return { ok: false, xpGain, newBadges: badgesByIds(newBadgeIds), progress: next };
   }
   return { ok: true, xpGain, newBadges: badgesByIds(newBadgeIds), progress: next };
+}
+
+// Lernpfad-Schritt umschalten; bei erstmaligem Abschluss +60 XP Bonus.
+export async function recordPathStep(
+  userKey: string, display: string, pathId: string, totalSteps: number, step: number, done: boolean,
+): Promise<{ ok: boolean; steps: number[]; justCompleted: boolean; xpGain: number }> {
+  const prev = (await getProgress(userKey)) || emptyProgress(userKey, display);
+  const paths = { ...(prev.stats.paths || {}) };
+  const set = new Set<number>((paths[pathId] || []).filter((s) => s >= 0 && s < totalSteps));
+  if (done) set.add(step); else set.delete(step);
+  const steps = [...set].sort((a, b) => a - b);
+  paths[pathId] = steps;
+
+  const awarded = new Set<string>(prev.stats.pathsAwarded || []);
+  let xpGain = 0, justCompleted = false;
+  if (steps.length >= totalSteps && totalSteps > 0 && !awarded.has(pathId)) { awarded.add(pathId); xpGain = 60; justCompleted = true; }
+
+  const stats: Stats = { ...prev.stats, paths, pathsAwarded: [...awarded] };
+  const next: Progress = { ...prev, display: display || prev.display, xp: prev.xp + xpGain, stats };
+  try {
+    const { error } = await db().from("akademie_progress").upsert({
+      user_key: next.user_key, display: next.display, xp: next.xp, sessions_count: next.sessions_count,
+      streak: next.streak, best_streak: next.best_streak, last_active: next.last_active,
+      badges: next.badges, stats: next.stats, updated_at: new Date().toISOString(),
+    }, { onConflict: "user_key" });
+    if (error) return { ok: false, steps, justCompleted, xpGain };
+  } catch { return { ok: false, steps, justCompleted, xpGain }; }
+  return { ok: true, steps, justCompleted, xpGain };
 }
 
 export function badgesByIds(ids: string[]): Badge[] {

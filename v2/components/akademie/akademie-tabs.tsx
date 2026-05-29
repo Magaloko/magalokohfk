@@ -4,7 +4,8 @@ import { usePathname } from "next/navigation";
 import { useEffect } from "react";
 import { cn } from "@/lib/cn";
 
-const TABS: { area: string; label: string; adminOnly?: boolean }[] = [
+const TABS: { area: string; label: string; adminOnly?: boolean; always?: boolean }[] = [
+  { area: "lernpfade", label: "🧭 Lernpfade", always: true },
   { area: "angebote", label: "Angebote" },
   { area: "personas", label: "Personas" },
   { area: "einwaende", label: "Einwände" },
@@ -17,7 +18,7 @@ const TABS: { area: string; label: string; adminOnly?: boolean }[] = [
 
 export function AkademieTabs({ allowed, isAdmin }: { allowed: string[]; isAdmin: boolean }) {
   const pathname = usePathname();
-  const tabs = TABS.filter((t) => (t.adminOnly ? isAdmin : isAdmin || allowed.includes(t.area)));
+  const tabs = TABS.filter((t) => t.always || (t.adminOnly ? isAdmin : isAdmin || allowed.includes(t.area)));
 
   // Zuletzt besuchte Sektion merken (für „Weitermachen" auf dem Hub).
   useEffect(() => {
