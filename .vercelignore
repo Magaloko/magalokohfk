@@ -9,8 +9,9 @@ scripts/
 server.mjs
 telegram-bot.mjs
 ecosystem.config.cjs
-# V2 (eigenes Vercel-Projekt mit Root Directory = v2/) — NICHT ins Live-Projekt deployen
-v2/
+# Hinweis: v2/ NICHT hier ignorieren — Vercel liest diese Root-.vercelignore auch
+# fürs V2-Projekt (Root Directory = v2/) und würde sonst v2/ entfernen (kein next gefunden).
+# Das Live-Projekt baut aus dem Root (kein next in der Root-package.json) und ignoriert v2/ ohnehin.
 # Große lokale Exporte (liegen ohnehin im Parent)
 *.csv
 *.log
