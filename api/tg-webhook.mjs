@@ -6,11 +6,32 @@ import { db, tgConfig, readRawBody } from "../lib/db.mjs";
 // === Env / Config ===
 const cfg = tgConfig();
 const TOKEN = cfg.token;
-const ALLOWED = cfg.allowedUserIds.length ? cfg.allowedUserIds : null;
 const ALLOW_ALL = cfg.allowAllUsers === true;
-const ADMINS = new Set(cfg.adminUserIds.length ? cfg.adminUserIds : cfg.allowedUserIds);
-const USERS = {};
-for (const [id, info] of Object.entries(cfg.users || {})) { const n = Number(id); if (Number.isInteger(n)) USERS[n] = info; }
+// Env-Basis (fix) + Laufzeit-Merge aus bot_users (per-Chat verwaltet).
+const ENV_ALLOWED = cfg.allowedUserIds;
+const ENV_ADMINS = cfg.adminUserIds.length ? cfg.adminUserIds : cfg.allowedUserIds;
+const ENV_USERS = {};
+for (const [id, info] of Object.entries(cfg.users || {})) { const n = Number(id); if (Number.isInteger(n)) ENV_USERS[n] = info; }
+let ALLOWED = [...ENV_ALLOWED];
+let ADMINS = new Set(ENV_ADMINS);
+let USERS = { ...ENV_USERS };
+// Pro Webhook-Invocation: bot_users laden und mit der Env-Basis mergen.
+async function loadAccess() {
+  try {
+    const { data } = await db.from("bot_users").select("uid,name,role,modules");
+    const allow = new Set(ENV_ALLOWED), admins = new Set(ENV_ADMINS), users = { ...ENV_USERS };
+    for (const r of (data || [])) {
+      const uid = Number(r.uid); if (!Number.isInteger(uid)) continue;
+      allow.add(uid);
+      if (r.role === "admin") admins.add(uid);
+      users[uid] = { name: r.name, role: r.role, modules: Array.isArray(r.modules) ? r.modules : [] };
+    }
+    ALLOWED = [...allow]; ADMINS = admins; USERS = users;
+  } catch (e) { console.error("[loadAccess]", e.message); }
+}
+// bot_users-Helfer
+async function dbUpsertUser(uid, fields) { await db.from("bot_users").upsert({ uid: Number(uid), ...fields }); }
+async function dbRemoveUser(uid) { await db.from("bot_users").delete().eq("uid", Number(uid)); }
 const WEBAPP_URL = process.env.WEBAPP_URL || "https://magalokohfk.vercel.app";
 const AI_KEY = process.env.BOT_AI_KEY || "";
 const WEBHOOK_SECRET = process.env.TG_WEBHOOK_SECRET || "";
@@ -247,13 +268,13 @@ async function sendMenu(chatId, userId) {
     [{ text: "🎭 Rollenspiel", callback_data: "menu|rollenspiel" }, { text: "👤 Persona", callback_data: "menu|persona" }, { text: "📊 Score", callback_data: "menu|score" }],
     [{ text: "🎯 Quiz", callback_data: "menu|quiz" }, { text: "☀️ Tages-Aufgabe", callback_data: "menu|tagesaufgabe" }, { text: "📚 Lehren", callback_data: "menu|lern" }]
   ];
-  if (isAdmin(userId)) rows.push([{ text: "📱 Cockpit", web_app: { url: WEBAPP_URL + "#dashboard" } }, { text: "👔 Stephan", web_app: { url: WEBAPP_URL + "#stephan-decisions" } }]);
+  if (isAdmin(userId)) { rows.push([{ text: "📱 Cockpit", web_app: { url: WEBAPP_URL + "#dashboard" } }, { text: "👔 Stephan", web_app: { url: WEBAPP_URL + "#stephan-decisions" } }]); rows.push([{ text: "⚙️ Admin", callback_data: "admin|panel" }]); }
   return tgApi("sendMessage", { chat_id: chatId, text: "<b>🎯 MAGALOKO</b> — Was möchtest du tun?", parse_mode: "HTML", reply_markup: { inline_keyboard: rows } });
 }
 async function cmdStart(chatId, userId) {
   const lines = ["🎓 <b>HFK Verkaufs-Akademie</b>", "", "Trainiere Produktwissen & Verkauf — direkt im Chat.", "", "<b>🎯 Training:</b>", "/drill — Zufalls-Quiz", "/quiz — Gemischtes Quiz (z.B. <code>/quiz 7</code>)", "/tagesaufgabe — Tägliche Challenge ☀️", "/marke <i>LIEWOOD</i> · /einwand <i>preis</i> · /persona <i>anna</i>", "/rollenspiel · /score · /lern", "/check — Wissens-Check · /fortschritt — Skill-Profil"];
   if (hasModule(userId, "ai")) lines.push("/frag <i>…</i> — KI-Assistent");
-  if (isAdmin(userId)) lines.push("", "<i>Admin: User/Module über Vercel-Env verwalten.</i>");
+  if (isAdmin(userId)) lines.push("", "<b>⚙️ Admin:</b>", "/admin — Panel · /users — Liste", "/adduser <i>ID Name</i> · /setrole <i>ID admin|mitarbeiter</i> · /removeuser <i>ID</i>");
   await send(chatId, lines.join("\n"));
   return sendMenu(chatId, userId);
 }
@@ -540,8 +561,80 @@ async function handleQuizAnswer(cbq) {
   return tgApi("sendMessage", { chat_id: cid, text: nextText, parse_mode: "HTML", reply_markup: nextKb });
 }
 
+// === Admin: User-Verwaltung per Chat (bot_users) ===
+// Policy: Rollen sind nur admin (sieht alles) oder mitarbeiter (nur Akademie).
+async function tgMsgOrEdit(chatId, msgId, text, extra = {}) {
+  const params = { chat_id: chatId, text, parse_mode: "HTML", disable_web_page_preview: true, ...extra };
+  if (msgId) { const r = await tgApi("editMessageText", { ...params, message_id: msgId }).catch(() => ({ ok: false })); if (r && r.ok) return r; }
+  return tgApi("sendMessage", params);
+}
+async function sendAdminPanel(chatId, msgId = null) {
+  const cnt = Object.keys(USERS).length;
+  return tgMsgOrEdit(chatId, msgId, `<b>⚙️ Admin-Panel</b>\n\n👥 <b>${cnt} Nutzer</b> bekannt\n\nBefehle:\n<code>/adduser ID Name</code> · <code>/setrole ID admin|mitarbeiter</code> · <code>/removeuser ID</code>`, {
+    reply_markup: { inline_keyboard: [[{ text: "👥 User-Liste", callback_data: "admin|users" }, { text: "➕ Hinzufügen", callback_data: "admin|addhelp" }], [{ text: "⬅️ Menü", callback_data: "menu|main" }]] }
+  });
+}
+async function sendUserList(chatId, msgId = null) {
+  const entries = Object.entries(USERS);
+  if (!entries.length) return tgMsgOrEdit(chatId, msgId, "📭 <b>Keine Nutzer.</b>\n\n<code>/adduser ID Name</code>", { reply_markup: { inline_keyboard: [[{ text: "⬅️ Admin-Panel", callback_data: "admin|panel" }]] } });
+  const kb = entries.slice(0, 30).map(([id, u]) => [{ text: `${isAdmin(id) ? "🔑" : "👤"} ${u.name || id}`, callback_data: `admin|manage|${id}` }]);
+  kb.push([{ text: "⬅️ Admin-Panel", callback_data: "admin|panel" }]);
+  return tgMsgOrEdit(chatId, msgId, `<b>👥 Nutzer (${entries.length})</b>`, { reply_markup: { inline_keyboard: kb } });
+}
+async function sendManageUser(chatId, targetId, msgId = null) {
+  const id = Number(targetId); const u = USERS[id];
+  if (!u) return tgMsgOrEdit(chatId, msgId, `❌ User <code>${id}</code> nicht gefunden.`, { reply_markup: { inline_keyboard: [[{ text: "⬅️ User-Liste", callback_data: "admin|users" }]] } });
+  const adminFlag = isAdmin(id);
+  const envFixed = ENV_ADMINS.includes(id) || ENV_ALLOWED.includes(id);
+  const kb = [];
+  if (!adminFlag) kb.push([{ text: "🔑 Zu Admin machen", callback_data: `admin|promote|${id}` }]);
+  else if (ADMINS.size > 1) kb.push([{ text: "🔓 Admin-Rechte entziehen", callback_data: `admin|demote|${id}` }]);
+  if (!envFixed) kb.push([{ text: "🗑 User entfernen", callback_data: `admin|remove|${id}` }]);
+  kb.push([{ text: "⬅️ User-Liste", callback_data: "admin|users" }]);
+  return tgMsgOrEdit(chatId, msgId, `<b>⚙️ ${esc(u.name || id)}</b>\nID: <code>${id}</code>\nRolle: ${adminFlag ? "🔑 Admin (sieht alles)" : "👤 Mitarbeiter (nur Akademie)"}${envFixed ? "\n<i>(via Vercel-Env fixiert)</i>" : ""}`, { reply_markup: { inline_keyboard: kb } });
+}
+async function handleAdminCallback(cbq) {
+  const data = cbq.data, chatId = cbq.message?.chat?.id, msgId = cbq.message?.message_id;
+  if (!isAdmin(cbq.from?.id)) return;
+  if (data === "admin|panel") return sendAdminPanel(chatId, msgId);
+  if (data === "admin|users") return sendUserList(chatId, msgId);
+  if (data === "admin|addhelp") return tgMsgOrEdit(chatId, msgId, "➕ <b>User hinzufügen</b>\n\n<code>/adduser [Telegram-ID] [Name]</code>\nBeispiel: <code>/adduser 8715824144 Lorna</code>\n\n💡 ID bekommt der User via <b>/myid</b>.", { reply_markup: { inline_keyboard: [[{ text: "⬅️ User-Liste", callback_data: "admin|users" }]] } });
+  if (data.startsWith("admin|manage|")) return sendManageUser(chatId, data.slice("admin|manage|".length), msgId);
+  if (data.startsWith("admin|promote|")) { const id = Number(data.slice("admin|promote|".length)); const ex = USERS[id] || {}; await dbUpsertUser(id, { name: ex.name || ("User" + id), role: "admin", modules: ex.modules || [] }); await loadAccess(); setUserMenuButton(id, id); return sendManageUser(chatId, id, msgId); }
+  if (data.startsWith("admin|demote|")) { const id = Number(data.slice("admin|demote|".length)); if (ADMINS.size > 1 && !ENV_ADMINS.includes(id)) { const ex = USERS[id] || {}; await dbUpsertUser(id, { name: ex.name || ("User" + id), role: "mitarbeiter", modules: ex.modules || [] }); await loadAccess(); setUserMenuButton(id, id); } return sendManageUser(chatId, id, msgId); }
+  if (data.startsWith("admin|remove|")) { const id = Number(data.slice("admin|remove|".length)); if (!ENV_ADMINS.includes(id) && !ENV_ALLOWED.includes(id)) { await dbRemoveUser(id); await loadAccess(); tgApi("setChatMenuButton", { chat_id: id, menu_button: { type: "commands" } }).catch(() => {}); } return sendUserList(chatId, msgId); }
+}
+async function cmdAddUser(chatId, arg) {
+  const [idStr, ...nameParts] = arg.trim().split(/\s+/); const id = Number(idStr);
+  if (!id || isNaN(id)) return send(chatId, "❌ Syntax: <code>/adduser 123456789 Lorna</code>");
+  const name = nameParts.join(" ") || ("User" + id);
+  await dbUpsertUser(id, { name, role: "mitarbeiter", modules: [] }); await loadAccess(); setUserMenuButton(id, id);
+  return send(chatId, `✅ <b>${esc(name)}</b> (<code>${id}</code>) freigeschaltet.\nRolle: 👤 Mitarbeiter (nur Akademie)\n\nZu Admin: <code>/setrole ${id} admin</code>`);
+}
+async function cmdRemoveUser(chatId, arg) {
+  const id = Number(arg.trim());
+  if (!id || isNaN(id)) return send(chatId, "❌ Syntax: <code>/removeuser 123456789</code>");
+  if (ENV_ADMINS.includes(id) || ENV_ALLOWED.includes(id)) return send(chatId, "❌ Über Vercel-Env fixiert — dort entfernen.");
+  const name = USERS[id]?.name || String(id);
+  await dbRemoveUser(id); await loadAccess();
+  tgApi("setChatMenuButton", { chat_id: id, menu_button: { type: "commands" } }).catch(() => {});
+  return send(chatId, `✅ <b>${esc(name)}</b> (<code>${id}</code>) entfernt.`);
+}
+async function cmdSetRole(chatId, arg) {
+  const [idStr, roleRaw] = arg.trim().split(/\s+/); const id = Number(idStr); const role = (roleRaw || "").toLowerCase();
+  if (!id || isNaN(id) || !["admin", "mitarbeiter"].includes(role)) return send(chatId, "❌ Syntax: <code>/setrole 123456789 admin</code> oder <code>mitarbeiter</code>");
+  if (role === "mitarbeiter") {
+    if (ENV_ADMINS.includes(id)) return send(chatId, "❌ Über Vercel-Env als Admin fixiert — dort ändern.");
+    if (ADMINS.has(id) && ADMINS.size <= 1) return send(chatId, "❌ Das ist der einzige Admin — erst einen anderen Admin setzen.");
+  }
+  const ex = USERS[id] || {};
+  await dbUpsertUser(id, { name: ex.name || ("User" + id), role, modules: ex.modules || [] }); await loadAccess(); setUserMenuButton(id, id);
+  return send(chatId, role === "admin" ? `✅ <b>${esc(USERS[id]?.name || id)}</b> ist jetzt 🔑 <b>Admin</b> — sieht alles.` : `✅ <b>${esc(USERS[id]?.name || id)}</b> ist jetzt 👤 <b>Mitarbeiter</b> — nur Akademie.`);
+}
+
 // === Update-Dispatch ===
 async function handleUpdate(u) {
+  await loadAccess(); // Env + bot_users für diese Invocation mergen
   if (u.callback_query) {
     const cbq = u.callback_query;
     if (!isPrivateChat(cbq.message?.chat)) return tgApi("answerCallbackQuery", { callback_query_id: cbq.id, text: "Nur im Privatchat" });
@@ -562,7 +655,7 @@ async function handleUpdate(u) {
     if (data.startsWith("brand|")) return cmdMarke(cid, data.slice(6));
     if (data.startsWith("einwand|")) return cmdEinwand(cid, data.slice(8));
     if (data.startsWith("persona|")) return cmdPersona(cid, data.slice(8));
-    if (data.startsWith("admin|")) return send(cid, "⚙️ <b>Admin</b>\n\nIm Cloud-Modus werden User & Module über die <b>Vercel-Env</b> verwaltet (<code>ALLOWED_USER_IDS</code>, <code>ADMIN_USER_IDS</code>, <code>TG_USERS_JSON</code>).", BACK_KB);
+    if (data.startsWith("admin|")) return handleAdminCallback(cbq);
     if (data.startsWith("quiz_ans|")) return handleQuizAnswer(cbq);
     if (data === "menu|quiz") return cmdQuiz(cid, uid, 5);
     if (data === "menu|tagesaufgabe") return cmdTagesaufgabe(cid, uid);
@@ -580,8 +673,14 @@ async function handleUpdate(u) {
   const [cmdRaw, ...rest] = text.split(/\s+/);
   const cmd = cmdRaw.toLowerCase().replace(/@.*$/, ""); const arg = rest.join(" ").trim();
   try {
-    if (isAdmin(userId) && ["/users", "/adduser", "/removeuser", "/grant", "/revoke", "/setrole", "/admin"].includes(cmd))
-      return send(chatId, "⚙️ <b>Admin im Cloud-Modus</b>\n\nUser & Module werden über die <b>Vercel-Env-Vars</b> verwaltet:\n• <code>ALLOWED_USER_IDS</code> (Komma-getrennt)\n• <code>ADMIN_USER_IDS</code>\n• <code>TG_USERS_JSON</code> (z.B. <code>{\"123\":{\"name\":\"Lorna\",\"modules\":[\"produkt\"]}}</code>)\n\nNach Änderung: Vercel-Redeploy.");
+    if (isAdmin(userId)) {
+      if (cmd === "/users") return sendUserList(chatId);
+      if (cmd === "/admin") return sendAdminPanel(chatId);
+      if (cmd === "/adduser") return cmdAddUser(chatId, arg);
+      if (cmd === "/removeuser") return cmdRemoveUser(chatId, arg);
+      if (cmd === "/setrole") return cmdSetRole(chatId, arg);
+      if (cmd === "/grant" || cmd === "/revoke") return send(chatId, "ℹ️ Modul-Grants gibt es nicht mehr. Policy: <b>Admin = alles, Mitarbeiter = nur Akademie</b>.\nNutze <code>/setrole ID admin</code> bzw. <code>mitarbeiter</code>.");
+    }
     if (cmd === "/start" || cmd === "/help") return cmdStart(chatId, userId);
     if (cmd === "/frag" || cmd === "/ask" || cmd === "/ai") { if (!hasModule(userId, "ai")) return denyModule(chatId, "KI-Assistent"); return cmdFrag(chatId, arg, msg.from); }
     if (cmd === "/produkt" || cmd === "/p") return send(chatId, "🔍 Produkt-Lookup ist im Cloud-Deployment deaktiviert (JTL-Daten liegen lokal). Nutze /marke für Marken-Infos.");

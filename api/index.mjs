@@ -200,16 +200,22 @@ async function tgAuth(req, res) {
   const userId = Number(tgUser.id);
   if (!Number.isInteger(userId)) return send(res, 400, { error: "Ungültige User-ID" });
 
-  const allowedIds = tgCfg.allowedUserIds;
   const allowAll = tgCfg.allowAllUsers === true;
-  if (!allowAll && allowedIds.length === 0) return send(res, 503, { error: "Zugang nicht konfiguriert" });
-  if (!allowAll && !allowedIds.includes(userId)) return send(res, 403, { error: "Kein Zugriff" });
+  const adminEnv = tgCfg.adminUserIds.length ? tgCfg.adminUserIds : tgCfg.allowedUserIds;
+  // Zugang/Rolle aus Env UND der per-Chat verwalteten bot_users-Tabelle mergen.
+  const allowSet = new Set(tgCfg.allowedUserIds);
+  const adminSet = new Set(adminEnv);
+  try {
+    const { data: bu } = await db.from("bot_users").select("uid, role");
+    for (const r of (bu || [])) { const id = Number(r.uid); if (!Number.isInteger(id)) continue; allowSet.add(id); if (r.role === "admin") adminSet.add(id); }
+  } catch (e) { console.error("[tg-auth] bot_users", e.message); }
+  if (!allowAll && allowSet.size === 0) return send(res, 503, { error: "Zugang nicht konfiguriert" });
+  if (!allowAll && !allowSet.has(userId)) return send(res, 403, { error: "Kein Zugriff" });
 
   const ALL_MODULES = ["akademie", "produkt", "ai"];
-  const adminList = tgCfg.adminUserIds.length ? tgCfg.adminUserIds : allowedIds;
-  const isTgAdmin = adminList.includes(userId);
+  const isTgAdmin = adminSet.has(userId);
   const role = isTgAdmin ? "admin" : "mitarbeiter";
-  // Policy: NUR Admin sieht alles. Alle anderen ausschließlich Akademie (keine produkt-/ai-Module).
+  // Policy: NUR Admin sieht alles. Alle anderen ausschließlich Akademie.
   const modules = isTgAdmin ? ALL_MODULES.slice() : ["akademie"];
 
   const sessionToken = randomBytes(32).toString("base64url");
