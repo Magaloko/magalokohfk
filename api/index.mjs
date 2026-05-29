@@ -14,6 +14,44 @@ function send(res, status, obj, extra) {
   res.end(typeof obj === "string" ? obj : JSON.stringify(obj));
 }
 
+// === SMTP-Config aus Env ===
+const SMTP = {
+  host: process.env.SMTP_HOST || "", port: Number(process.env.SMTP_PORT || 587),
+  user: process.env.SMTP_USER || "", pass: process.env.SMTP_PASS || "",
+  from: process.env.SMTP_FROM || process.env.SMTP_USER || "", secure: process.env.SMTP_SECURE === "true"
+};
+const mailConfigured = !!(SMTP.host && SMTP.user && SMTP.pass);
+const MAIL_ALLOWED = String(process.env.MAIL_ALLOWED || "").split(",").map((s) => s.trim().toLowerCase()).filter(Boolean);
+
+// === Stephan-OTP (1h, max 60 Abrufe) — ersetzt In-Memory-Map ===
+async function validStephanOtp(token) {
+  if (!token || !/^[A-Za-z0-9_-]{10,64}$/.test(token)) return false;
+  const { data } = await db.from("stephan_otps").select("created_at, uses").eq("otp", token).maybeSingle();
+  if (!data) return false;
+  if (Date.now() - Number(data.created_at) > 3600_000) { db.from("stephan_otps").delete().eq("otp", token).then(() => {}, () => {}); return false; }
+  const uses = Number(data.uses || 0) + 1;
+  if (uses > 60) { db.from("stephan_otps").delete().eq("otp", token).then(() => {}, () => {}); return false; }
+  db.from("stephan_otps").update({ uses }).eq("otp", token).then(() => {}, () => {});
+  return true;
+}
+
+// === ICS-Kalender (portiert) ===
+function icsEscape(t) { return String(t || "").replace(/\\/g, "\\\\").replace(/;/g, "\\;").replace(/,/g, "\\,").replace(/\n/g, "\\n"); }
+function icsDate(d) { return String(d || "").replace(/-/g, ""); }
+function icsStamp() { return new Date().toISOString().replace(/[-:]/g, "").replace(/\.\d{3}/, ""); }
+function icsEvent({ uid, summary, description, dateStart }) {
+  const l = ["BEGIN:VEVENT", `UID:${uid}@magaloko`, `DTSTAMP:${icsStamp()}`, `DTSTART;VALUE=DATE:${icsDate(dateStart)}`, `SUMMARY:${icsEscape(summary)}`];
+  if (description) l.push(`DESCRIPTION:${icsEscape(description)}`);
+  l.push("END:VEVENT"); return l.join("\r\n");
+}
+function buildIcs(state) {
+  const ev = [];
+  (state.meetings || []).forEach((m) => { if (m.date) ev.push(icsEvent({ uid: "meeting-" + m.id, summary: `📅 Gespräch: ${m.type}`, description: (m.goal || "") + (m.agenda ? "\n\nAgenda:\n" + m.agenda : ""), dateStart: m.date })); });
+  (state.promises || []).forEach((p) => { if (p.dueDate && !["eingelöst", "verworfen", "verschoben"].includes(p.status)) ev.push(icsEvent({ uid: "promise-" + p.id, summary: `🤝 Versprechen: ${(p.what || "").slice(0, 60)}`, description: `Kontext: ${p.context || "—"}\nStatus: ${p.status}`, dateStart: p.dueDate })); });
+  (state.tasks || []).forEach((t) => { if (t.dueDate && t.status !== "Erledigt" && t.priority === "hoch") ev.push(icsEvent({ uid: "task-" + t.id, summary: `📋 ${t.title}`, description: `Bereich: ${t.area}\nStatus: ${t.status}`, dateStart: t.dueDate })); });
+  return ["BEGIN:VCALENDAR", "VERSION:2.0", "PRODID:-//MAGALOKO//Mago Cockpit//DE", "CALSCALE:GREGORIAN", "METHOD:PUBLISH", "X-WR-CALNAME:MAGALOKO", "X-WR-TIMEZONE:Europe/Berlin", ...ev, "END:VCALENDAR"].join("\r\n");
+}
+
 export default async function handler(req, res) {
   let url;
   try { url = new URL(req.url, "https://x"); } catch { return send(res, 400, { error: "bad url" }); }
@@ -41,7 +79,10 @@ export default async function handler(req, res) {
 
     // ---- Ab hier Auth-Pflicht (wenn aktiv) ----
     const sess = await getSession(req);
-    if (requireAuth && !sess) return send(res, 401, { error: "nicht authentifiziert" });
+    // Stephan-Read-Only: GET /api/state mit gültigem OTP-Token ohne Session erlaubt.
+    const otpOk = (path === "/api/state" && method === "GET")
+      ? await validStephanOtp(url.searchParams.get("token")) : false;
+    if (requireAuth && !sess && !otpOk) return send(res, 401, { error: "nicht authentifiziert" });
 
     // ---- GET /api/state ----
     if (path === "/api/state" && method === "GET") {
@@ -52,7 +93,7 @@ export default async function handler(req, res) {
         const filtered = filterStateForTgRole(full, sess.tgModules?.length ? sess.tgModules : ["akademie"]);
         return send(res, 200, filtered, { "X-MAGALOKO-Role": "mitarbeiter" });
       }
-      return send(res, 200, full);
+      return send(res, 200, full); // Admin oder gültiges Stephan-OTP → volle (read-only) Sicht
     }
 
     // ---- PUT /api/state (Optimistic Concurrency) ----
@@ -107,9 +148,9 @@ export default async function handler(req, res) {
 
     // ---- GET /api/integrations/status ----
     if (path === "/api/integrations/status" && method === "GET")
-      return send(res, 200, { mail: false, slack: !!slackWebhook, calendar: false });
+      return send(res, 200, { mail: mailConfigured, slack: !!slackWebhook, calendar: true });
     if (path === "/api/mail/status" && method === "GET")
-      return send(res, 200, { configured: false });
+      return send(res, 200, { configured: mailConfigured });
 
     // ---- POST /api/slack/send ----
     if (path === "/api/slack/send" && method === "POST") {
@@ -154,13 +195,38 @@ export default async function handler(req, res) {
       return send(res, 200, { total: events.length, events });
     }
 
-    // ---- Sekundär-Features: in v1 noch nicht migriert (bewusst 501) ----
-    if (path === "/api/stephan-link" && method === "GET")
-      return send(res, 501, { error: "Stephan-Link in der Vercel-Migration noch nicht aktiv" });
-    if (path === "/api/mail/send" && method === "POST")
-      return send(res, 501, { error: "Mail-Versand in der Vercel-Migration noch nicht aktiv" });
-    if (path === "/api/calendar.ics" && method === "GET")
-      return send(res, 501, "Kalender in der Vercel-Migration noch nicht aktiv");
+    // ---- GET /api/stephan-link (nur Admin) → kurzlebiges OTP ----
+    if (path === "/api/stephan-link" && method === "GET") {
+      if (!isSessionAdmin(sess)) return send(res, 403, { error: "Nur Admin darf Stephan-Links erzeugen" });
+      const otp = randomBytes(24).toString("base64url");
+      await db.from("stephan_otps").insert({ otp, created_at: Date.now(), uses: 0 });
+      const base = (publicUrl || "").replace(/\/$/, "");
+      return send(res, 200, { url: `${base}/stephan.html?token=${encodeURIComponent(otp)}`, expiresIn: "1h" });
+    }
+
+    // ---- GET /api/calendar.ics ----
+    if (path === "/api/calendar.ics" && method === "GET") {
+      const { data } = await db.from("app_state").select("data").eq("id", STATE_ID).maybeSingle();
+      const ics = buildIcs(data?.data || {});
+      res.writeHead(200, { "Content-Type": "text/calendar; charset=utf-8", "Content-Disposition": "attachment; filename=magaloko.ics", "Cache-Control": "no-cache" });
+      res.end(ics); return;
+    }
+
+    // ---- POST /api/mail/send ----
+    if (path === "/api/mail/send" && method === "POST") {
+      if (!requireSameOrigin(req)) return send(res, 403, { error: "CSRF: Origin nicht erlaubt" });
+      if (!mailConfigured) return send(res, 503, { error: "Mail nicht konfiguriert (SMTP_* Env-Vars setzen)" });
+      const { to, subject, text, html } = JSON.parse(await readRawBody(req) || "{}");
+      if (!to || !subject || (!text && !html)) return send(res, 400, { error: "to, subject und text/html sind Pflicht" });
+      if (MAIL_ALLOWED.length && !MAIL_ALLOWED.includes(String(to).toLowerCase())) return send(res, 403, { error: "Empfänger nicht erlaubt (MAIL_ALLOWED)" });
+      try {
+        const nm = await import("nodemailer");
+        const transporter = nm.default.createTransport({ host: SMTP.host, port: SMTP.port, secure: SMTP.secure, auth: { user: SMTP.user, pass: SMTP.pass } });
+        await transporter.sendMail({ from: SMTP.from, to, subject, text, html });
+        await audit("mail.sent", { to, subject });
+        return send(res, 200, { ok: true });
+      } catch (e) { console.error("[mail]", e.message); return send(res, 500, { error: "Mail konnte nicht gesendet werden" }); }
+    }
 
     return send(res, 404, { error: "not found", path });
   } catch (err) {

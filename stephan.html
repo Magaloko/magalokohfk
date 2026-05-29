@@ -114,7 +114,8 @@
 
       $("stephan-date").textContent = new Date().toLocaleDateString("de-DE", { weekday: "long", day: "2-digit", month: "long", year: "numeric" });
 
-      fetch("/api/state").then((r) => r.json()).then((state) => {
+      const _stephanToken = new URLSearchParams(location.search).get("token") || "";
+      fetch("/api/state" + (_stephanToken ? "?token=" + encodeURIComponent(_stephanToken) : "")).then((r) => r.json()).then((state) => {
         const overduePromises = (state.promises || []).filter((p) => (p.status === "offen" || p.status === "in Arbeit") && p.dueDate && p.dueDate < today);
         const openPromises = (state.promises || []).filter((p) => p.status === "offen" || p.status === "in Arbeit");
         const seboT = state.seboSnapshot?.totals || {};
@@ -176,7 +177,7 @@
           ? risks.map((r) => `<article class="stephan-decision overdue"><strong>${esc(r.title)}</strong><span class="muted">Score ${(r.likelihood||0)*(r.impact||0)} · ${esc(r.category)} · Owner: ${esc(r.owner || "—")}</span>${r.signals ? `<p style="margin:4px 0;"><strong>Warnsignal:</strong> ${esc(r.signals)}</p>` : ""}${r.mitigation ? `<p style="margin:4px 0;"><strong>Plan:</strong> ${esc(r.mitigation)}</p>` : ""}</article>`).join("")
           : '<p class="muted">Keine kritischen Risiken aktuell.</p>';
       }).catch((err) => {
-        document.body.insertAdjacentHTML("afterbegin", `<div class="notice danger" style="margin:20px;">Datenladung fehlgeschlagen: ${err.message}. Möglich: Auth aktiv, Stephan-View braucht Magic-Link.</div>`);
+        document.body.insertAdjacentHTML("afterbegin", `<div class="notice danger" style="margin:20px;">Datenladung fehlgeschlagen: ${err.message}. Der Link ist evtl. abgelaufen (gültig 1 h) — bitte neuen Stephan-Link von Mago anfordern.</div>`);
       });
     </script>
   </body>
