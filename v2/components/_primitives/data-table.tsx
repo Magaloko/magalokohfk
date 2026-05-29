@@ -38,14 +38,14 @@ export function DataTable<T>({
           ))}
         </tbody>
       </table>
-      {/* Mobile */}
+      {/* Mobile: gestapelt & linksbündig — lange Werte bleiben lesbar */}
       <ul className="divide-y divide-line/60 sm:hidden">
         {rows.map((row, i) => (
           <li key={getKey(row, i)} className="p-4">
             {columns.filter((c) => !c.hideOnMobile).map((c) => (
-              <div key={c.key} className="mb-1.5 flex justify-between gap-3 last:mb-0">
-                <span className="text-xs uppercase text-muted-2">{c.label}</span>
-                <span className="text-right text-sm">{c.render(row)}</span>
+              <div key={c.key} className="mb-2.5 last:mb-0">
+                <span className="mb-0.5 block text-[11px] font-semibold uppercase tracking-wide text-muted-2">{c.label}</span>
+                <span className="block text-sm">{c.render(row)}</span>
               </div>
             ))}
           </li>

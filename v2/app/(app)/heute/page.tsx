@@ -55,7 +55,7 @@ export default async function HeutePage() {
   return (
     <PageShell title="Heute" icon="home" subtitle={dateLabel}>
       <div className="flex flex-col gap-5">
-        <div className="grid grid-cols-2 gap-3 lg:grid-cols-6">
+        <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-6">
           <Stat href="/kalender" icon="calendar" label="Termine heute" value={agenda.length} sub="in der Agenda" />
           <Stat href="/cockpit/tasks" icon="alert" label="Fällig / überfällig" value={dueTasks.length} sub={`${openTasks.length} offen`} />
           <Stat href="/cockpit/entscheidungen" icon="clock" label="Anstehende Fristen" value={upcomingDecisions.length} sub="Entscheidungen" />
@@ -145,8 +145,8 @@ export default async function HeutePage() {
 
 function Stat({ href, icon, label, value, sub, subIcon, subIconSuffix }: { href: string; icon: string; label: string; value: number; sub?: string; subIcon?: string; subIconSuffix?: string }) {
   return (
-    <Link href={href} className="rounded-xl border border-line bg-surface p-4 shadow-sm transition hover:border-accent">
-      <div className="flex items-center justify-between"><Icon name={icon} className="h-5 w-5" /><span className="text-2xl font-extrabold">{value}</span></div>
+    <Link href={href} className="rounded-xl border border-line bg-surface p-5 shadow-sm transition hover:border-accent">
+      <div className="flex items-center justify-between"><Icon name={icon} className="h-5 w-5 text-accent" /><span className="text-3xl font-extrabold">{value}</span></div>
       <div className="mt-2 text-sm font-semibold">{label}</div>
       {sub && (
         <div className="text-xs text-muted-2">
@@ -158,7 +158,7 @@ function Stat({ href, icon, label, value, sub, subIcon, subIconSuffix }: { href:
 }
 function Section({ titleIcon, title, href, children, linkLabel = "Alle →" }: { titleIcon: string; title: string; href: string; children: React.ReactNode; linkLabel?: string }) {
   return (
-    <section className="rounded-xl border border-line bg-surface p-4 shadow-sm">
+    <section className="rounded-xl border border-line bg-surface p-5 shadow-sm">
       <div className="mb-3 flex items-center justify-between">
         <h2 className="flex items-center gap-1.5 text-xs font-bold uppercase tracking-wide text-muted-2">
           <Icon name={titleIcon} className="h-3.5 w-3.5" />{title}
