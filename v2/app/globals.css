@@ -1,21 +1,21 @@
 @import "tailwindcss";
 
-/* === MAGALOKO V2 Design-Tokens (ZENA-V3-Muster: @theme inline) === */
+/* === MAGALOKO V2 Design-Tokens — HELLES Theme === */
 @theme {
-  --color-bg: #0f1020;
-  --color-surface: #1a1b33;
-  --color-surface-2: #232544;
-  --color-line: rgba(255, 255, 255, 0.08);
-  --color-ink: #f2f3ff;
-  --color-muted: #a3a6c8;
-  --color-muted-2: #6e718f;
-  --color-accent: #6ea8fe;
-  --color-accent-2: #4f8ef7;
-  --color-teal: #38d6c4;
-  --color-gold: #f5c451;
-  --color-green: #4ade80;
-  --color-red: #f87171;
-  --color-amber: #fbbf24;
+  --color-bg: #f4f6fb;
+  --color-surface: #ffffff;
+  --color-surface-2: #eef1f7;
+  --color-line: rgba(15, 23, 42, 0.10);
+  --color-ink: #1b1d2e;
+  --color-muted: #565a78;
+  --color-muted-2: #8b8fa8;
+  --color-accent: #2f6bf5;
+  --color-accent-2: #1e57e0;
+  --color-teal: #0d9488;
+  --color-gold: #c98a04;
+  --color-green: #16a34a;
+  --color-red: #dc2626;
+  --color-amber: #d97706;
 
   --font-sans: "Manrope", ui-sans-serif, system-ui, -apple-system, sans-serif;
   --font-mono: "JetBrains Mono", ui-monospace, monospace;
