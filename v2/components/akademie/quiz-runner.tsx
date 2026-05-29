@@ -4,6 +4,7 @@ import { cn } from "@/lib/cn";
 import { Confetti } from "./confetti";
 import { ResultRewards } from "./result-rewards";
 import type { Drill, Einwand, Marke } from "@/lib/akademie";
+import type { TrainingType } from "@/lib/progress";
 
 type Opt = { text: string; correct: boolean; feedback?: string };
 type Q = { type: string; label: string; frage: string; opts: Opt[]; muster?: string };
@@ -40,7 +41,7 @@ function makeMarkenQ(marken: Marke[]): Q | null {
   return { type: "marken", label: "🏷 Marke", frage: `Aus welchem Land kommt die Marke ${t.name}?`, opts, muster: t.philosophie ? `„${t.philosophie.slice(0, 120)}"` : undefined };
 }
 
-export function QuizRunner({ drills, einwaende, marken, n = 5, onClose }: { drills: Drill[]; einwaende: Einwand[]; marken: Marke[]; n?: number; onClose: () => void }) {
+export function QuizRunner({ drills, einwaende, marken, n = 5, onClose, recordType = "quiz", title }: { drills: Drill[]; einwaende: Einwand[]; marken: Marke[]; n?: number; onClose: () => void; recordType?: TrainingType; title?: string }) {
   const questions = useMemo<Q[]>(() => {
     const gens: Array<() => Q | null> = [];
     if (drills.length >= 2) gens.push(() => makeDrillQ(drills));
@@ -70,7 +71,7 @@ export function QuizRunner({ drills, einwaende, marken, n = 5, onClose }: { dril
           <div className="text-5xl">{emoji}</div>
           <div className="mt-2 text-3xl font-extrabold">{score}<span className="text-lg text-muted">/{questions.length}</span></div>
           <div className="text-muted">{pct}% richtig{best >= 2 ? ` · 🔥 beste Serie ${best}` : ""}</div>
-          <ResultRewards type="quiz" score={score} total={questions.length} />
+          <ResultRewards type={recordType} score={score} total={questions.length} />
           <div className="mt-5 flex justify-center gap-2">
             <button onClick={() => { setIdx(0); setScore(0); setStreak(0); setBest(0); setAnswered(null); }} className="rounded-lg bg-accent px-4 py-2 font-semibold text-bg">🔄 Nochmal</button>
             <button onClick={onClose} className="rounded-lg bg-surface-2 px-4 py-2 font-semibold">✓ Fertig</button>

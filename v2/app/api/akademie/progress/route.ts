@@ -7,9 +7,9 @@ export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
 const TYPE_AREA: Record<TrainingType, string> = {
-  drill: "drills", quiz: "drills", szenario: "szenarien", rollenspiel: "rollenspiele",
+  drill: "drills", quiz: "drills", szenario: "szenarien", rollenspiel: "rollenspiele", challenge: "drills",
 };
-const TYPES: TrainingType[] = ["drill", "quiz", "szenario", "rollenspiel"];
+const TYPES: TrainingType[] = ["drill", "quiz", "szenario", "rollenspiel", "challenge"];
 
 export async function GET() {
   const sess = await getSession();

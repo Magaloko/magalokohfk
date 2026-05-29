@@ -1,12 +1,13 @@
 import { db } from "./supabase-server";
 
-export type TrainingType = "drill" | "quiz" | "szenario" | "rollenspiel";
+export type TrainingType = "drill" | "quiz" | "szenario" | "rollenspiel" | "challenge";
 
 export type Stats = {
   perfects: number;
   totalCorrect: number;
   totalAnswered: number;
   byType: Partial<Record<TrainingType, number>>;
+  lastChallenge?: string; // YYYY-MM-DD der letzten Tages-Challenge
 };
 
 export type Progress = {
@@ -51,6 +52,7 @@ function normStats(s: unknown): Stats {
     totalCorrect: Number(o.totalCorrect) || 0,
     totalAnswered: Number(o.totalAnswered) || 0,
     byType: (o.byType && typeof o.byType === "object" ? o.byType : {}) as Stats["byType"],
+    lastChallenge: typeof o.lastChallenge === "string" ? o.lastChallenge : undefined,
   };
 }
 
@@ -130,8 +132,8 @@ export async function recordResult(
   const score = Math.max(0, Math.round(input.score) || 0);
   const total = Math.max(0, Math.round(input.total) || 0);
   const pct = total ? Math.round((score / total) * 100) : 0;
-  // 5 Basis-XP fürs Abschließen + 10/richtige Antwort + Bonus bei starkem Ergebnis.
-  const xpGain = 5 + score * 10 + (pct === 100 ? 30 : pct >= 80 ? 15 : 0);
+  // 5 Basis-XP fürs Abschließen + 10/richtige Antwort + Bonus bei starkem Ergebnis + Challenge-Bonus.
+  const xpGain = 5 + score * 10 + (pct === 100 ? 30 : pct >= 80 ? 15 : 0) + (input.type === "challenge" ? 25 : 0);
 
   const today = new Date().toISOString().slice(0, 10);
 
@@ -149,6 +151,7 @@ export async function recordResult(
     totalCorrect: prev.stats.totalCorrect + score,
     totalAnswered: prev.stats.totalAnswered + total,
     byType: { ...prev.stats.byType, [input.type]: (prev.stats.byType[input.type] || 0) + 1 },
+    lastChallenge: input.type === "challenge" ? today : prev.stats.lastChallenge,
   };
 
   const next: Progress = {

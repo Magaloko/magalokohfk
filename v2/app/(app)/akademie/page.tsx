@@ -5,6 +5,7 @@ import { PageShell } from "@/components/_primitives/page-shell";
 import { QuizLauncher } from "@/components/akademie/quiz-launcher";
 import { DrillLauncher } from "@/components/akademie/drill-launcher";
 import { ContinueCard } from "@/components/akademie/continue-card";
+import { ChallengeCard } from "@/components/akademie/challenge-card";
 import { getProgress, getLeaderboard, levelInfo, BADGES, emptyProgress } from "@/lib/progress";
 
 export const dynamic = "force-dynamic";
@@ -33,6 +34,8 @@ export default async function AkademieHub() {
   const progress = (await getProgress(sess.email)) || emptyProgress(sess.email);
   const lvl = levelInfo(progress.xp);
   const board = await getLeaderboard(sess.email, 8);
+  const today = new Date().toISOString().slice(0, 10);
+  const challengeDone = progress.stats.lastChallenge === today;
 
   return (
     <PageShell title="🎓 Akademie" subtitle="Dein Verkaufstraining — wähle einen Bereich oder leg direkt los.">
@@ -69,6 +72,8 @@ export default async function AkademieHub() {
             })}
           </div>
         </section>
+
+        {showQuick && <ChallengeCard drills={d.drills} einwaende={d.einwaende} marken={d.marken} doneToday={challengeDone} streak={progress.streak} />}
 
         <ContinueCard allowed={areas} />
 
