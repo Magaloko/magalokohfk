@@ -1,7 +1,9 @@
 {
   "$schema": "https://openapi.vercel.sh/vercel.json",
   "functions": {
-    "api/index.mjs": { "maxDuration": 30 }
+    "api/index.mjs": { "maxDuration": 30 },
+    "api/tg-webhook.mjs": { "maxDuration": 30 },
+    "api/tg-setup.mjs": { "maxDuration": 15 }
   },
   "rewrites": [
     { "source": "/auth/(.*)", "destination": "/api/index" },

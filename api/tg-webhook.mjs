@@ -1,0 +1,614 @@
+// MAGALOKO Telegram-Bot — Vercel Serverless Webhook (Phase 2).
+// Portiert aus telegram-bot.mjs: Long-Poll → Webhook, Datei-IO → Supabase.
+// Quiz/Check/Daily-State (früher RAM) liegt jetzt in der Tabelle bot_sessions.
+import { db, tgConfig, readRawBody } from "../lib/db.mjs";
+
+// === Env / Config ===
+const cfg = tgConfig();
+const TOKEN = cfg.token;
+const ALLOWED = cfg.allowedUserIds.length ? cfg.allowedUserIds : null;
+const ALLOW_ALL = cfg.allowAllUsers === true;
+const ADMINS = new Set(cfg.adminUserIds.length ? cfg.adminUserIds : cfg.allowedUserIds);
+const USERS = {};
+for (const [id, info] of Object.entries(cfg.users || {})) { const n = Number(id); if (Number.isInteger(n)) USERS[n] = info; }
+const WEBAPP_URL = process.env.WEBAPP_URL || "https://magalokohfk.vercel.app";
+const AI_KEY = process.env.BOT_AI_KEY || "";
+const WEBHOOK_SECRET = process.env.TG_WEBHOOK_SECRET || "";
+
+// === Telegram-API (fetch) ===
+async function tgApi(method, params) {
+  try {
+    const r = await fetch(`https://api.telegram.org/bot${TOKEN}/${method}`, {
+      method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(params || {})
+    });
+    return await r.json();
+  } catch (e) { return { ok: false, error: e.message }; }
+}
+const send = (chatId, text, extra = {}) =>
+  tgApi("sendMessage", { chat_id: chatId, text, parse_mode: "HTML", disable_web_page_preview: true, ...extra });
+const BACK_KB = { reply_markup: { inline_keyboard: [[{ text: "⬅️ Menü", callback_data: "menu|main" }]] } };
+
+// === Utils ===
+function esc(s) { return String(s ?? "").replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;"); }
+const norm = (s) => String(s || "").toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g, "");
+function pick(arr) { return arr[Math.floor(Math.random() * arr.length)]; }
+function shuffleArr(arr) { const a = [...arr]; for (let i = a.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [a[i], a[j]] = [a[j], a[i]]; } return a; }
+const QUIZ_LETTERS = ["A", "B", "C", "D"];
+function tgUserName(from) { if (!from) return "Unbekannt"; return [from.first_name, from.last_name].filter(Boolean).join(" ") || from.username || ("User" + from.id); }
+function fmtScore(s) { return Number.isInteger(s) ? String(s) : s.toFixed(1).replace(".", ","); }
+
+// === Access ===
+function isAllowed(uid) { uid = Number(uid); if (!Number.isInteger(uid)) return false; if (ALLOW_ALL) return true; if (uid in USERS) return true; if (!ALLOWED) return false; return ALLOWED.includes(uid); }
+function isAdmin(uid) { uid = Number(uid); return Number.isInteger(uid) && ADMINS.has(uid); }
+const ALL_MODULES = ["akademie", "produkt", "ai"];
+function getUserModules(uid) { if (isAdmin(uid)) return ALL_MODULES; const u = USERS[Number(uid)]; return ["akademie", ...(u?.modules || [])]; }
+function hasModule(uid, mod) { return isAdmin(uid) || getUserModules(uid).includes(mod); }
+function isPrivateChat(chat) { return chat?.type === "private"; }
+
+// === Daten aus Supabase (app_state) ===
+let _dc = null, _dt = 0;
+async function loadData() {
+  const now = Date.now();
+  if (_dc && now - _dt < 8000) return _dc;
+  const { data } = await db.from("app_state").select("data").eq("id", "hfk").maybeSingle();
+  const st = data?.data || {};
+  const ws = st.workspaces?.hfk?.data || st;
+  _dc = { drills: ws.akademieDrills || [], marken: ws.akademieMarken || [], einwaende: ws.salesObjections || [], personas: ws.salesPersonas || [], roleplays: ws.akademieRoleplays || [] };
+  _dt = now; return _dc;
+}
+async function loadFullState() {
+  const { data } = await db.from("app_state").select("data").eq("id", "hfk").maybeSingle();
+  const st = data?.data || {}; return st.workspaces?.hfk?.data || st;
+}
+
+// === Scores / Learnings / Sessions (Supabase) ===
+async function appendScore(rec) {
+  try {
+    await db.from("bot_scores").insert({
+      uid: rec.uid ? Number(rec.uid) : null, name: rec.name || null, type: rec.type || null,
+      item_id: rec.itemId || rec.drillId || null, correct: typeof rec.correct === "boolean" ? rec.correct : null,
+      score: rec.score ?? null, total: rec.total ?? null, marke: rec.marke || null,
+      topics: rec.topics || null, ts: rec.ts || new Date().toISOString()
+    });
+  } catch (e) { console.error("[appendScore]", e.message); }
+}
+async function loadScores() {
+  const { data } = await db.from("bot_scores").select("uid,name,type,item_id,correct,score,total,marke,ts")
+    .order("ts", { ascending: false }).limit(4000);
+  return (data || []).reverse().map((r) => ({
+    uid: Number(r.uid), name: r.name, type: r.type, itemId: r.item_id, drillId: r.item_id,
+    correct: r.correct === true, score: r.score, total: r.total, marke: r.marke, ts: r.ts
+  }));
+}
+async function loadLearnings() {
+  const { data } = await db.from("bot_learnings").select("*").limit(500);
+  return (data || []).map((r) => ({ id: r.id, keywords: r.keywords || [], topic: r.topic, correction: r.correction, addedAt: r.added_at, addedBy: r.added_by }));
+}
+async function saveLearning(e) {
+  await db.from("bot_learnings").insert({ id: e.id, keywords: e.keywords, topic: e.topic, correction: e.correction, added_at: e.addedAt, added_by: e.addedBy });
+}
+function findRelevantLearnings(question, learnings) {
+  const q = question.toLowerCase();
+  return learnings.filter((l) => (l.keywords || []).some((kw) => q.includes(kw.toLowerCase())) || q.includes((l.topic || "").toLowerCase()));
+}
+async function getSess(uid) { const { data } = await db.from("bot_sessions").select("state").eq("uid", Number(uid)).maybeSingle(); return data?.state || {}; }
+async function patchSess(uid, patch) { const cur = await getSess(uid); await db.from("bot_sessions").upsert({ uid: Number(uid), state: { ...cur, ...patch }, updated_at: new Date().toISOString() }); }
+
+// === Quiz-Fragen-Generatoren (pur) ===
+function makeDrillQ(drills, chooser = pick) {
+  const pool = drills.filter((d) => (d.optionen || []).length >= 2 && d.optionen.some((o) => o.ist_richtig === true || (o.punkte || 0) > 0));
+  if (!pool.length) return null;
+  const drill = chooser(pool);
+  const opts = shuffleArr(drill.optionen.map((o) => ({ text: (o.text || "").slice(0, 110), correct: o.ist_richtig === true || (o.punkte || 0) > 0, feedback: o.feedback || "" })));
+  if (!opts.some((o) => o.correct)) return null;
+  return { type: "drill", label: "⚡ Drill", itemId: drill.id || drill.frage || "", frage: `⚡ <b>Drill — ${esc(drill.marke || "allgemein")}</b>\n\n${esc(drill.frage || "")}`, opts, muster: drill.musterantwort ? `\n📝 <b>Musterantwort:</b> ${esc(drill.musterantwort)}` : "" };
+}
+function makeEinwandQ(einwaende, chooser = pick) {
+  const pool = einwaende.filter((e) => e.antwort && e.antwort.trim().length >= 8);
+  if (pool.length < 4) return null;
+  const target = chooser(pool);
+  const wrong3 = shuffleArr(pool.filter((e) => e !== target)).slice(0, 3);
+  const opts = shuffleArr([{ text: target.antwort.slice(0, 110), correct: true, feedback: `✓ Beste Strategie bei „${esc(target.kategorie || "diesem Einwand")}"` }, ...wrong3.map((e) => ({ text: e.antwort.slice(0, 110), correct: false, feedback: "✗ Das passt zu einem anderen Einwand-Typ." }))]);
+  return { type: "einwand_mc", label: "💬 Einwand", itemId: target.id || target.einwand || "", frage: `💬 <b>Einwand-Training</b>\n\nKunde sagt:\n<i>„${esc(target.einwand)}"</i>\n\n<b>Welche Antwort ist am besten?</b>`, opts, muster: target.beweis ? `\n💡 ${esc(target.beweis.slice(0, 150))}` : "" };
+}
+function makeMarkenQ(marken, chooser = pick) {
+  const pool = marken.filter((m) => m.herkunft?.land);
+  if (pool.length < 4) return null;
+  const target = chooser(pool);
+  const allLaender = [...new Set(pool.map((m) => m.herkunft.land))];
+  const wrongLaender = shuffleArr(allLaender.filter((l) => l !== target.herkunft.land)).slice(0, 3);
+  if (wrongLaender.length < 3) return null;
+  const opts = shuffleArr([{ text: target.herkunft.land, correct: true, feedback: `✓ ${esc(target.name)} kommt aus ${esc(target.herkunft.land)}${target.herkunft.gruendung ? ` (gegr. ${esc(String(target.herkunft.gruendung))})` : ""}` }, ...wrongLaender.map((l) => ({ text: l, correct: false, feedback: `✗ ${esc(target.name)} kommt aus ${esc(target.herkunft.land)}.` }))]);
+  return { type: "marken_quiz", label: "🏷 Marke", itemId: target.id || target.name || "", frage: `🏷 <b>Marken-Quiz</b>\n\nAus welchem Land kommt <b>${esc(target.name)}</b>?\n<i>${esc((target.philosophie || "").slice(0, 60))}</i>`, opts, muster: target.philosophie ? `\n<i>„${esc(target.philosophie.slice(0, 120))}"</i>` : "" };
+}
+
+// === Adaptiv + Spaced Repetition (pur) ===
+function scoreTopic(rec) { const t = String(rec.type || ""); if (t === "drill" || t === "quiz_drill") return "drill"; if (t === "einwand_mc" || t === "quiz_einwand_mc") return "einwand"; if (t === "marken_quiz" || t === "quiz_marken_quiz") return "marken"; return null; }
+const TOPIC_LABEL = { drill: "⚡ Drills", einwand: "💬 Einwände", marken: "🏷 Marken" };
+async function computeSkillProfile(userId) {
+  const uid = Number(userId);
+  const scores = (await loadScores()).filter((r) => Number(r.uid) === uid);
+  const buckets = { drill: [], einwand: [], marken: [] };
+  for (const r of scores) { const tp = scoreTopic(r); if (tp) buckets[tp].push(r.correct === true); }
+  const profile = {};
+  for (const [tp, arr] of Object.entries(buckets)) {
+    if (!arr.length) { profile[tp] = { total: 0, correct: 0, skill: 0.5, seen: false }; continue; }
+    const total = arr.length, correct = arr.filter(Boolean).length;
+    const recent = arr.slice(-10);
+    profile[tp] = { total, correct, skill: 0.6 * (correct / total) + 0.4 * (recent.filter(Boolean).length / recent.length), seen: true };
+  }
+  return profile;
+}
+async function buildItemHistory(userId) {
+  const uid = Number(userId);
+  const scores = (await loadScores()).filter((r) => Number(r.uid) === uid);
+  const hist = { drill: new Map(), einwand: new Map(), marken: new Map() };
+  for (const r of scores) { const tp = scoreTopic(r); if (!tp) continue; const id = r.itemId || r.drillId; if (!id) continue; const ts = Date.parse(r.ts) || 0; if (!hist[tp].has(id)) hist[tp].set(id, []); hist[tp].get(id).push({ correct: r.correct === true, ts }); }
+  for (const m of Object.values(hist)) for (const arr of m.values()) arr.sort((a, b) => a.ts - b.ts);
+  return hist;
+}
+function srWeight(historyArr, nowMs) {
+  if (!historyArr || !historyArr.length) return 1.0;
+  const last = historyArr[historyArr.length - 1];
+  if (!last.correct) return 2.5;
+  let consec = 0; for (let i = historyArr.length - 1; i >= 0 && historyArr[i].correct; i--) consec++;
+  const intervalDays = Math.pow(2, consec);
+  return (nowMs - last.ts) / 86400000 >= intervalDays ? 1.2 : 0.25;
+}
+function makeSrChooser(histMap, getId, nowMs) {
+  return (pool) => {
+    if (!pool.length) return pool[0];
+    const weights = pool.map((it) => srWeight(histMap.get(getId(it)), nowMs));
+    const sum = weights.reduce((s, w) => s + w, 0);
+    if (sum <= 0) return pool[Math.floor(Math.random() * pool.length)];
+    let r = Math.random() * sum;
+    for (let i = 0; i < pool.length; i++) { r -= weights[i]; if (r <= 0) return pool[i]; }
+    return pool[pool.length - 1];
+  };
+}
+async function generateAdaptiveQuiz(profile, n = 5, itemHist = null) {
+  const d = await loadData();
+  const nowMs = Date.now();
+  const dC = itemHist ? makeSrChooser(itemHist.drill, (x) => x.id || x.frage || "", nowMs) : pick;
+  const eC = itemHist ? makeSrChooser(itemHist.einwand, (x) => x.id || x.einwand || "", nowMs) : pick;
+  const mC = itemHist ? makeSrChooser(itemHist.marken, (x) => x.id || x.name || "", nowMs) : pick;
+  const avail = [];
+  if (d.drills.length >= 2) avail.push({ topic: "drill", gen: () => makeDrillQ(d.drills, dC) });
+  if (d.einwaende.length >= 4) avail.push({ topic: "einwand", gen: () => makeEinwandQ(d.einwaende, eC) });
+  if (d.marken.length >= 4) avail.push({ topic: "marken", gen: () => makeMarkenQ(d.marken, mC) });
+  if (!avail.length) return [];
+  const weightOf = (t) => Math.max(0.15, 1 - (profile[t]?.skill ?? 0.5));
+  const questions = []; let attempts = 0;
+  while (questions.length < n && attempts < n * 10) {
+    attempts++;
+    const weights = avail.map((a) => weightOf(a.topic));
+    const sum = weights.reduce((s, w) => s + w, 0);
+    let r = Math.random() * sum, chosen = avail[avail.length - 1];
+    for (let i = 0; i < avail.length; i++) { r -= weights[i]; if (r <= 0) { chosen = avail[i]; break; } }
+    const q = chosen.gen(); if (q) questions.push(q);
+  }
+  return questions.slice(0, n);
+}
+function adaptiveFocusNote(profile) {
+  const seen = Object.entries(profile).filter(([, v]) => v.seen);
+  if (!seen.length) return "🎯 <i>Adaptiv: nach ein paar Runden fokussiert das Quiz automatisch deine schwächsten Themen.</i>";
+  const weakest = seen.sort((a, b) => a[1].skill - b[1].skill)[0];
+  return `🎯 <i>Adaptiv — Fokus auf dein schwächstes Thema: ${TOPIC_LABEL[weakest[0]]} (${Math.round(weakest[1].skill * 100)} %). Fragen, die du zuletzt falsch hattest, kommen gezielt wieder.</i>`;
+}
+function quizHint(q) {
+  if (q.type === "einwand_mc") return "💡 <b>Tipp:</b> Welche Antwort geht auf die <i>eigentliche Sorge</i> des Kunden ein — ohne dich zu rechtfertigen?";
+  if (q.type === "marken_quiz") return "💡 <b>Tipp:</b> Denk an die Design-Tradition & Herkunft der Marke.";
+  return "💡 <b>Tipp:</b> Überleg das stärkste Verkaufsargument — die Antwort mit dem größten Kundennutzen.";
+}
+
+// === Pre/Post-Check ===
+const CHECK_MIN_DAYS = 7, CHECK_N = 9;
+async function generateCheckQuestions() {
+  const d = await loadData(); const qs = [];
+  for (let i = 0; i < 6 && qs.filter((q) => q.type === "drill").length < 3; i++) { const q = makeDrillQ(d.drills); if (q) qs.push(q); }
+  for (let i = 0; i < 6 && qs.filter((q) => q.type === "einwand_mc").length < 3; i++) { const q = makeEinwandQ(d.einwaende); if (q) qs.push(q); }
+  for (let i = 0; i < 6 && qs.filter((q) => q.type === "marken_quiz").length < 3; i++) { const q = makeMarkenQ(d.marken); if (q) qs.push(q); }
+  return shuffleArr(qs).slice(0, CHECK_N);
+}
+function checkTopicScores(questions, results) {
+  const topics = { drill: { c: 0, t: 0 }, einwand_mc: { c: 0, t: 0 }, marken_quiz: { c: 0, t: 0 } };
+  questions.forEach((q, i) => { if (!topics[q.type]) return; topics[q.type].t++; if (results[i]?.correct) topics[q.type].c++; });
+  return topics;
+}
+function checkTopicLine(label, icon, pre, post) {
+  const pct = (v) => v.t ? Math.round(v.c / v.t * 100) : null;
+  const prePct = pct(pre), postPct = pct(post);
+  if (prePct === null) return null;
+  if (postPct === null) return `${icon} ${label}: <b>${prePct}%</b> (${pre.c}/${pre.t}) — kein Post-Check`;
+  const diff = postPct - prePct;
+  return `${icon} ${label}: ${prePct}% → <b>${postPct}%</b> (${diff > 0 ? `📈 +${diff}%` : diff < 0 ? `📉 ${diff}%` : "➡️ ±0%"})`;
+}
+function renderQuizMsg(q, qi, total, streak = 0) {
+  const fill = "▓".repeat(qi), empty = "░".repeat(total - qi);
+  const streakTag = streak >= 2 ? `  🔥${streak}` : "";
+  const optLines = q.opts.map((o, i) => `${QUIZ_LETTERS[i]}) ${o.text}`).join("\n");
+  const text = `${fill}${empty} <b>${qi + 1}/${total}</b> · ${q.label || ""}${streakTag}\n\n${q.frage}\n\n${optLines}`;
+  return { text: text.slice(0, 4000), keyboard: { inline_keyboard: [q.opts.map((_, i) => ({ text: QUIZ_LETTERS[i], callback_data: `quiz_ans|${qi}|${i}` }))] } };
+}
+
+// === Commands: Menu / Start ===
+function setUserMenuButton(chatId, userId) {
+  let btn;
+  if (isAdmin(userId)) btn = { type: "web_app", text: "🚀 Cockpit", web_app: { url: WEBAPP_URL } };
+  else if (hasModule(userId, "produkt")) btn = { type: "web_app", text: "🔍 Produkt", web_app: { url: WEBAPP_URL + "#produkt-lookup" } };
+  else btn = { type: "web_app", text: "🎓 Akademie", web_app: { url: WEBAPP_URL + "#akademie" } };
+  tgApi("setChatMenuButton", { chat_id: chatId, menu_button: btn }).catch(() => {});
+}
+async function sendMenu(chatId, userId) {
+  setUserMenuButton(chatId, userId);
+  const rows = [
+    [{ text: "⚡ Drill", callback_data: "menu|drill" }, { text: "🏷️ Marke", callback_data: "menu|marken" }, { text: "💬 Einwand", callback_data: "menu|einwand" }],
+    [{ text: "🎭 Rollenspiel", callback_data: "menu|rollenspiel" }, { text: "👤 Persona", callback_data: "menu|persona" }, { text: "📊 Score", callback_data: "menu|score" }],
+    [{ text: "🎯 Quiz", callback_data: "menu|quiz" }, { text: "☀️ Tages-Aufgabe", callback_data: "menu|tagesaufgabe" }, { text: "📚 Lehren", callback_data: "menu|lern" }]
+  ];
+  if (isAdmin(userId)) rows.push([{ text: "📱 Cockpit", web_app: { url: WEBAPP_URL + "#dashboard" } }, { text: "👔 Stephan", web_app: { url: WEBAPP_URL + "#stephan-decisions" } }]);
+  return tgApi("sendMessage", { chat_id: chatId, text: "<b>🎯 MAGALOKO</b> — Was möchtest du tun?", parse_mode: "HTML", reply_markup: { inline_keyboard: rows } });
+}
+async function cmdStart(chatId, userId) {
+  const lines = ["🎓 <b>HFK Verkaufs-Akademie</b>", "", "Trainiere Produktwissen & Verkauf — direkt im Chat.", "", "<b>🎯 Training:</b>", "/drill — Zufalls-Quiz", "/quiz — Gemischtes Quiz (z.B. <code>/quiz 7</code>)", "/tagesaufgabe — Tägliche Challenge ☀️", "/marke <i>LIEWOOD</i> · /einwand <i>preis</i> · /persona <i>anna</i>", "/rollenspiel · /score · /lern", "/check — Wissens-Check · /fortschritt — Skill-Profil"];
+  if (hasModule(userId, "ai")) lines.push("/frag <i>…</i> — KI-Assistent");
+  if (isAdmin(userId)) lines.push("", "<i>Admin: User/Module über Vercel-Env verwalten.</i>");
+  await send(chatId, lines.join("\n"));
+  return sendMenu(chatId, userId);
+}
+function denyModule(chatId, modLabel) { return send(chatId, `🔒 <b>${modLabel}</b> ist für deine Rolle nicht freigeschaltet.\n\nNutze: /drill /quiz /marke /einwand`); }
+
+async function cmdMarkenMenu(chatId) {
+  const d = await loadData(); if (!d.marken.length) return send(chatId, "Keine Marken geladen.", BACK_KB);
+  const btns = d.marken.map((m) => ({ text: m.name, callback_data: `brand|${(m.id || m.name).slice(0, 60)}` }));
+  const rows = []; for (let i = 0; i < btns.length; i += 2) rows.push(btns.slice(i, i + 2)); rows.push([{ text: "⬅️ Menü", callback_data: "menu|main" }]);
+  return tgApi("sendMessage", { chat_id: chatId, text: "🏷️ <b>Welche Marke?</b>", parse_mode: "HTML", reply_markup: { inline_keyboard: rows } });
+}
+async function cmdEinwandMenu(chatId) {
+  const d = await loadData();
+  let kategorien = [...new Set(d.einwaende.map((e) => e.kategorie).filter(Boolean))].slice(0, 10);
+  if (!kategorien.length) kategorien = ["Preis", "Lieferung", "Amazon", "Qualität", "Notwendigkeit", "Marke"];
+  const btns = kategorien.map((k) => ({ text: k, callback_data: `einwand|${k.slice(0, 60)}` }));
+  const rows = []; for (let i = 0; i < btns.length; i += 2) rows.push(btns.slice(i, i + 2)); rows.push([{ text: "⬅️ Menü", callback_data: "menu|main" }]);
+  return tgApi("sendMessage", { chat_id: chatId, text: "💬 <b>Welche Einwand-Kategorie?</b>", parse_mode: "HTML", reply_markup: { inline_keyboard: rows } });
+}
+async function cmdPersonaMenu(chatId) {
+  const d = await loadData(); if (!d.personas.length) return send(chatId, "Keine Personas geladen.", BACK_KB);
+  const btns = d.personas.map((p) => ({ text: p.name, callback_data: `persona|${(p.id || p.name).slice(0, 60)}` }));
+  const rows = []; for (let i = 0; i < btns.length; i += 2) rows.push(btns.slice(i, i + 2)); rows.push([{ text: "⬅️ Menü", callback_data: "menu|main" }]);
+  return tgApi("sendMessage", { chat_id: chatId, text: "👤 <b>Welche Persona?</b>", parse_mode: "HTML", reply_markup: { inline_keyboard: rows } });
+}
+
+async function cmdDrill(chatId, markeArg) {
+  const d = await loadData(); let pool = d.drills;
+  if (markeArg) pool = pool.filter((x) => norm(x.marke).includes(norm(markeArg)));
+  if (!pool.length) return send(chatId, "Keine Drills gefunden" + (markeArg ? ` für „${esc(markeArg)}"` : "") + ".");
+  const drill = pick(pool);
+  const keyboard = (drill.optionen || []).map((o, i) => [{ text: `${String.fromCharCode(65 + i)}) ${(o.text || "").slice(0, 60)}`, callback_data: `drill|${drill.id}|${i}` }]);
+  await send(chatId, `<b>⚡ Drill — ${esc(drill.marke || "allgemein")}</b>\n\n${esc(drill.frage || "")}`, { reply_markup: { inline_keyboard: keyboard } });
+}
+async function handleDrillAnswer(cbq) {
+  const [, drillId, optIdxStr] = (cbq.data || "").split("|");
+  const d = await loadData(); const drill = d.drills.find((x) => x.id === drillId);
+  if (!drill) return tgApi("answerCallbackQuery", { callback_query_id: cbq.id, text: "Drill nicht mehr verfügbar" });
+  const opt = (drill.optionen || [])[parseInt(optIdxStr, 10)];
+  const correct = opt && (opt.ist_richtig === true || opt.punkte > 0);
+  tgApi("answerCallbackQuery", { callback_query_id: cbq.id, text: correct ? "✓ Richtig!" : "✗ Leider falsch" }).catch(() => {});
+  await appendScore({ ts: new Date().toISOString(), uid: cbq.from?.id, name: tgUserName(cbq.from), type: "drill", drillId, marke: drill.marke || "", correct: !!correct });
+  const fb = opt?.feedback || (correct ? "Richtig!" : "Leider falsch.");
+  const muster = drill.musterantwort ? `\n\n<b>Musterantwort:</b>\n${esc(drill.musterantwort)}` : "";
+  await send(cbq.message.chat.id, `${correct ? "✅" : "❌"} <b>${esc(drill.frage || "")}</b>\n\n${esc(fb)}${muster}`, { reply_markup: { inline_keyboard: [[{ text: "⚡ Nächster Drill", callback_data: "menu|drill" }], [{ text: "⬅️ Menü", callback_data: "menu|main" }]] } });
+}
+
+async function cmdMarke(chatId, arg) {
+  const d = await loadData();
+  if (!arg) return send(chatId, "Welche Marke? Z.B. <code>/marke LIEWOOD</code>\n\n<b>Verfügbar:</b> " + esc(d.marken.map((m) => m.name).filter(Boolean).join(", ")));
+  const m = d.marken.find((x) => norm(x.name).includes(norm(arg)));
+  if (!m) return send(chatId, `Marke „${esc(arg)}" nicht gefunden.`);
+  const herk = m.herkunft || {};
+  const heroes = (m.hero_produkte || m.top_produkte || []).slice(0, 3).map((h) => typeof h === "string" ? h : (h.name || h.produkt || "")).filter(Boolean);
+  const args = (m.verkaufsargumente || m.usps || []).slice(0, 5).map((a) => typeof a === "string" ? a : (a.argument || a.text || "")).filter(Boolean);
+  const kat = (m.kategorien || []).slice(0, 6).map((k) => typeof k === "string" ? k : (k.name || "")).filter(Boolean);
+  let txt = `<b>📕 ${esc(m.name)}</b>\n<i>${esc([herk.land, herk.stadt, herk.gruendung].filter(Boolean).join(" · "))}</i>\n\n`;
+  if (m.philosophie) txt += `„${esc(m.philosophie)}"\n\n`;
+  if (kat.length) txt += `<b>Kategorien:</b> ${esc(kat.join(", "))}\n\n`;
+  if (heroes.length) txt += `<b>Hero-Produkte:</b>\n${heroes.map((h) => "• " + esc(h)).join("\n")}\n\n`;
+  if (args.length) txt += `<b>Verkaufsargumente:</b>\n${args.map((a) => "✓ " + esc(a)).join("\n")}`;
+  await send(chatId, txt.slice(0, 4000), BACK_KB);
+}
+async function cmdEinwand(chatId, arg) {
+  const d = await loadData();
+  if (!arg) return send(chatId, "Stichwort? Z.B. <code>/einwand preis</code>");
+  const q = norm(arg);
+  const hits = d.einwaende.filter((e) => norm(e.einwand).includes(q) || norm(e.kategorie).includes(q) || norm(e.antwort).includes(q)).slice(0, 3);
+  if (!hits.length) return send(chatId, `Kein Einwand zu „${esc(arg)}" gefunden.`, BACK_KB);
+  for (let i = 0; i < hits.length; i++) {
+    const e = hits[i];
+    let txt = `<b>💬 „${esc(e.einwand)}"</b>\n<i>${esc(e.kategorie || "")}</i>\n\n`;
+    if (e.antwort) txt += `<b>Antwort:</b> ${esc(e.antwort)}\n`;
+    if (e.beweis) txt += `\n<b>Beweis:</b> ${esc(e.beweis)}`;
+    await send(chatId, txt.slice(0, 4000), i === hits.length - 1 ? BACK_KB : {});
+  }
+}
+async function cmdPersona(chatId, arg) {
+  const d = await loadData();
+  if (!arg) return send(chatId, "Welche Persona? Z.B. <code>/persona anna</code>\n\n<b>Verfügbar:</b> " + esc(d.personas.map((p) => p.name).filter(Boolean).join(", ")));
+  const p = d.personas.find((x) => norm(x.name).includes(norm(arg)) || norm(x.id).includes(norm(arg)));
+  if (!p) return send(chatId, `Persona „${esc(arg)}" nicht gefunden.`);
+  let txt = `<b>👤 ${esc(p.name)}</b>`;
+  if (p.alter || p.kontext || p.wohnort) txt += ` <i>(${esc([p.alter, p.kontext || p.wohnort].filter(Boolean).join(", "))})</i>`;
+  txt += "\n\n";
+  if (p.zitat) txt += `„${esc(p.zitat)}"\n\n`;
+  if (p.schmerzpunkte) txt += `<b>Schmerz:</b> ${esc(typeof p.schmerzpunkte === "string" ? p.schmerzpunkte : JSON.stringify(p.schmerzpunkte))}\n`;
+  if (p.werte) txt += `<b>Werte:</b> ${esc(typeof p.werte === "string" ? p.werte : JSON.stringify(p.werte))}\n`;
+  if (p.einwaendeTypisch) txt += `<b>Typ. Einwand:</b> ${esc(p.einwaendeTypisch)}\n`;
+  if (p.budget) txt += `<b>Budget:</b> ${esc(typeof p.budget === "string" ? p.budget : JSON.stringify(p.budget))}`;
+  await send(chatId, txt.slice(0, 4000), BACK_KB);
+}
+async function cmdScore(chatId, userId, userName) {
+  const mine = (await loadScores()).filter((s) => s.uid === Number(userId) && s.type === "drill");
+  if (!mine.length) return send(chatId, "Noch keine Drills absolviert. /drill starten!");
+  const total = mine.length, correct = mine.filter((s) => s.correct).length, pct = Math.round((correct / total) * 100);
+  const byMarke = {};
+  mine.forEach((s) => { const m = s.marke || "allgemein"; byMarke[m] = byMarke[m] || { total: 0, correct: 0 }; byMarke[m].total++; if (s.correct) byMarke[m].correct++; });
+  let streak = 0; for (let i = mine.length - 1; i >= 0; i--) { if (mine[i].correct) streak++; else break; }
+  const markeLines = Object.entries(byMarke).sort((a, b) => b[1].total - a[1].total).slice(0, 8).map(([m, s]) => `  ${esc(m)}: ${s.correct}/${s.total} (${Math.round(s.correct / s.total * 100)}%)`).join("\n");
+  await send(chatId, `<b>📊 Dein Score, ${esc(userName)}</b>\n\nDrills gesamt: <b>${total}</b>\nRichtig: <b>${correct}</b> (${pct}%)\nAktuelle Serie: <b>${streak}</b> ${streak >= 3 ? "🔥" : ""}\n\n<b>Nach Marke:</b>\n${markeLines}`, BACK_KB);
+}
+async function cmdRollenspiel(chatId) {
+  const d = await loadData(); if (!d.roleplays.length) return send(chatId, "Keine Rollenspiele verfügbar.");
+  const rp = pick(d.roleplays);
+  let txt = `<b>🎭 ${esc(rp.titel || "Rollenspiel")}</b>\n\n<b>Persona:</b> ${esc(rp.persona || "")}\n<b>Setting:</b> ${esc(rp.setting || "")}\n<b>Technik:</b> ${esc(rp.verkaufstechnik || "")} · <b>Ziel-AOV:</b> €${rp.ziel_aov || "—"}\n\n`;
+  if ((rp.ablauf || []).length) txt += `<b>Ablauf:</b>\n${rp.ablauf.map((s) => `${s.schritt || "•"}. <b>${esc(s.name || "")}</b> — ${esc((s.beschreibung || "").slice(0, 120))}`).join("\n")}\n\n`;
+  if ((rp.einwaende || []).length) txt += `<b>Einwände:</b>\n${rp.einwaende.map((e) => `• „${esc(e.einwand)}" → <i>${esc(e.erwartete_technik || "")}</i>`).join("\n")}`;
+  await send(chatId, txt.slice(0, 4000), { reply_markup: { inline_keyboard: [[{ text: "🎭 Nächstes", callback_data: "menu|rollenspiel" }], [{ text: "⬅️ Menü", callback_data: "menu|main" }]] } });
+}
+async function cmdLern(chatId, content, from) {
+  if (!content.trim()) return send(chatId, "📚 <b>Bot-Lernen</b>\n\nSyntax: <code>/lern STICHWORT: Korrektur</code>\n\nBeispiel:\n<code>/lern finkid: Kommt aus Deutschland, nicht Finnland</code>", BACK_KB);
+  const colonIdx = content.indexOf(":");
+  let keywords = [], correctionText = content;
+  if (colonIdx > 0) { keywords = [content.slice(0, colonIdx).trim().toLowerCase()]; correctionText = content.slice(colonIdx + 1).trim(); }
+  await saveLearning({ id: `lrn-${Date.now()}`, keywords, topic: keywords[0] || "allgemein", correction: correctionText, addedAt: new Date().toISOString().slice(0, 10), addedBy: tgUserName(from) });
+  return send(chatId, `✅ <b>Gelernt!</b>\n\n<b>Stichwort:</b> ${esc(keywords[0] || "allgemein")}\n<b>Info:</b> ${esc(correctionText.slice(0, 200))}`, BACK_KB);
+}
+
+// === KI ===
+async function callAI(messages) {
+  if (!AI_KEY) throw new Error("NO_KEY");
+  const r = await fetch("https://api.deepseek.com/v1/chat/completions", { method: "POST", headers: { "Content-Type": "application/json", Authorization: `Bearer ${AI_KEY}` }, body: JSON.stringify({ model: "deepseek-chat", messages, max_tokens: 1200, temperature: 0.65 }) });
+  const j = await r.json(); const t = j.choices?.[0]?.message?.content;
+  if (!t) throw new Error(j.error?.message || "Leere Antwort"); return t;
+}
+function buildContext(question, ws) {
+  const q = question.toLowerCase(); const parts = [];
+  parts.push("Datum: " + new Date().toLocaleDateString("de-AT", { weekday: "long", year: "numeric", month: "long", day: "numeric" }));
+  if (q.match(/aufgabe|task|todo|offen|nächste/)) { const t = (ws.tasks || []).filter((x) => x.status !== "done" && x.status !== "erledigt").slice(0, 12); if (t.length) parts.push(`Offene Aufgaben:\n${t.map((x) => `• ${x.title || x.text || x.name} [${x.status || "offen"}]`).join("\n")}`); }
+  if (q.match(/entscheidung|stephan|pitch|angebot/)) { const ds = (ws.stephanDecisions || []).slice(0, 8); if (ds.length) parts.push(`Entscheidungen:\n${ds.map((x) => `• ${x.titel || x.title}`).join("\n")}`); }
+  if (q.match(/marke|liewood|stokke|joolz|produkt/)) { const ms = (ws.akademieMarken || []).slice(0, 12); if (ms.length) parts.push(`Marken: ${ms.map((m) => m.name).filter(Boolean).join(", ")}`); }
+  if (q.match(/kpi|umsatz|woche|zahlen/)) { const k = (ws.weeklyKpis || []).slice(-4); if (k.length) parts.push(`KPIs:\n${k.map((x) => JSON.stringify(x).slice(0, 200)).join("\n")}`); }
+  return parts.join("\n\n");
+}
+async function cmdFrag(chatId, question, from) {
+  if (!question.trim()) return send(chatId, "🤖 <b>Frag mich etwas über HFK!</b>\n\nz.B. „Was sind offene Tasks?“ oder „Was weiß ich über Liewood?“\n\n<i>Oder schreib die Frage direkt ohne /frag.</i>");
+  await tgApi("sendChatAction", { chat_id: chatId, action: "typing" });
+  try {
+    const ws = await loadFullState(); if (!ws) throw new Error("State nicht verfügbar");
+    const context = buildContext(question, ws);
+    const relevant = findRelevantLearnings(question, await loadLearnings());
+    const learningsContext = relevant.length ? `\n\n⚠️ KORREKTUREN (haben Vorrang):\n${relevant.map((l) => `• ${l.topic}: ${l.correction}`).join("\n")}` : "";
+    const messages = [
+      { role: "system", content: "Du bist Mago, KI-Assistent für HFK (Babyfachhandel Wien/Österreich). Antworte auf Deutsch, präzise, Telegram-HTML (<b>,<i>,<code>), kein Markdown. Nutze ⚠️ KORREKTUREN mit höchster Priorität. Erfinde nichts. Max 400 Wörter." },
+      { role: "user", content: context ? `MAGALOKO-Kontext:\n${context}${learningsContext}\n\n---\nFrage von ${esc(tgUserName(from))}: ${question}` : `${learningsContext}\n\nFrage: ${question}` }
+    ];
+    const answer = await callAI(messages);
+    for (let i = 0; i < answer.length; i += 4000) await send(chatId, answer.slice(i, i + 4000));
+  } catch (e) {
+    if (e.message === "NO_KEY") return send(chatId, "⚙️ Kein KI-Key konfiguriert (Vercel-Env <code>BOT_AI_KEY</code>).");
+    console.error("[cmdFrag]", e.message);
+    return send(chatId, "⚠️ KI-Anfrage fehlgeschlagen. Versuch es nochmal.");
+  }
+}
+
+// === Quiz-Flow (Session in Supabase) ===
+async function cmdQuiz(chatId, userId, nArg) {
+  const n = Math.min(Math.max(parseInt(nArg || "5", 10) || 5, 3), 10);
+  const profile = await computeSkillProfile(userId);
+  const questions = await generateAdaptiveQuiz(profile, n, await buildItemHistory(userId));
+  if (!questions.length) return send(chatId, "❌ Keine Quiz-Fragen verfügbar. Drills, Einwände und Marken müssen geladen sein.", BACK_KB);
+  await patchSess(userId, { quiz: { questions, idx: 0, score: 0, streak: 0, best: 0, type: "quiz", attempt: 0 } });
+  await send(chatId, adaptiveFocusNote(profile));
+  const { text, keyboard } = renderQuizMsg(questions[0], 0, n, 0);
+  return tgApi("sendMessage", { chat_id: chatId, text, parse_mode: "HTML", reply_markup: keyboard });
+}
+async function cmdTagesaufgabe(chatId, userId) {
+  const today = new Date().toISOString().slice(0, 10);
+  const existing = (await getSess(userId)).daily;
+  if (existing?.date === today && existing.done) {
+    const s = existing.score, e = s === 3 ? "🏆 Perfekt!" : s >= 2 ? "🎯 Stark!" : "📚 Weiter üben!";
+    return send(chatId, `☀️ <b>Tages-Aufgabe — ${today}</b>\n\nHeute bereits erledigt!\n\nScore: <b>${s}/3</b> ${e}`, BACK_KB);
+  }
+  const profile = await computeSkillProfile(userId);
+  const questions = await generateAdaptiveQuiz(profile, 3, await buildItemHistory(userId));
+  if (!questions.length) return send(chatId, "❌ Keine Fragen verfügbar.", BACK_KB);
+  await patchSess(userId, { quiz: { questions, idx: 0, score: 0, streak: 0, best: 0, type: "tagesaufgabe", attempt: 0 }, daily: { date: today, done: false, score: 0 } });
+  await send(chatId, `☀️ <b>Tages-Aufgabe — ${today}</b>\n\n3 gemischte Fragen. Bleib scharf!`);
+  const { text, keyboard } = renderQuizMsg(questions[0], 0, 3, 0);
+  return tgApi("sendMessage", { chat_id: chatId, text, parse_mode: "HTML", reply_markup: keyboard });
+}
+async function cmdCheck(chatId, userId, from) {
+  const sess = await getSess(userId); const stored = sess.check; const now = Date.now();
+  if (stored?.preTs && !stored.postTs) {
+    const daysSince = (now - stored.preTs) / 86400000;
+    if (daysSince < CHECK_MIN_DAYS) {
+      const avail = new Date(stored.preTs + CHECK_MIN_DAYS * 86400000).toLocaleDateString("de-AT");
+      return send(chatId, `🧪 <b>Lern-Check</b>\n\nDein Pre-Check war am ${new Date(stored.preTs).toLocaleDateString("de-AT")}.\nPost-Check ab <b>${avail}</b> verfügbar.\n\n<i>Übe bis dahin mit /quiz.</i>`, BACK_KB);
+    }
+    await send(chatId, `🧪 <b>Post-Check</b>\n\nDieselben ${stored.questions.length} Fragen wie beim Pre-Check.\n<i>Kein Hint — ehrliche Messung.</i>`);
+    await patchSess(userId, { quiz: { questions: stored.questions, idx: 0, score: 0, type: "post-check", attempt: 0, results: [] } });
+    const { text, keyboard } = renderQuizMsg(stored.questions[0], 0, stored.questions.length, 0);
+    return tgApi("sendMessage", { chat_id: chatId, text, parse_mode: "HTML", reply_markup: keyboard });
+  }
+  if (stored?.postTs) return send(chatId, `✅ <b>Lern-Check abgeschlossen!</b>\n\nNutze /fortschritt für die Auswertung.`, BACK_KB);
+  const questions = await generateCheckQuestions();
+  if (questions.length < 3) return send(chatId, "❌ Zu wenige Daten für einen Check.", BACK_KB);
+  await patchSess(userId, { check: { preTs: now, questions, preScore: null, preTopics: null }, quiz: { questions, idx: 0, score: 0, type: "pre-check", attempt: 0, results: [] } });
+  await send(chatId, `🧪 <b>Wissens-Check — Eingangstest</b>\n\n${questions.length} Fragen. Kein Hint — ehrliche Bestandsaufnahme.\nNach ${CHECK_MIN_DAYS}+ Tagen Training zeigt /check deinen Lernzuwachs.`);
+  const { text, keyboard } = renderQuizMsg(questions[0], 0, questions.length, 0);
+  return tgApi("sendMessage", { chat_id: chatId, text, parse_mode: "HTML", reply_markup: keyboard });
+}
+async function cmdFortschritt(chatId, userId, userName) {
+  const profile = await computeSkillProfile(userId);
+  const stored = (await getSess(userId)).check;
+  const lines = [`<b>📈 Lern-Fortschritt — ${esc(userName)}</b>\n`, "<b>Aktuelles Skill-Profil:</b>"];
+  for (const [tp, v] of Object.entries(profile)) {
+    const bar = "█".repeat(Math.round(v.skill * 10)) + "░".repeat(10 - Math.round(v.skill * 10));
+    lines.push(`${TOPIC_LABEL[tp]}: <code>${bar}</code> ${v.seen ? `${Math.round(v.skill * 100)}% (${v.correct}/${v.total})` : "noch kein Training"}`);
+  }
+  if (stored?.postTs) {
+    lines.push("\n<b>Pre→Post-Check:</b>");
+    [checkTopicLine("Drills", "⚡", stored.preTopics?.drill || { c: 0, t: 0 }, stored.postTopics?.drill || { c: 0, t: 0 }),
+     checkTopicLine("Einwände", "💬", stored.preTopics?.einwand_mc || { c: 0, t: 0 }, stored.postTopics?.einwand_mc || { c: 0, t: 0 }),
+     checkTopicLine("Marken", "🏷", stored.preTopics?.marken_quiz || { c: 0, t: 0 }, stored.postTopics?.marken_quiz || { c: 0, t: 0 })].filter(Boolean).forEach((l) => lines.push(l));
+  } else if (stored?.preTs) {
+    lines.push(`\n<i>Post-Check verfügbar ab ${new Date(stored.preTs + CHECK_MIN_DAYS * 86400000).toLocaleDateString("de-AT")}.</i>`);
+  } else lines.push("\n<i>Noch kein Check. Starte mit /check.</i>");
+  return send(chatId, lines.join("\n"), BACK_KB);
+}
+async function handleQuizAnswer(cbq) {
+  const parts = (cbq.data || "").split("|");
+  const qi = parseInt(parts[1], 10), oi = parseInt(parts[2], 10);
+  const userId = cbq.from?.id, cid = cbq.message?.chat?.id;
+  const all = await getSess(userId); const session = all.quiz;
+  if (!session || isNaN(qi) || isNaN(oi)) return tgApi("answerCallbackQuery", { callback_query_id: cbq.id, text: "⚠️ Session abgelaufen — /quiz für neues Quiz" });
+  if (qi !== session.idx) return tgApi("answerCallbackQuery", { callback_query_id: cbq.id, text: "Bereits beantwortet." });
+  const q = session.questions[qi]; const opt = q?.opts?.[oi];
+  if (!opt) return tgApi("answerCallbackQuery", { callback_query_id: cbq.id });
+  const correct = opt.correct === true;
+  const attempt = session.attempt || 0, total = session.questions.length;
+  const isCheck = session.type === "pre-check" || session.type === "post-check";
+  if (!correct && attempt === 0 && !isCheck) {
+    session.attempt = 1; await patchSess(userId, { quiz: session });
+    tgApi("answerCallbackQuery", { callback_query_id: cbq.id, text: "Fast! Hinweis beachten 💡" }).catch(() => {});
+    await send(cid, `❌ <b>Nicht ganz.</b>\n\n${quizHint(q)}\n\n<i>Versuch's nochmal:</i>`);
+    const { text: rText, keyboard: rKb } = renderQuizMsg(q, qi, total, session.streak || 0);
+    return tgApi("sendMessage", { chat_id: cid, text: rText, parse_mode: "HTML", reply_markup: rKb });
+  }
+  const firstTry = attempt === 0;
+  session.score = (session.score || 0) + (correct ? (firstTry ? 1 : 0.5) : 0);
+  session.idx++; session.attempt = 0;
+  if (!isCheck) { if (correct && firstTry) { session.streak = (session.streak || 0) + 1; session.best = Math.max(session.best || 0, session.streak); } else session.streak = 0; }
+  const streak = session.streak || 0;
+  const streakTag = (!isCheck && correct && firstTry && streak >= 2) ? ` 🔥${streak}` : "";
+  tgApi("answerCallbackQuery", { callback_query_id: cbq.id, text: correct ? (firstTry ? "✓ Richtig!" + streakTag : "✓ Im 2. Versuch!") : "✗ Leider falsch" }).catch(() => {});
+  await appendScore({ ts: new Date().toISOString(), uid: userId, name: tgUserName(cbq.from), type: isCheck ? session.type : "quiz_" + (q.type || "mixed"), itemId: q.itemId || "", correct: isCheck ? correct : (correct && firstTry) });
+  if (isCheck && Array.isArray(session.results)) session.results.push({ correct });
+  const correctOpt = q.opts.find((o) => o.correct);
+  const reveal = (!correct && correctOpt) ? `\n\n✅ <b>Richtig wäre:</b> ${esc(correctOpt.text)}` : "";
+  const head = isCheck ? (correct ? "✅ Richtig!" : "❌ Leider falsch.") : correct ? (firstTry ? "✅ Richtig!" : "✅ Richtig — im 2. Versuch (½ Punkt)") : "❌ Leider falsch.";
+  let momentum = "";
+  if (!isCheck && correct && firstTry) { if (streak === 3) momentum = "\n\n🔥 <b>3 in Folge — du bist im Flow!</b>"; else if (streak === 5) momentum = "\n\n🔥🔥 <b>5er-Serie! Richtig stark!</b>"; else if (streak >= 7) momentum = `\n\n🔥🔥🔥 <b>${streak} in Folge — unaufhaltsam!</b>`; else if (streak >= 2) momentum = `\n\n🔥 <b>${streak} in Folge</b>`; }
+  const feedbackText = `${head}\n\n${esc(opt.feedback || (correct ? "Gut gemacht!" : "Nicht ganz."))}${reveal}${q.muster || ""}${momentum}`;
+  if (session.idx >= total) {
+    const score = session.score, bestStreak = session.best || 0;
+    const pct = Math.round((score / total) * 100), perfect = score === total;
+    const emoji = perfect ? "🎉" : pct >= 80 ? "🏆" : pct >= 60 ? "🎯" : pct >= 40 ? "💪" : "📚";
+    const msg = perfect ? "🎉 Perfekt — alles richtig!" : pct >= 80 ? "Ausgezeichnet — voll im Flow!" : pct >= 60 ? "Gut! Wiederhol die Fehler-Themen." : "Weiter dran — du wirst besser!";
+    const patch = { quiz: null };
+    if (session.type === "tagesaufgabe") { const today = new Date().toISOString().slice(0, 10); patch.daily = { date: today, done: true, score }; await appendScore({ ts: new Date().toISOString(), uid: userId, name: tgUserName(cbq.from), type: "tagesaufgabe", score, total }); }
+    if (isCheck) {
+      const topics = checkTopicScores(session.questions, session.results || []);
+      const chk = { ...(all.check || {}) };
+      if (session.type === "pre-check") { chk.preScore = score; chk.preTopics = topics; chk.questions = session.questions; await appendScore({ ts: new Date().toISOString(), uid: userId, name: tgUserName(cbq.from), type: "pre-check", score, total, topics }); }
+      else { chk.postScore = score; chk.postTopics = topics; chk.postTs = Date.now(); await appendScore({ ts: new Date().toISOString(), uid: userId, name: tgUserName(cbq.from), type: "post-check", score, total, topics }); }
+      patch.check = chk;
+    }
+    await patchSess(userId, patch);
+    if (isCheck) {
+      let r = `${feedbackText}\n\n━━━━━━━━━━━━━━\n${emoji} <b>${session.type === "pre-check" ? "Eingangstest" : "Abschlusstest"} abgeschlossen!</b>\n\nRichtig: <b>${score}/${total}</b> (${pct}%)\n\n`;
+      if (session.type === "pre-check") r += `<i>Ausgangslevel gespeichert. Übe mit /quiz. Nach ${CHECK_MIN_DAYS}+ Tagen zeigt /check deinen Zuwachs!</i>`;
+      else if (all.check?.preScore != null) { const gp = pct - Math.round(all.check.preScore / total * 100); r += `${gp > 10 ? "🚀" : gp > 0 ? "📈" : gp === 0 ? "➡️" : "📉"} <b>Lernzuwachs: ${gp > 0 ? "+" : ""}${gp}%</b>\n\nDetails: /fortschritt`; }
+      return tgApi("sendMessage", { chat_id: cid, text: r.slice(0, 4000), parse_mode: "HTML", reply_markup: { inline_keyboard: [[{ text: "📈 Fortschritt", callback_data: "menu|fortschritt" }, { text: "⬅️ Menü", callback_data: "menu|main" }]] } });
+    }
+    const bestLine = bestStreak >= 2 ? `\n🔥 Beste Serie: <b>${bestStreak}</b> in Folge` : "";
+    return tgApi("sendMessage", { chat_id: cid, text: `${feedbackText}\n\n━━━━━━━━━━━━━━\n${emoji} <b>Quiz abgeschlossen!</b>\n\nRichtig: <b>${fmtScore(score)}/${total}</b> (${pct}%)${bestLine}\n${msg}`.slice(0, 4000), parse_mode: "HTML", reply_markup: { inline_keyboard: [[{ text: "🔄 Neues Quiz", callback_data: "menu|quiz" }, { text: "☀️ Tages-Aufgabe", callback_data: "menu|tagesaufgabe" }], [{ text: "⬅️ Menü", callback_data: "menu|main" }]] } });
+  }
+  await patchSess(userId, { quiz: session });
+  const nextQ = session.questions[session.idx];
+  const { text: nextText, keyboard: nextKb } = renderQuizMsg(nextQ, session.idx, total, session.streak || 0);
+  await send(cid, feedbackText.slice(0, 1000));
+  return tgApi("sendMessage", { chat_id: cid, text: nextText, parse_mode: "HTML", reply_markup: nextKb });
+}
+
+// === Update-Dispatch ===
+async function handleUpdate(u) {
+  if (u.callback_query) {
+    const cbq = u.callback_query;
+    if (!isPrivateChat(cbq.message?.chat)) return tgApi("answerCallbackQuery", { callback_query_id: cbq.id, text: "Nur im Privatchat" });
+    if (!isAllowed(cbq.from?.id)) return tgApi("answerCallbackQuery", { callback_query_id: cbq.id, text: "Kein Zugriff" });
+    const data = cbq.data || "", cid = cbq.message?.chat?.id, uid = cbq.from?.id;
+    if (!data.startsWith("admin|") && data !== "menu|main" && !hasModule(uid, "akademie")) return tgApi("answerCallbackQuery", { callback_query_id: cbq.id, text: "🔒 Nicht freigeschaltet", show_alert: true });
+    const selfAnswers = data.startsWith("drill|") || data.startsWith("quiz_ans|");
+    if (!selfAnswers) tgApi("answerCallbackQuery", { callback_query_id: cbq.id }).catch(() => {});
+    if (data.startsWith("drill|")) return handleDrillAnswer(cbq);
+    if (data === "menu|main") return sendMenu(cid, uid);
+    if (data === "menu|drill") return cmdDrill(cid, "");
+    if (data === "menu|marken") return cmdMarkenMenu(cid);
+    if (data === "menu|einwand") return cmdEinwandMenu(cid);
+    if (data === "menu|persona") return cmdPersonaMenu(cid);
+    if (data === "menu|rollenspiel") return cmdRollenspiel(cid);
+    if (data === "menu|score") return cmdScore(cid, uid, tgUserName(cbq.from));
+    if (data === "menu|lern") return cmdLern(cid, "", null);
+    if (data.startsWith("brand|")) return cmdMarke(cid, data.slice(6));
+    if (data.startsWith("einwand|")) return cmdEinwand(cid, data.slice(8));
+    if (data.startsWith("persona|")) return cmdPersona(cid, data.slice(8));
+    if (data.startsWith("admin|")) return send(cid, "⚙️ <b>Admin</b>\n\nIm Cloud-Modus werden User & Module über die <b>Vercel-Env</b> verwaltet (<code>ALLOWED_USER_IDS</code>, <code>ADMIN_USER_IDS</code>, <code>TG_USERS_JSON</code>).", BACK_KB);
+    if (data.startsWith("quiz_ans|")) return handleQuizAnswer(cbq);
+    if (data === "menu|quiz") return cmdQuiz(cid, uid, 5);
+    if (data === "menu|tagesaufgabe") return cmdTagesaufgabe(cid, uid);
+    if (data === "menu|fortschritt") return cmdFortschritt(cid, uid, tgUserName(cbq.from));
+    return;
+  }
+  const msg = u.message;
+  if (!msg || !msg.text) return;
+  const chatId = msg.chat.id, userId = msg.from?.id;
+  if (!isPrivateChat(msg.chat)) return;
+  if (msg.text.trim().toLowerCase().startsWith("/myid")) return send(chatId, `🪪 <b>Deine Telegram-User-ID:</b> <code>${userId}</code>\n\nSchick diese Zahl an Mago zur Freischaltung.`);
+  if (!isAllowed(userId)) return send(chatId, `⛔ Kein Zugriff.\n\nDeine ID: <code>${userId}</code>\nBitte bei Mago melden.`);
+  const text = msg.text.trim();
+  if (!text.startsWith("/")) { if (!hasModule(userId, "ai")) return send(chatId, "🔒 Freitext-KI nicht freigeschaltet."); return cmdFrag(chatId, text, msg.from); }
+  const [cmdRaw, ...rest] = text.split(/\s+/);
+  const cmd = cmdRaw.toLowerCase().replace(/@.*$/, ""); const arg = rest.join(" ").trim();
+  try {
+    if (isAdmin(userId) && ["/users", "/adduser", "/removeuser", "/grant", "/revoke", "/setrole", "/admin"].includes(cmd))
+      return send(chatId, "⚙️ <b>Admin im Cloud-Modus</b>\n\nUser & Module werden über die <b>Vercel-Env-Vars</b> verwaltet:\n• <code>ALLOWED_USER_IDS</code> (Komma-getrennt)\n• <code>ADMIN_USER_IDS</code>\n• <code>TG_USERS_JSON</code> (z.B. <code>{\"123\":{\"name\":\"Lorna\",\"modules\":[\"produkt\"]}}</code>)\n\nNach Änderung: Vercel-Redeploy.");
+    if (cmd === "/start" || cmd === "/help") return cmdStart(chatId, userId);
+    if (cmd === "/frag" || cmd === "/ask" || cmd === "/ai") { if (!hasModule(userId, "ai")) return denyModule(chatId, "KI-Assistent"); return cmdFrag(chatId, arg, msg.from); }
+    if (cmd === "/produkt" || cmd === "/p") return send(chatId, "🔍 Produkt-Lookup ist im Cloud-Deployment deaktiviert (JTL-Daten liegen lokal). Nutze /marke für Marken-Infos.");
+    const akademieCmds = ["/drill", "/marke", "/einwand", "/persona", "/rollenspiel", "/rollenspiele", "/score", "/punkte", "/lern", "/learn", "/korrektur", "/quiz", "/tagesaufgabe", "/ta"];
+    if (akademieCmds.includes(cmd) && !hasModule(userId, "akademie")) return denyModule(chatId, "Akademie");
+    if (cmd === "/drill") return cmdDrill(chatId, arg);
+    if (cmd === "/marke") return cmdMarke(chatId, arg);
+    if (cmd === "/einwand") return cmdEinwand(chatId, arg);
+    if (cmd === "/persona") return cmdPersona(chatId, arg);
+    if (cmd === "/rollenspiel" || cmd === "/rollenspiele") return cmdRollenspiel(chatId);
+    if (cmd === "/score" || cmd === "/punkte") return cmdScore(chatId, userId, tgUserName(msg.from));
+    if (cmd === "/lern" || cmd === "/learn" || cmd === "/korrektur") return cmdLern(chatId, arg, msg.from);
+    if (cmd === "/quiz") return cmdQuiz(chatId, userId, arg);
+    if (cmd === "/tagesaufgabe" || cmd === "/ta") return cmdTagesaufgabe(chatId, userId);
+    if (cmd === "/check") return cmdCheck(chatId, userId, msg.from);
+    if (cmd === "/fortschritt" || cmd === "/fp") return cmdFortschritt(chatId, userId, tgUserName(msg.from));
+    return send(chatId, "Unbekannter Befehl. /start für die Hilfe.");
+  } catch (e) { console.error("[cmd]", cmd, e.message); return send(chatId, "Fehler: " + esc(e.message)); }
+}
+
+// === Vercel-Handler ===
+export default async function handler(req, res) {
+  if (req.method !== "POST") { res.writeHead(200); res.end("MAGALOKO Bot Webhook"); return; }
+  // Telegram-Secret-Token prüfen (gegen Fremd-POSTs)
+  if (WEBHOOK_SECRET && req.headers["x-telegram-bot-api-secret-token"] !== WEBHOOK_SECRET) { res.writeHead(401); res.end("unauthorized"); return; }
+  let update;
+  try { update = typeof req.body === "object" && req.body ? req.body : JSON.parse(await readRawBody(req)); }
+  catch { res.writeHead(200); res.end("OK"); return; }
+  try { await handleUpdate(update); } catch (e) { console.error("[webhook]", e?.message); }
+  res.writeHead(200); res.end("OK"); // Telegram immer 200 geben (kein Retry-Storm)
+}
