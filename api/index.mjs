@@ -84,6 +84,10 @@ export default async function handler(req, res) {
       ? await validStephanOtp(url.searchParams.get("token")) : false;
     if (requireAuth && !sess && !otpOk) return send(res, 401, { error: "nicht authentifiziert" });
 
+    // Zentrales Admin-Gate: diese Endpunkte sind ausschließlich für Admins (Policy: Mitarbeiter = nur Akademie, read-only).
+    const ADMIN_ONLY = ["/api/capture", "/api/slack/send", "/api/mail/send", "/api/audit/log", "/api/bot/scores", "/api/stephan-link", "/api/calendar.ics"];
+    if (ADMIN_ONLY.includes(path) && !isSessionAdmin(sess)) return send(res, 403, { error: "Nur Admin" });
+
     // ---- GET /api/state ----
     if (path === "/api/state" && method === "GET") {
       const { data, error } = await db.from("app_state").select("data, updated_at").eq("id", STATE_ID).maybeSingle();
