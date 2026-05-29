@@ -13045,11 +13045,54 @@ function _pollOnce() {
   if (!_bootSyncDone) return; // erst nach initialem Boot-Sync
   syncFromServer(false).catch(() => {});
 }
+
+// SICHERHEIT (Mehrkonto): erkennt einen Telegram-Account-Wechsel bei OFFENER App.
+// Wechselt die initData-User-ID gegenüber der authentifizierten → komplette Neu-Auth,
+// lokalen State verwerfen, Rolle/Bereiche neu sperren, gefiltert neu laden.
+let _reauthing = false;
+async function reauthIfAccountChanged() {
+  const twa = window.Telegram?.WebApp;
+  if (!twa?.initData || _reauthing) return;
+  const curId = Number(twa.initDataUnsafe?.user?.id || 0);
+  if (!curId || !window.tmaUserId || curId === Number(window.tmaUserId)) return; // gleicher Account → nichts tun
+  _reauthing = true;
+  _bootSyncDone = false;          // Polling/Push pausieren
+  state = applyWorkspaceLayer({}); // fremden State sofort verwerfen
+  try { render(); } catch {}
+  try {
+    const r = await fetch("/api/tg-auth", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ initData: twa.initData }) });
+    if (r.ok) {
+      const info = await r.json();
+      window.tmaRole = info.role; window.tmaUserId = info.userId || null;
+      window.tmaModules = Array.isArray(info.modules) ? info.modules : ["akademie"];
+      window.tmaAreas = Array.isArray(info.areas) ? info.areas : null;
+      applyTmaRoleLock(); applyAkademieAreaLock();
+      await syncFromServer(true); _bootSyncDone = true;
+      const allowed = tmaAllowedViews();
+      let v = location.hash?.slice(1) || "dashboard";
+      if (allowed && !allowed.has(v)) v = allowed.has("akademie") ? "akademie" : [...allowed][0];
+      setView(v);
+    } else {
+      try { await fetch("/auth/logout", { method: "POST" }); } catch {}
+      try { localStorage.removeItem(STORAGE_KEY); } catch {}
+      showBootMessage("⛔ Kein Zugriff für diesen Telegram-Account.", "Bitte mit dem berechtigten Account öffnen.");
+    }
+  } catch {
+    showBootMessage("⏳ Anmeldung nicht abgeschlossen.", "Bitte die App in Telegram neu öffnen.");
+  } finally { _reauthing = false; }
+}
+
 function startStateSync() {
   if (_pollTimer) clearInterval(_pollTimer);
   _pollTimer = setInterval(_pollOnce, 25000);
-  document.addEventListener("visibilitychange", () => { if (document.visibilityState === "visible") _pollOnce(); });
+  document.addEventListener("visibilitychange", () => { if (document.visibilityState === "visible") reauthIfAccountChanged().then(_pollOnce); });
   window.addEventListener("online", _pollOnce);
+  // Telegram-Events (Bot API 8.0+): App wird (re)aktiviert → Account-Wechsel prüfen
+  try {
+    const twa = window.Telegram?.WebApp;
+    twa?.onEvent?.("activated", reauthIfAccountChanged);
+    twa?.onEvent?.("themeChanged", reauthIfAccountChanged);
+  } catch {}
 }
 startStateSync();
 if (hasPendingSave() && navigator.onLine) flushOfflineQueue();
