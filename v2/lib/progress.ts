@@ -116,7 +116,8 @@ export async function recordResult(
   const score = Math.max(0, Math.round(input.score) || 0);
   const total = Math.max(0, Math.round(input.total) || 0);
   const pct = total ? Math.round((score / total) * 100) : 0;
-  const xpGain = score * 10 + (pct === 100 ? 30 : pct >= 80 ? 15 : 0);
+  // 5 Basis-XP fürs Abschließen + 10/richtige Antwort + Bonus bei starkem Ergebnis.
+  const xpGain = 5 + score * 10 + (pct === 100 ? 30 : pct >= 80 ? 15 : 0);
 
   const today = new Date().toISOString().slice(0, 10);
 
