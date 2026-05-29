@@ -7,6 +7,7 @@ import { cn } from "@/lib/cn";
 type Hub = { href: string; label: string; icon: string; adminOnly?: boolean };
 const HUBS: Hub[] = [
   { href: "/heute", label: "Heute", icon: "🏠", adminOnly: true },
+  { href: "/kalender", label: "Kalender", icon: "📅", adminOnly: true },
   { href: "/akademie", label: "Akademie", icon: "🎓" },
   { href: "/cockpit", label: "Cockpit", icon: "📊", adminOnly: true },
 ];

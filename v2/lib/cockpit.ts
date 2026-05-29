@@ -4,12 +4,14 @@ export type Task = { id?: string; title?: string; area?: string; status?: string
 export type Lever = { id?: string; title?: string; area?: string; status?: string; expectedImpactEur?: number; effortHours?: number; confidence?: string; risk?: string };
 export type WeeklyKpi = { id?: string; weekStart?: string; weekLabel?: string } & Record<string, unknown>;
 export type Decision = { id?: string; titel?: string; status?: string; frist?: string; kategorie?: string; empfehlung?: string };
+export type CalendarEvent = { id?: string; title?: string; date?: string; time?: string; kind?: string; notes?: string };
 
 export type CockpitData = {
   tasks: Task[];
   levers: Lever[];
   weeklyKpis: WeeklyKpi[];
   decisions: Decision[];
+  calendarEvents: CalendarEvent[];
 };
 
 const CONF: Record<string, number> = { hoch: 1, mittel: 0.7, niedrig: 0.4 };
@@ -41,6 +43,7 @@ export async function getCockpitData(): Promise<CockpitData> {
     levers: arr<Lever>("levers"),
     weeklyKpis: arr<WeeklyKpi>("weeklyKpis"),
     decisions: arr<Decision>("stephanDecisions"),
+    calendarEvents: arr<CalendarEvent>("calendarEvents"),
   };
   _cache = { data: out, ts: Date.now() };
   return out;
