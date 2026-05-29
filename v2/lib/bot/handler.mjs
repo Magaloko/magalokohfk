@@ -2,6 +2,7 @@
 // Portiert aus telegram-bot.mjs: Long-Poll → Webhook, Datei-IO → Supabase.
 // Quiz/Check/Daily-State (früher RAM) liegt jetzt in der Tabelle bot_sessions.
 import { db, tgConfig, webCodeHash, genWebCode } from "./db.mjs";
+import { buildCopilotKB, copilotSystemPrompt } from "../copilot-kb.mjs";
 
 // === Env / Config ===
 const cfg = tgConfig();
@@ -460,29 +461,7 @@ async function cmdFrag(chatId, question, from) {
 }
 
 // === Cockpilot: Microsoft-365-Copilot-Hilfe (Chat-Modus) ===
-function copilotSystemBot() {
-  return [
-    "Du bist „Cockpilot“, der Microsoft-365-Copilot-Trainer von MAGALOKO für HFK (Babyfachhandel Wien/Österreich).",
-    "Beantworte Fragen zu Microsoft 365 Copilot (Outlook, Excel, Word, Teams, PowerPoint) sehr präzise und praxisnah.",
-    "REGELN:",
-    "- Deutsch, freundlich, du-Form. Bei Handlungsfragen IMMER eine nummerierte Schritt-für-Schritt-Anleitung.",
-    "- Wo hilfreich: einen fertigen Beispiel-Prompt zum Kopieren angeben (in Anführungszeichen).",
-    "- Nur echte, existierende Copilot-Funktionen/Menüs nennen. Bei Unsicherheit das offen sagen statt zu raten.",
-    "- Telegram-HTML erlaubt (<b>, <i>, <code>), KEIN Markdown (keine #, ##, **).",
-    "- Kurz halten (max ~350 Wörter). Schließe mit „Nächster Schritt: …“.",
-    "- Bei sensiblen Daten kurz an Datenschutz erinnern (keine sensiblen Kundendaten eingeben).",
-    "",
-    "WISSEN (kurz):",
-    "- M365 Copilot arbeitet in Word/Excel/Outlook/Teams; benötigt die kostenpflichtige Microsoft-365-Copilot-Lizenz.",
-    "- Outlook: Copilot-Symbol oben rechts; „Mit Copilot entwerfen“ beim Verfassen; lange Kette „Zusammenfassen“.",
-    "- Excel: Registerkarte Start ganz rechts; Daten ZUERST als Tabelle formatieren (Strg+T); Analyse, Diagramme, Formeln.",
-    "- Word: oben rechts + am Absatzrand; „Mit Copilot entwerfen“ aus Stichpunkten; Text markieren → umschreiben.",
-    "- Teams: „Copilot“ im Meeting (Transkript/Aufzeichnung nötig); Recap, Entscheidungen, Action Items; Chats aufholen.",
-    "- Guter Prompt = Ziel + Kontext + Quelle + Format/Ton.",
-    "- Copilot kann Fehler machen → Zahlen, Preise, Namen, Fristen immer prüfen.",
-    "- In der MAGALOKO-Web-App gibt es im Hub „Cockpilot“ Schritt-für-Schritt-Guides mit Check-ins.",
-  ].join("\n");
-}
+// Nutzt die gemeinsame, ausführliche Wissensbasis (lib/copilot-kb.mjs) — identisch zur Web-App.
 async function cmdCopilotStart(chatId, uid) {
   if (!AI_KEY) return send(chatId, "⚙️ Kein KI-Key konfiguriert (<code>BOT_AI_KEY</code>).");
   await patchSess(uid, { copilot: { messages: [] } });
@@ -495,9 +474,10 @@ async function cmdCopilotMessage(chatId, uid, text, sess) {
   const hist = Array.isArray(sess.copilot?.messages) ? sess.copilot.messages : [];
   const q = text.slice(0, 2000);
   await tgApi("sendChatAction", { chat_id: chatId, action: "typing" });
+  const today = new Date().toISOString().slice(0, 10);
   let answer;
   try {
-    answer = await callAI([{ role: "system", content: copilotSystemBot() }, ...hist.slice(-8), { role: "user", content: q }]);
+    answer = await callAI([{ role: "system", content: copilotSystemPrompt(buildCopilotKB(), today, "telegram") }, ...hist.slice(-8), { role: "user", content: q }]);
   } catch (e) {
     if (e.message === "NO_KEY") return send(chatId, "⚙️ Kein KI-Key konfiguriert (<code>BOT_AI_KEY</code>).");
     console.error("[copilot]", e.message);

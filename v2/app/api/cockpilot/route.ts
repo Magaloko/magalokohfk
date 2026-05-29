@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getSession } from "@/lib/session";
-import { callAiChat, copilotSystem, type ChatMsg } from "@/lib/ai";
-import { buildCopilotKB } from "@/lib/copilot-kb";
+import { callAiChat, type ChatMsg } from "@/lib/ai";
+import { buildCopilotKB, copilotSystemPrompt } from "@/lib/copilot-kb";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -31,7 +31,7 @@ export async function POST(req: NextRequest) {
 
   try {
     const today = new Date().toISOString().slice(0, 10);
-    const reply = await callAiChat(copilotSystem(buildCopilotKB(), today), messages, 0.3);
+    const reply = await callAiChat(copilotSystemPrompt(buildCopilotKB(), today), messages, 0.3);
     return NextResponse.json({ reply });
   } catch (e) {
     const msg = (e as Error)?.message || "ai_error";
