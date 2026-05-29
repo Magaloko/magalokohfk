@@ -17,20 +17,24 @@ export async function POST(req: NextRequest) {
   if (!v.ok || v.userId == null) return NextResponse.json({ error: "Ungültige Telegram-Signatur" }, { status: 401 });
   const userId = v.userId;
 
-  // Zugang/Rolle/Bereiche aus Env + bot_users mergen
-  const allow = new Set(cfg.allowedUserIds);
-  const admins = new Set(cfg.adminUserIds.length ? cfg.adminUserIds : cfg.allowedUserIds);
+  // STRIKTE Allowlist (deny-by-default): Zugang NUR für explizit zugelassene IDs.
+  // Erlaubt = ALLOWED_USER_IDS (Env) ∪ ADMIN_USER_IDS (Env) ∪ Einträge in bot_users.
+  // Admin = NUR ADMIN_USER_IDS (Env) ∪ bot_users(role='admin'). Kein Allow-All, keine
+  // Auto-Admin-Eskalation, egal wie die Env gesetzt ist.
+  const allow = new Set<number>(cfg.allowedUserIds);
+  const admins = new Set<number>(cfg.adminUserIds);
   let myAreas: string[] = [];
   try {
     const { data: bu } = await db().from("bot_users").select("uid, role, modules");
     for (const r of bu || []) {
       const id = Number(r.uid); if (!Number.isInteger(id)) continue;
-      allow.add(id); if (r.role === "admin") admins.add(id);
+      allow.add(id);
+      if (r.role === "admin") admins.add(id);
       if (id === userId && Array.isArray(r.modules)) myAreas = r.modules;
     }
   } catch { /* ignore */ }
-  if (!cfg.allowAllUsers && allow.size === 0) return NextResponse.json({ error: "Zugang nicht konfiguriert" }, { status: 503 });
-  if (!cfg.allowAllUsers && !allow.has(userId)) return NextResponse.json({ error: "Kein Zugriff" }, { status: 403 });
+  admins.forEach((a) => allow.add(a)); // Admins sind implizit zugelassen
+  if (!allow.has(userId)) return NextResponse.json({ error: "Kein Zugriff" }, { status: 403 });
 
   const isAdmin = admins.has(userId);
   const role = isAdmin ? "admin" : "mitarbeiter";
