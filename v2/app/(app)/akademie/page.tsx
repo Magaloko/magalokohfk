@@ -7,6 +7,7 @@ import { DrillLauncher } from "@/components/akademie/drill-launcher";
 import { ContinueCard } from "@/components/akademie/continue-card";
 import { ChallengeCard } from "@/components/akademie/challenge-card";
 import { getProgress, getLeaderboard, levelInfo, BADGES, emptyProgress } from "@/lib/progress";
+import { PATHS } from "@/lib/paths";
 
 export const dynamic = "force-dynamic";
 
@@ -36,6 +37,7 @@ export default async function AkademieHub() {
   const board = await getLeaderboard(sess.email, 8);
   const today = new Date().toISOString().slice(0, 10);
   const challengeDone = progress.stats.lastChallenge === today;
+  const pathsDone = PATHS.filter((p) => (progress.stats.paths?.[p.id]?.length || 0) >= p.steps.length).length;
 
   return (
     <PageShell title="🎓 Akademie" subtitle="Dein Verkaufstraining — wähle einen Bereich oder leg direkt los.">
@@ -74,6 +76,17 @@ export default async function AkademieHub() {
         </section>
 
         {showQuick && <ChallengeCard drills={d.drills} einwaende={d.einwaende} marken={d.marken} doneToday={challengeDone} streak={progress.streak} />}
+
+        <Link href="/akademie/lernpfade" className="group flex items-center justify-between rounded-xl border border-line bg-gradient-to-br from-accent/10 to-transparent p-4 shadow-sm transition hover:border-accent">
+          <div className="flex items-center gap-3">
+            <span className="text-2xl">🧭</span>
+            <div>
+              <div className="text-sm font-bold">Lernpfade</div>
+              <div className="text-xs text-muted">{PATHS.length} geführte Kurse · {pathsDone}/{PATHS.length} abgeschlossen · +60 XP pro Pfad</div>
+            </div>
+          </div>
+          <span className="text-accent transition group-hover:translate-x-0.5">→</span>
+        </Link>
 
         <ContinueCard allowed={areas} />
 

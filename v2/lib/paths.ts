@@ -31,6 +31,26 @@ export const PATHS: LearnPath[] = [
       { title: "Abschluss-Quiz", hint: "Gelerntes festigen", href: "/akademie/drills" },
     ],
   },
+  {
+    id: "einwand", icon: "💬", title: "Einwand-Meister",
+    desc: "Jeden Einwand souverän in einen Abschluss verwandeln.",
+    steps: [
+      { title: "Einwände-Bibliothek lesen", hint: "Antworten & Beweise", href: "/akademie/einwaende" },
+      { title: "Quick-Quiz", hint: "Einwand-Antworten testen", href: "/akademie/drills" },
+      { title: "Szenario mit Einwänden", hint: "Im Gespräch anwenden", href: "/akademie/szenarien" },
+      { title: "Rollenspiel", hint: "Live gegen echte Einwände", href: "/akademie/rollenspiele" },
+    ],
+  },
+  {
+    id: "beratung", icon: "🤝", title: "Premium-Beratung",
+    desc: "Hochwertig beraten: vom Bedarf zur passenden Empfehlung.",
+    steps: [
+      { title: "Angebote kennen", hint: "Beratungs- & Service-Pakete", href: "/akademie/angebote" },
+      { title: "Personas verstehen", hint: "Bedarf je Kundentyp", href: "/akademie/personas" },
+      { title: "Marken-Wissen", hint: "Passende Hero-Produkte", href: "/akademie/marken" },
+      { title: "Rollenspiel: Beratung", hint: "Alles zusammenführen", href: "/akademie/rollenspiele" },
+    ],
+  },
 ];
 
 export const getPath = (id: string) => PATHS.find((p) => p.id === id);

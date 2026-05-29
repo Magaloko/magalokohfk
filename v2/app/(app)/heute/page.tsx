@@ -2,6 +2,7 @@ import Link from "next/link";
 import { requireAdmin } from "@/lib/auth-helpers";
 import { getCockpitData, leverScore, formatEur, isTaskOpen, isLeverActive, sortedWeeks } from "@/lib/cockpit";
 import { getProgress, levelInfo, emptyProgress } from "@/lib/progress";
+import { PATHS } from "@/lib/paths";
 import { PageShell } from "@/components/_primitives/page-shell";
 
 export const dynamic = "force-dynamic";
@@ -17,6 +18,7 @@ export default async function HeutePage() {
   const { tasks, levers, weeklyKpis, decisions } = await getCockpitData();
   const progress = (await getProgress(sess.email)) || emptyProgress(sess.email);
   const lvl = levelInfo(progress.xp);
+  const pathsDone = PATHS.filter((p) => (progress.stats.paths?.[p.id]?.length || 0) >= p.steps.length).length;
 
   const openTasks = tasks.filter(isTaskOpen);
   const dueTasks = openTasks
@@ -35,9 +37,10 @@ export default async function HeutePage() {
   return (
     <PageShell title="🏠 Heute" subtitle={dateLabel}>
       <div className="flex flex-col gap-5">
-        <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
+        <div className="grid grid-cols-2 gap-3 lg:grid-cols-5">
           <Stat href="/cockpit/tasks" icon="🔴" label="Fällig / überfällig" value={dueTasks.length} sub={`${openTasks.length} offen`} />
           <Stat href="/cockpit/entscheidungen" icon="⏰" label="Anstehende Fristen" value={upcomingDecisions.length} sub="Entscheidungen" />
+          <Stat href="/akademie/lernpfade" icon="🧭" label="Lernpfade" value={pathsDone} sub={`von ${PATHS.length} abgeschlossen`} />
           <Stat href="/cockpit/hebel" icon="🎚" label="Aktive Hebel" value={levers.filter(isLeverActive).length} sub={topLevers[0] ? `Top: ${formatEur(topLevers[0].expectedImpactEur)}/J` : "—"} />
           <Stat href="/akademie" icon="🎓" label="Dein Level" value={lvl.level} sub={`${progress.xp} XP · 🔥 ${progress.streak}`} />
         </div>
