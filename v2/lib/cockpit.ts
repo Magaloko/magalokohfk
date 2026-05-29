@@ -31,7 +31,7 @@ export function formatEur(v: unknown): string {
 let _cache: { data: CockpitData; ts: number } | null = null;
 
 export async function getCockpitData(): Promise<CockpitData> {
-  if (_cache && Date.now() - _cache.ts < 8000) return _cache.data;
+  if (_cache && Date.now() - _cache.ts < 500) return _cache.data;
   const { data } = await db().from("app_state").select("data").eq("id", STATE_ID).maybeSingle();
   const st = (data?.data || {}) as Record<string, unknown>;
   const ws = ((st.workspaces as any)?.hfk?.data || st) as Record<string, unknown>;

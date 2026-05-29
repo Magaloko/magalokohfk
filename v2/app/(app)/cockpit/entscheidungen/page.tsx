@@ -3,6 +3,7 @@ import { requireAdmin } from "@/lib/auth-helpers";
 import { getCockpitData, type Decision } from "@/lib/cockpit";
 import { PageShell } from "@/components/_primitives/page-shell";
 import { EmptyState } from "@/components/_primitives/empty-state";
+import { NewDecisionButton } from "@/components/cockpit/decision-editor";
 
 export const dynamic = "force-dynamic";
 
@@ -18,12 +19,12 @@ const today = () => new Date().toISOString().slice(0, 10);
 export default async function EntscheidungenPage() {
   await requireAdmin();
   const { decisions } = await getCockpitData();
-  if (!decisions.length) return <PageShell title="🧭 Entscheidungen"><EmptyState title="Noch keine Entscheidungen" hint="Stephan-Entscheidungen vorbereiten." /></PageShell>;
+  if (!decisions.length) return <PageShell title="🧭 Entscheidungen" action={<NewDecisionButton />}><EmptyState title="Noch keine Entscheidungen" hint="Stephan-Entscheidungen vorbereiten." /></PageShell>;
 
   const byStatus = (s: string) => decisions.filter((d) => (d.status || "offen") === s);
 
   return (
-    <PageShell title="🧭 Entscheidungen" subtitle={`${decisions.length} gesamt · Stephan-Meetings`}>
+    <PageShell title="🧭 Entscheidungen" subtitle={`${decisions.length} gesamt · Stephan-Meetings`} action={<NewDecisionButton />}>
       <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
         {COLS.map((c) => {
           const items = byStatus(c.key);

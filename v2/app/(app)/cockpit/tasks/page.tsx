@@ -4,6 +4,7 @@ import { getCockpitData, isTaskOpen, type Task } from "@/lib/cockpit";
 import { PageShell } from "@/components/_primitives/page-shell";
 import { DataTable, type Column } from "@/components/_primitives/data-table";
 import { Pill } from "@/components/_primitives/card";
+import { NewTaskButton } from "@/components/cockpit/task-editor";
 
 export const dynamic = "force-dynamic";
 
@@ -42,7 +43,7 @@ export default async function TasksPage() {
   ];
 
   return (
-    <PageShell title="✅ Tasks" subtitle={`${tasks.filter(isTaskOpen).length} offen · ${tasks.length} gesamt`}>
+    <PageShell title="✅ Tasks" subtitle={`${tasks.filter(isTaskOpen).length} offen · ${tasks.length} gesamt`} action={<NewTaskButton />}>
       <DataTable columns={cols} rows={rows} getKey={(r, i) => r.id || String(i)} empty={{ title: "Keine Tasks" }} />
     </PageShell>
   );

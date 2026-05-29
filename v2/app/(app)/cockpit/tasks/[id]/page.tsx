@@ -4,6 +4,7 @@ import { requireAdmin } from "@/lib/auth-helpers";
 import { getCockpitData, isTaskOpen, type Task } from "@/lib/cockpit";
 import { PageShell } from "@/components/_primitives/page-shell";
 import { Pill } from "@/components/_primitives/card";
+import { TaskActions } from "@/components/cockpit/task-editor";
 
 export const dynamic = "force-dynamic";
 
@@ -40,6 +41,7 @@ export default async function TaskDetail({ params }: { params: Promise<{ id: str
             <p className="whitespace-pre-wrap text-sm text-muted">{t.notes}</p>
           </section>
         )}
+        <TaskActions id={t.id || key} task={t} />
       </div>
     </PageShell>
   );

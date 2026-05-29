@@ -4,6 +4,7 @@ import { requireAdmin } from "@/lib/auth-helpers";
 import { getCockpitData, type Decision } from "@/lib/cockpit";
 import { PageShell } from "@/components/_primitives/page-shell";
 import { Pill } from "@/components/_primitives/card";
+import { DecisionActions } from "@/components/cockpit/decision-editor";
 
 export const dynamic = "force-dynamic";
 
@@ -50,6 +51,7 @@ export default async function DecisionDetail({ params }: { params: Promise<{ id:
             <p className="whitespace-pre-wrap text-sm text-muted">{String(v)}</p>
           </section>
         ))}
+        <DecisionActions id={d.id || key} decision={d} />
       </div>
     </PageShell>
   );
