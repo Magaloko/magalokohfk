@@ -106,13 +106,17 @@
           <p class="muted" style="margin:0;font-size:12px;">Mago Cockpit</p>
         </div>
       </div>
-      <p class="muted">MAGALOKO läuft als Telegram Mini App. Bitte öffne das Cockpit direkt über den Telegram-Bot.</p>
+      <p class="muted">In Telegram öffnet sich das Cockpit automatisch. Im Browser bitte mit deinem Passwort bzw. Zugangscode anmelden.</p>
+      <form id="web-login" autocomplete="off">
+        <label for="web-pass">Passwort / Zugangscode</label>
+        <input id="web-pass" type="password" autocomplete="current-password" placeholder="••••••••" />
+        <button type="submit" class="button primary">Anmelden</button>
+      </form>
       <div id="login-status" class="login-status"></div>
-      <p class="login-footer">🔒 Zugang nur über Telegram — keine Passwörter, keine E-Mail.</p>
+      <p class="login-footer">🔒 Admin per Passwort · Mitarbeiter per persönlichem Zugangscode · oder über Telegram.</p>
     </main>
     <script>
       const status = document.getElementById("login-status");
-
       function showStatus(message, type) {
         status.textContent = message;
         status.className = "login-status show " + (type || "");
@@ -132,10 +136,27 @@
           else { showStatus("Kein Zugriff — bitte bei Mago melden.", "error"); }
         }).catch(() => showStatus("Verbindungsfehler. Bitte erneut öffnen.", "error"));
       }
+
+      // Web-Login (ohne Telegram): Passwort/Code → /api/web-auth
+      document.getElementById("web-login").addEventListener("submit", async (e) => {
+        e.preventDefault();
+        const pass = document.getElementById("web-pass").value;
+        if (!pass) return;
+        showStatus("Anmeldung läuft …", "");
+        try {
+          const r = await fetch("/api/web-auth", {
+            method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ password: pass })
+          });
+          if (r.ok) { location.href = "/"; return; }
+          if (r.status === 429) { showStatus("Zu viele Versuche — bitte in 15 Minuten erneut.", "error"); return; }
+          showStatus("Falsches Passwort / Code.", "error");
+        } catch { showStatus("Verbindungsfehler.", "error"); }
+      });
+
       // Wenn schon eingeloggt, redirect zur Hauptseite
       fetch("/auth/status").then((r) => r.json()).then((s) => {
         if (s.authenticated) location.href = "/";
-      });
+      }).catch(() => {});
     </script>
   </body>
 </html>

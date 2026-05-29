@@ -13041,11 +13041,28 @@ function showBootMessage(title, sub) {
     return;
   }
 
-  // Admin / Browser (mit Session): wie gehabt — sofort rendern, dann sync.
-  setView(targetView);               // sofort rendern — localStorage ist schnell
-  await syncFromServer(true);        // Hintergrund-Sync: überschreibt wenn Server neuer
-  _bootSyncDone = true;              // ab jetzt darf pushToServer senden
-  if (window.tmaRole) applyTmaRoleLock();
+  // === Browser (kein Telegram): Web-Session via /auth/status klären ===
+  try {
+    const s = await fetch("/auth/status").then((r) => r.json());
+    if (!s.authenticated) { location.href = "/login.html"; return; }
+    window.tmaRole = s.role;
+    window.tmaModules = Array.isArray(s.modules) ? s.modules : ["akademie"];
+    window.tmaAreas = Array.isArray(s.areas) ? s.areas : null;
+    if (s.role === "mitarbeiter") state = applyWorkspaceLayer({}); // kein stale Full-State rendern
+    await syncFromServer(true);
+    _bootSyncDone = true;
+    const allowed = tmaAllowedViews(); // null = Admin
+    if (allowed && !allowed.has(targetView)) targetView = allowed.has("akademie") ? "akademie" : [...allowed][0];
+    setView(targetView);
+    if (allowed) applyTmaRoleLock();
+    applyAkademieAreaLock();
+  } catch {
+    // /auth/status nicht ladbar → Fallback: lokal rendern + sync (Offline/Übergang)
+    setView(targetView);
+    await syncFromServer(true);
+    _bootSyncDone = true;
+    if (window.tmaRole) applyTmaRoleLock();
+  }
 })();
 
 window.addEventListener("hashchange", () => {

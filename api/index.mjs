@@ -6,7 +6,8 @@ import {
   hashToken, createHmac, timingSafeEqual, randomBytes, parseCookies,
   getSession, isSessionAdmin, setSessionCookie, clearSessionCookie,
   requireSameOrigin, sanitizeStateJson, filterStateForTgRole, normAreas, AKADEMIE_AREAS, readRawBody, audit,
-  snapshotState, antiWipeViolation
+  snapshotState, antiWipeViolation,
+  verifyAdminPassword, webCodeHash, createWebSession, webLoginThrottled, recordWebLoginAttempt
 } from "../lib/db.mjs";
 
 const JSON_H = { "Content-Type": "application/json; charset=utf-8" };
@@ -63,10 +64,44 @@ export default async function handler(req, res) {
     // ---- POST /api/tg-auth (öffentlich) ----
     if (path === "/api/tg-auth" && method === "POST") return await tgAuth(req, res);
 
+    // ---- POST /api/web-auth (öffentlich): Login ohne Telegram (Admin-Passwort od. MA-Code) ----
+    if (path === "/api/web-auth" && method === "POST") {
+      if (!requireSameOrigin(req)) return send(res, 403, { error: "CSRF: Origin nicht erlaubt" });
+      const ip = String(req.headers["x-forwarded-for"] || "").split(",")[0].trim() || "unknown";
+      if (await webLoginThrottled(ip)) return send(res, 429, { error: "Zu viele Versuche — bitte in 15 Min erneut." });
+      let password = "";
+      try { password = String(JSON.parse(await readRawBody(req, 8192) || "{}").password || ""); } catch { /* ignore */ }
+      if (!password) return send(res, 400, { error: "Passwort/Code fehlt" });
+      // Admin-Passwort?
+      if (verifyAdminPassword(password)) {
+        await createWebSession(res, { tgUserId: null, role: "admin", modules: ["*"], email: "web:admin" });
+        await audit("web.login", { role: "admin", ip });
+        return send(res, 200, { ok: true, role: "admin" });
+      }
+      // Mitarbeiter-Zugangscode?
+      const { data: u } = await db.from("bot_users").select("uid, role, modules").eq("web_code_hash", webCodeHash(password)).maybeSingle();
+      if (u) {
+        const isAdm = u.role === "admin";
+        await createWebSession(res, {
+          tgUserId: u.uid, role: isAdm ? "admin" : "mitarbeiter",
+          modules: isAdm ? ["*"] : normAreas(u.modules), email: "web:" + u.uid
+        });
+        await audit("web.login", { role: isAdm ? "admin" : "mitarbeiter", uid: u.uid, ip });
+        return send(res, 200, { ok: true, role: isAdm ? "admin" : "mitarbeiter" });
+      }
+      await recordWebLoginAttempt(ip);
+      return send(res, 401, { error: "Falsches Passwort / Code" });
+    }
+
     // ---- GET /auth/status (öffentlich) ----
     if (path === "/auth/status" && method === "GET") {
       const sess = await getSession(req);
-      return send(res, 200, { requireAuth, authenticated: !!sess, role: sess?.tgRole || null });
+      let modules = [], areas = [];
+      if (sess) {
+        if (sess.tgRole === "admin") { modules = ["akademie", "produkt", "ai"]; areas = []; }
+        else { modules = ["akademie"]; areas = normAreas(sess.tgModules); }
+      }
+      return send(res, 200, { requireAuth, authenticated: !!sess, role: sess?.tgRole || null, modules, areas });
     }
 
     // ---- POST /auth/logout ----

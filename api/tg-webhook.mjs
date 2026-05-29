@@ -1,7 +1,7 @@
 // MAGALOKO Telegram-Bot — Vercel Serverless Webhook (Phase 2).
 // Portiert aus telegram-bot.mjs: Long-Poll → Webhook, Datei-IO → Supabase.
 // Quiz/Check/Daily-State (früher RAM) liegt jetzt in der Tabelle bot_sessions.
-import { db, tgConfig, readRawBody } from "../lib/db.mjs";
+import { db, tgConfig, readRawBody, webCodeHash, genWebCode } from "../lib/db.mjs";
 
 // === Env / Config ===
 const cfg = tgConfig();
@@ -301,7 +301,7 @@ async function sendMenu(chatId, userId) {
 async function cmdStart(chatId, userId) {
   const lines = ["🎓 <b>HFK Verkaufs-Akademie</b>", "", "Trainiere Produktwissen & Verkauf — direkt im Chat.", "", "<b>🎯 Training:</b>", "/drill — Zufalls-Quiz", "/quiz — Gemischtes Quiz (z.B. <code>/quiz 7</code>)", "/tagesaufgabe — Tägliche Challenge ☀️", "/marke <i>LIEWOOD</i> · /einwand <i>preis</i> · /persona <i>anna</i>", "/rollenspiel · /score · /lern", "/check — Wissens-Check · /fortschritt — Skill-Profil"];
   if (hasModule(userId, "ai")) lines.push("/frag <i>…</i> — KI-Assistent");
-  if (isAdmin(userId)) lines.push("", "<b>⚙️ Admin:</b>", "/admin — Panel (User + Bereiche)", "/adduser <i>ID Name</i> · /setrole <i>ID admin|mitarbeiter</i> · /removeuser <i>ID</i>", "/grant <i>ID bereich</i> · /revoke <i>ID bereich</i> — Akademie-Bereiche je Person");
+  if (isAdmin(userId)) lines.push("", "<b>⚙️ Admin:</b>", "/admin — Panel (User + Bereiche)", "/adduser <i>ID Name</i> · /setrole <i>ID admin|mitarbeiter</i> · /removeuser <i>ID</i>", "/grant <i>ID bereich</i> · /revoke <i>ID bereich</i> — Akademie-Bereiche je Person", "/webcode <i>ID</i> — Web-Login-Code für Browser-Zugang");
   await send(chatId, lines.join("\n"));
   return sendMenu(chatId, userId);
 }
@@ -699,6 +699,15 @@ async function cmdSetArea(chatId, arg, grant) {
   await loadAccess(); setUserMenuButton(id, id);
   return send(chatId, `✅ <b>${esc(USERS[id]?.name || id)}</b> — Bereiche: ${getUserAreas(id).map((a) => AREA_LABEL[a]).join(", ")}`);
 }
+async function cmdWebCode(chatId, arg) {
+  const id = Number(arg.trim());
+  if (!id || isNaN(id)) return send(chatId, "❌ Syntax: <code>/webcode 123456789</code>");
+  if (!USERS[id]) return send(chatId, `❌ User <code>${id}</code> nicht gefunden. Zuerst <code>/adduser ${id} Name</code>.`);
+  const code = genWebCode();
+  await db.from("bot_users").update({ web_code_hash: webCodeHash(code) }).eq("uid", id);
+  await loadAccess();
+  return send(chatId, `🔑 <b>Web-Zugangscode für ${esc(USERS[id]?.name || id)}</b>\n\n<code>${esc(code)}</code>\n\nDamit kann sich die Person <b>im Browser</b> auf der Login-Seite anmelden (Feld „Passwort/Zugangscode"). Nur jetzt sichtbar — bei Bedarf neu erzeugen.`);
+}
 
 // === Update-Dispatch ===
 async function handleUpdate(u) {
@@ -754,6 +763,7 @@ async function handleUpdate(u) {
       if (cmd === "/setrole") return cmdSetRole(chatId, arg);
       if (cmd === "/grant") return cmdSetArea(chatId, arg, true);
       if (cmd === "/revoke") return cmdSetArea(chatId, arg, false);
+      if (cmd === "/webcode") return cmdWebCode(chatId, arg);
     }
     if (cmd === "/start" || cmd === "/help") return cmdStart(chatId, userId);
     if (cmd === "/frag" || cmd === "/ask" || cmd === "/ai") { if (!hasModule(userId, "ai")) return denyModule(chatId, "KI-Assistent"); return cmdFrag(chatId, arg, msg.from); }
