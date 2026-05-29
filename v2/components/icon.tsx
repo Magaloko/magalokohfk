@@ -54,6 +54,7 @@ const P: Record<string, ReactNode> = {
   briefcase: <><rect x="3" y="7" width="18" height="13" rx="2" /><path d="M8 7V5a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2M3 12h18" /></>,
   menu: <><path d="M4 6h16M4 12h16M4 18h16" /></>,
   logout: <><path d="M9 4H5a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h4" /><path d="M16 17l5-5-5-5M21 12H9" /></>,
+  copy: <><rect x="9" y="9" width="11" height="11" rx="2" /><path d="M5 15V5a2 2 0 0 1 2-2h10" /></>,
   dot: <><circle cx="12" cy="12" r="4" fill="currentColor" /></>,
 };
 
