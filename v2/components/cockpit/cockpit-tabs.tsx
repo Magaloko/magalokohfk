@@ -11,6 +11,7 @@ const TABS = [
   { href: "/cockpit/kpis", icon: "kpi", label: "KPIs" },
   { href: "/cockpit/entscheidungen", icon: "compass", label: "Entscheidungen" },
   { href: "/cockpit/stephan", icon: "chat", label: "Stephan-Assistent" },
+  { href: "/cockpit/audit", icon: "check", label: "Q&A-Audit" },
 ];
 
 export function CockpitTabs() {

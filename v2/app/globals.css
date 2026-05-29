@@ -23,11 +23,17 @@
   --radius-sm: 0.5rem;
 }
 
+/* Größere, einheitliche Grundschrift — skaliert die ganze App (rem-basiert). */
+html { font-size: 17px; }
+@media (max-width: 380px) { html { font-size: 16px; } } /* sehr kleine Phones: kein Überlauf */
+
 html, body {
   background: var(--color-bg);
   color: var(--color-ink);
   font-family: var(--font-sans);
+  line-height: 1.6;
   -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
 }
 
 * { border-color: var(--color-line); }
