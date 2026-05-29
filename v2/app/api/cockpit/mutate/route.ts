@@ -12,6 +12,9 @@ const SPEC: Record<string, { fields: string[]; numeric?: string[]; prefix: strin
   tasks: { fields: ["title", "area", "status", "priority", "impact", "effort", "owner", "dueDate", "notes"], prefix: "t" },
   stephanDecisions: { fields: ["titel", "status", "kategorie", "frist", "empfehlung"], prefix: "d" },
   levers: { fields: ["title", "area", "status", "confidence", "risk", "description", "notes"], numeric: ["expectedImpactEur", "effortHours"], prefix: "l" },
+  // Akademie-Inhalte (flach) — admin-only Pflege
+  salesObjections: { fields: ["einwand", "kategorie", "antwort", "beweis"], prefix: "obj" },
+  consultingServices: { fields: ["name", "dauer", "preis", "zielgruppe", "inhalt", "ergebnis"], prefix: "svc" },
 };
 const DYNAMIC = new Set(["weeklyKpis"]); // dynamische Metrik-Felder
 const KPI_PREFIX = "kpi";

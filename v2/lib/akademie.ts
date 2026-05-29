@@ -18,7 +18,7 @@ let _cache: { data: AkademieData; ts: number } | null = null;
 
 // Liest die Akademie-Inhalte aus app_state (workspaces.hfk.data bevorzugt). Kurz-Cache 8s.
 export async function getAkademieData(): Promise<AkademieData> {
-  if (_cache && Date.now() - _cache.ts < 8000) return _cache.data;
+  if (_cache && Date.now() - _cache.ts < 1000) return _cache.data;
   const { data } = await db().from("app_state").select("data").eq("id", STATE_ID).maybeSingle();
   const st = (data?.data || {}) as Record<string, unknown>;
   const ws = ((st.workspaces as any)?.hfk?.data || st) as Record<string, unknown>;
