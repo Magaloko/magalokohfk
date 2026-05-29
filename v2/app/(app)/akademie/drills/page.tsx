@@ -4,6 +4,7 @@ import { PageShell } from "@/components/_primitives/page-shell";
 import { DataTable, type Column } from "@/components/_primitives/data-table";
 import { Pill } from "@/components/_primitives/card";
 import { QuizLauncher } from "@/components/akademie/quiz-launcher";
+import { DrillLauncher } from "@/components/akademie/drill-launcher";
 
 export const dynamic = "force-dynamic";
 
@@ -18,6 +19,7 @@ export default async function DrillsPage() {
   ];
   return (
     <PageShell title="Daily-Drills" subtitle={`${d.drills.length} Drills · tägliches Mikro-Training`}>
+      <DrillLauncher drills={d.drills} />
       <QuizLauncher drills={d.drills} einwaende={d.einwaende} marken={d.marken} />
       <DataTable columns={cols} rows={d.drills} getKey={(r, i) => r.id || String(i)} empty={{ title: "Noch keine Drills", hint: "Lernsystem importieren." }} />
     </PageShell>
