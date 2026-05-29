@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { requireAdmin } from "@/lib/auth-helpers";
 import { db } from "@/lib/supabase-server";
 import { getAllProgress, uidFromKey, levelInfo, type Progress } from "@/lib/progress";
@@ -10,7 +11,7 @@ import { EmptyState } from "@/components/_primitives/empty-state";
 export const dynamic = "force-dynamic";
 
 type Member = {
-  key: string; name: string; role: string; areas: string;
+  key: string; uid?: number; name: string; role: string; areas: string;
   level: number; xp: number; streak: number; sessions: number; badges: number;
   ansCorrect: number; ansTotal: number; pathsDone: number;
 };
@@ -51,7 +52,7 @@ export default async function MitarbeiterPage() {
     const p = progByUid.get(uid);
     const sc = scores.get(uid);
     members.push({
-      key: "tg" + uid,
+      key: "tg" + uid, uid,
       name: u?.name || "MA-" + String(uid).slice(-4),
       role: u?.role || "mitarbeiter",
       areas: areasLabel(u?.modules, u?.role),
@@ -89,7 +90,7 @@ export default async function MitarbeiterPage() {
                   const pct = m.ansTotal ? Math.round((m.ansCorrect / m.ansTotal) * 100) : null;
                   return (
                     <tr key={m.key} className="border-b border-line/60 last:border-0 hover:bg-surface-2/40">
-                      <td className="px-4 py-3 font-medium">{m.name}</td>
+                      <td className="px-4 py-3 font-medium">{m.uid ? <Link href={`/akademie/mitarbeiter/${m.uid}`} className="text-ink hover:text-accent">{m.name}</Link> : m.name}</td>
                       <td className="px-4 py-3"><Pill tone={m.role === "admin" ? "accent" : "muted"}>{m.role}</Pill> <span className="text-xs text-muted-2">{m.areas}</span></td>
                       <td className="px-4 py-3 text-right font-mono">L{m.level}</td>
                       <td className="px-4 py-3 text-right font-mono">{m.xp}</td>
@@ -109,7 +110,7 @@ export default async function MitarbeiterPage() {
                 const pct = m.ansTotal ? Math.round((m.ansCorrect / m.ansTotal) * 100) : null;
                 return (
                   <li key={m.key} className="p-4">
-                    <div className="flex items-center justify-between"><span className="font-semibold">{m.name}</span><Pill tone={m.role === "admin" ? "accent" : "muted"}>{m.role}</Pill></div>
+                    <div className="flex items-center justify-between"><span className="font-semibold">{m.uid ? <Link href={`/akademie/mitarbeiter/${m.uid}`} className="hover:text-accent">{m.name}</Link> : m.name}</span><Pill tone={m.role === "admin" ? "accent" : "muted"}>{m.role}</Pill></div>
                     <div className="mt-1 flex flex-wrap gap-3 text-xs text-muted-2">
                       <span>L{m.level} · {m.xp} XP</span><span>🔥 {m.streak}</span><span>{m.sessions} Trainings</span><span>🧭 {m.pathsDone}/{PATHS_TOTAL}</span><span>🏅 {m.badges}</span>
                       {pct != null && <span>{pct}% ({m.ansCorrect}/{m.ansTotal})</span>}
