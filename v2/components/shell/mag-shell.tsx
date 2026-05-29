@@ -10,6 +10,7 @@ const HUBS: Hub[] = [
   { href: "/heute", label: "Heute", icon: "home", adminOnly: true },
   { href: "/kalender", label: "Kalender", icon: "calendar", adminOnly: true },
   { href: "/akademie", label: "Akademie", icon: "academy" },
+  { href: "/cockpilot", label: "Cockpilot", icon: "sparkles" },
   { href: "/cockpit", label: "Cockpit", icon: "cockpit", adminOnly: true },
   { href: "/einstellungen", label: "Einstellungen", icon: "settings", superOnly: true },
 ];
