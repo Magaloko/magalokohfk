@@ -1099,16 +1099,24 @@ let _bootSyncDone = false;
           const info = await r.json();
           if (info && info.role) {
             window.tmaRole = info.role;
+            window.tmaUserId = info.userId || null; // für Account-Wechsel-Erkennung
             window.tmaModules = Array.isArray(info.modules) ? info.modules : ["akademie"];
             // Variante B: freigegebene Akademie-Bereiche (leer/Admin = alle)
             window.tmaAreas = Array.isArray(info.areas) ? info.areas : null;
             applyTmaRoleLock(); // sofort sperren + ggf. umleiten
             applyAkademieAreaLock(); // Akademie-Tabs nach Freigabe ein-/ausblenden
+            return window.tmaRole;
           }
         } catch {}
       }
-      return window.tmaRole || null;
-    }).catch(() => null);
+      // Auth NICHT ok (403/401/Fehler) → evtl. liegt noch ein fremdes Session-Cookie
+      // (anderer Telegram-Account auf demselben Gerät) → hart abmelden + lokalen State löschen,
+      // damit KEINE fremden (Admin-)Daten aus Cookie/Cache geladen werden können.
+      try { await fetch("/auth/logout", { method: "POST" }); } catch {}
+      try { localStorage.removeItem(STORAGE_KEY); } catch {}
+      window.tmaRole = "denied";
+      return "denied";
+    }).catch(() => { window.tmaRole = null; return null; });
   }
   // CloudStorage: letzten View/Workspace wiederherstellen
   // try/catch: CloudStorage.getItems() wirft WebAppMethodUnsupported im Browser (nicht in Telegram)
@@ -12976,6 +12984,14 @@ byId("print-week").addEventListener("click", () => {
 // Boot: SOFORT mit localStorage rendern (kein Blank-Screen), DANN Server-Sync.
 // pushToServer ist durch _bootSyncDone blockiert, bis sync abgeschlossen —
 // verhindert dass staler localStorage-Stand den Server überschreibt.
+function showBootMessage(title, sub) {
+  const host = document.querySelector(".main") || document.body;
+  try { document.querySelector(".sidebar")?.style && (document.querySelector(".sidebar").style.display = "none"); } catch {}
+  if (host) host.innerHTML = `<div style="max-width:460px;margin:72px auto;padding:24px;text-align:center;font-family:system-ui,-apple-system,sans-serif;">
+    <div style="font-size:22px;font-weight:800;margin-bottom:10px;">${title}</div>
+    <p style="color:var(--muted,#888);line-height:1.5;">${sub || ""}</p></div>`;
+}
+
 (async () => {
   const twa = window.Telegram?.WebApp;
   let targetView = location.hash?.slice(1) || "dashboard";
@@ -12984,32 +13000,27 @@ byId("print-week").addEventListener("click", () => {
   // Erst Auth/Rolle klären, bevor irgendetwas gerendert wird. Verhindert dass ein
   // Mitarbeiter kurz ungefilterten localStorage-Full-State (z.B. #dashboard) sieht.
   if (twa?.initData) {
-    // Auf tg-auth warten (mit 5s-Fallback, damit Boot nie hängt)
-    try {
-      await Promise.race([
-        window._tgAuthPromise || Promise.resolve(null),
-        new Promise((r) => setTimeout(r, 5000))
-      ]);
-    } catch {}
-    const allowed = tmaAllowedViews(); // null = Admin/keine Sperre
-    if (allowed) {
-      // Mitarbeiter: Ziel-View auf Erlaubtes klemmen UND erst NACH gefiltertem
-      // Server-Sync rendern (kein stale Full-State aus localStorage zeigen).
-      if (!allowed.has(targetView)) targetView = allowed.has("akademie") ? "akademie" : [...allowed][0];
-      await syncFromServer(true);
-      _bootSyncDone = true;
-      setView(targetView);
-      applyTmaRoleLock();
-      return;
-    }
-    if (!window.tmaRole) {
-      // Auth in Telegram unklar (Timeout/Fehler) → fail-safe: nichts Sensibles rendern.
-      // Server liefert ohne gültige Session ohnehin 401; wir zeigen nur eine neutrale View.
-      await syncFromServer(true);
-      _bootSyncDone = true;
-      setView(byId("akademie") ? "akademie" : targetView);
-      return;
-    }
+    // SICHERHEIT (Mehrkonto/Cache): In Telegram NIE den evtl. fremden lokalen State
+    // (anderer Account auf demselben Gerät teilt sich WebView-localStorage/Cookie) rendern.
+    // Lokalen State sofort verwerfen und ERST nach bestätigter Auth DIESES Accounts laden.
+    state = applyWorkspaceLayer({});
+    const role = await Promise.race([
+      window._tgAuthPromise || Promise.resolve(null),
+      new Promise((r) => setTimeout(() => r("__timeout"), 12000))
+    ]).catch(() => null);
+    // Zugriff verweigert (anderer/nicht zugelassener Account) → Cookie wurde abgemeldet, kein Daten-Render.
+    if (role === "denied") { showBootMessage("⛔ Kein Zugriff für diesen Telegram-Account.", "Bitte mit dem berechtigten Account öffnen oder bei Mago melden."); return; }
+    // Auth nicht bestätigt (Timeout/Netzfehler) → NICHT mit evtl. stale Cookie syncen.
+    if (!window.tmaRole || role === "__timeout") { showBootMessage("⏳ Anmeldung nicht abgeschlossen.", "Bitte die App in Telegram neu öffnen."); return; }
+    // Auth bestätigt für DIESEN Account → jetzt erst Server-State (gefiltert je Rolle) laden.
+    await syncFromServer(true);
+    _bootSyncDone = true;
+    const allowed = tmaAllowedViews(); // null = Admin (keine Sperre)
+    if (allowed && !allowed.has(targetView)) targetView = allowed.has("akademie") ? "akademie" : [...allowed][0];
+    setView(targetView);
+    if (allowed) applyTmaRoleLock();
+    applyAkademieAreaLock();
+    return;
   }
 
   // Admin / Browser (mit Session): wie gehabt — sofort rendern, dann sync.
