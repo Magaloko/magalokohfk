@@ -22,8 +22,8 @@ export default async function PersonasPage() {
             </div>
             {(p.alter || p.kontext) && <p className="mt-1 text-xs text-muted-2">{[p.alter, p.kontext].filter(Boolean).join(" · ")}</p>}
             {p.zitat && <p className="mt-2 text-sm italic text-muted">„{p.zitat}"</p>}
-            {p.schmerzpunkte && <p className="mt-2 text-sm"><span className="text-muted-2">Schmerz:</span> {s(p.schmerzpunkte)}</p>}
-            {p.budget && <p className="mt-1 text-sm"><span className="text-muted-2">Budget:</span> {s(p.budget)}</p>}
+            {!!p.schmerzpunkte && <p className="mt-2 text-sm"><span className="text-muted-2">Schmerz:</span> {s(p.schmerzpunkte)}</p>}
+            {!!p.budget && <p className="mt-1 text-sm"><span className="text-muted-2">Budget:</span> {s(p.budget)}</p>}
           </Card>
         ))}
       </CardGrid>
