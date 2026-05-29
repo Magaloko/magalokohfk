@@ -1,6 +1,7 @@
 "use client";
 import { useMemo, useState } from "react";
 import { cn } from "@/lib/cn";
+import { Confetti } from "./confetti";
 import type { Drill } from "@/lib/akademie";
 
 type Opt = { text: string; correct: boolean; feedback?: string };
@@ -40,6 +41,7 @@ export function DrillRunner({ drills, onClose }: { drills: Drill[]; onClose: () 
     const emoji = pct === 100 ? "🎉" : pct >= 80 ? "🏆" : pct >= 60 ? "🎯" : pct >= 40 ? "💪" : "📚";
     return (
       <Modal onClose={onClose}>
+        {pct >= 80 && <Confetti intensity={pct === 100 ? 1.4 : 1} />}
         <div className="text-center">
           <div className="text-5xl">{emoji}</div>
           <div className="mt-2 text-3xl font-extrabold">{score}<span className="text-lg text-muted">/{total}</span></div>

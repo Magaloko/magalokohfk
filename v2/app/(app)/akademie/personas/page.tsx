@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { requireArea } from "@/lib/auth-helpers";
 import { getAkademieData } from "@/lib/akademie";
 import { PageShell } from "@/components/_primitives/page-shell";
@@ -15,16 +16,18 @@ export default async function PersonasPage() {
     <PageShell title="Kunden-Personas" subtitle={`${personas.length} Typen`}>
       <CardGrid>
         {personas.map((p, i) => (
-          <Card key={p.id || i}>
-            <div className="flex items-center gap-2">
-              <span className="text-xl">{p.avatar || "👤"}</span>
-              <h3 className="font-bold">{p.name}</h3>
-            </div>
-            {(p.alter || p.kontext) && <p className="mt-1 text-xs text-muted-2">{[p.alter, p.kontext].filter(Boolean).join(" · ")}</p>}
-            {p.zitat && <p className="mt-2 text-sm italic text-muted">„{p.zitat}"</p>}
-            {!!p.schmerzpunkte && <p className="mt-2 text-sm"><span className="text-muted-2">Schmerz:</span> {s(p.schmerzpunkte)}</p>}
-            {!!p.budget && <p className="mt-1 text-sm"><span className="text-muted-2">Budget:</span> {s(p.budget)}</p>}
-          </Card>
+          <Link key={p.id || i} href={`/akademie/personas/${encodeURIComponent(p.id || String(i))}`} className="group block">
+            <Card className="h-full group-hover:border-accent">
+              <div className="flex items-center gap-2">
+                <span className="text-xl">{p.avatar || "👤"}</span>
+                <h3 className="font-bold">{p.name}</h3>
+              </div>
+              {(p.alter || p.kontext) && <p className="mt-1 text-xs text-muted-2">{[p.alter, p.kontext].filter(Boolean).join(" · ")}</p>}
+              {p.zitat && <p className="mt-2 line-clamp-2 text-sm italic text-muted">„{p.zitat}"</p>}
+              {!!p.schmerzpunkte && <p className="mt-2 line-clamp-2 text-sm"><span className="text-muted-2">Schmerz:</span> {s(p.schmerzpunkte)}</p>}
+              <span className="mt-3 inline-block text-xs font-semibold text-accent opacity-0 transition group-hover:opacity-100">Details →</span>
+            </Card>
+          </Link>
         ))}
       </CardGrid>
     </PageShell>

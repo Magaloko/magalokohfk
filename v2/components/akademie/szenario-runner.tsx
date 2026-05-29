@@ -1,6 +1,7 @@
 "use client";
 import { useMemo, useState } from "react";
 import { cn } from "@/lib/cn";
+import { Confetti } from "./confetti";
 import type { Szenario } from "@/lib/akademie";
 
 type Step = { prompt: string; options: { text: string; feedback?: string }[]; correctIdx: number };
@@ -38,6 +39,7 @@ export function SzenarioRunner({ sc, personaName, onClose }: { sc: Szenario; per
     const msg = pct >= 80 ? "Hervorragend!" : pct >= 60 ? "Solide — Schwerpunkte nochmal anschauen." : "Vertiefe Einwände & Personas und versuch es nochmal.";
     return (
       <Modal onClose={onClose}>
+        {pct >= 80 && <Confetti intensity={pct === 100 ? 1.4 : 1} />}
         <div className="text-center">
           <div className="text-5xl">{emoji}</div>
           <div className="mt-2 text-3xl font-extrabold">{score}<span className="text-lg text-muted">/{total}</span></div>

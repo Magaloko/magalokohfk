@@ -1,6 +1,7 @@
 "use client";
 import { useEffect, useRef, useState, useCallback } from "react";
 import { cn } from "@/lib/cn";
+import { Confetti } from "./confetti";
 import type { Rollenspiel } from "@/lib/akademie";
 
 type Msg = { role: "user" | "assistant"; content: string };
@@ -166,6 +167,7 @@ function CoachResult({ coach, onRetry, onClose }: { coach: Coach; onRetry: () =>
   const emoji = coach.pct >= 90 ? "🎉" : coach.pct >= 75 ? "🏆" : coach.pct >= 55 ? "🎯" : coach.pct >= 35 ? "💪" : "📚";
   return (
     <div>
+      {coach.pct >= 75 && <Confetti intensity={coach.pct >= 90 ? 1.4 : 1} />}
       <div className="text-center">
         <div className="text-4xl">{emoji}</div>
         <div className="mt-1 text-3xl font-extrabold">{coach.got}<span className="text-lg text-muted">/{coach.max}</span></div>
