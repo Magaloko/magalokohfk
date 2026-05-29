@@ -1,9 +1,17 @@
+import Script from "next/script";
 import { requireUser } from "@/lib/auth-helpers";
 import { MagShell } from "@/components/shell/mag-shell";
+import { TgReauth } from "@/components/shell/tg-reauth";
 
 export const dynamic = "force-dynamic";
 
 export default async function AppLayout({ children }: { children: React.ReactNode }) {
   const sess = await requireUser(); // redirect zu /login wenn keine Session
-  return <MagShell role={sess.tgRole}>{children}</MagShell>;
+  return (
+    <>
+      <Script src="https://telegram.org/js/telegram-web-app.js" strategy="afterInteractive" />
+      <TgReauth sessionTgUserId={sess.tgUserId} />
+      <MagShell role={sess.tgRole}>{children}</MagShell>
+    </>
+  );
 }
