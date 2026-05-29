@@ -1,6 +1,7 @@
 "use client";
 import { useState } from "react";
 import { cn } from "@/lib/cn";
+import { Icon } from "@/components/icon";
 
 const AREAS: { key: string; label: string }[] = [
   { key: "drills", label: "Drills" }, { key: "marken", label: "Marken" }, { key: "einwaende", label: "Einwände" },
@@ -60,7 +61,7 @@ export function UserManager({ initial }: { initial: User[] }) {
     <div className="flex flex-col gap-5">
       {/* Neuer Mitarbeiter */}
       <section className="rounded-xl border border-line bg-surface p-4 shadow-sm">
-        <h2 className="mb-3 text-xs font-bold uppercase tracking-wide text-muted-2">➕ Mitarbeiter hinzufügen</h2>
+        <h2 className="mb-3 flex items-center gap-1.5 text-xs font-bold uppercase tracking-wide text-muted-2"><Icon name="plus" className="h-3.5 w-3.5" /> Mitarbeiter hinzufügen</h2>
         <div className="flex flex-wrap items-end gap-2">
           <label className="block"><span className="mb-1 block text-[11px] uppercase text-muted-2">Telegram-ID</span><input value={newUid} onChange={(e) => setNewUid(e.target.value)} inputMode="numeric" placeholder="z. B. 123456789" className={cn(inp, "w-40")} /></label>
           <label className="block"><span className="mb-1 block text-[11px] uppercase text-muted-2">Name</span><input value={newName} onChange={(e) => setNewName(e.target.value)} placeholder="Vorname" className={cn(inp, "w-48")} /></label>
@@ -85,7 +86,7 @@ export function UserManager({ initial }: { initial: User[] }) {
                     <option value="mitarbeiter">Mitarbeiter</option>
                     <option value="admin">Admin</option>
                   </select>
-                  <button onClick={() => webcode(u.uid)} disabled={busy} className="rounded-lg bg-surface-2 px-3 py-2 text-sm font-semibold hover:text-ink disabled:opacity-50">🔑 Web-Code</button>
+                  <button onClick={() => webcode(u.uid)} disabled={busy} className="inline-flex items-center gap-1.5 rounded-lg bg-surface-2 px-3 py-2 text-sm font-semibold hover:text-ink disabled:opacity-50"><Icon name="key" className="h-4 w-4" /> Web-Code</button>
                   <button onClick={() => remove(u.uid)} disabled={busy} className="rounded-lg bg-red/10 px-3 py-2 text-sm font-semibold text-red hover:bg-red/20 disabled:opacity-50">Entfernen</button>
                 </div>
               </div>
@@ -99,7 +100,7 @@ export function UserManager({ initial }: { initial: User[] }) {
                       <button key={a.key} onClick={() => !admin && toggleArea(u, a.key)} disabled={busy || admin}
                         className={cn("rounded-full px-3 py-1 text-xs font-semibold transition",
                           on ? "bg-accent/15 text-accent" : "bg-surface-2 text-muted-2 hover:text-ink", admin && "opacity-60")}>
-                        {u.modules.includes(a.key) || admin ? "✓ " : ""}{a.label}
+                        {(u.modules.includes(a.key) || admin) && <Icon name="check" className="h-3 w-3 mr-0.5" />}{a.label}
                       </button>
                     );
                   })}

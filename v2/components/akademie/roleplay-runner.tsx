@@ -4,6 +4,7 @@ import { cn } from "@/lib/cn";
 import { Confetti } from "./confetti";
 import { ResultRewards } from "./result-rewards";
 import type { Rollenspiel } from "@/lib/akademie";
+import { Icon } from "@/components/icon";
 
 type Msg = { role: "user" | "assistant"; content: string };
 type Coach = {
@@ -105,23 +106,23 @@ export function RoleplayRunner({ rp, onClose }: { rp: Rollenspiel; onClose: () =
     <Modal onClose={onClose} wide>
       <div className="mb-3 flex items-start justify-between gap-3">
         <div>
-          <h3 className="text-base font-bold">🎙 {rp.titel || "Live-Rollenspiel"}</h3>
+          <h3 className="text-base font-bold"><Icon name="mic" className="h-5 w-5 inline-block mr-1" />{rp.titel || "Live-Rollenspiel"}</h3>
           <p className="text-xs text-muted-2">{(rp.persona || "").split("(")[0].trim()}{rp.verkaufstechnik ? ` · ${rp.verkaufstechnik}` : ""}</p>
         </div>
-        <button onClick={onClose} aria-label="Schließen" className="rounded-lg bg-surface-2 px-2.5 py-1 text-sm text-muted hover:text-ink">✕</button>
+        <button onClick={onClose} aria-label="Schließen" className="rounded-lg bg-surface-2 px-2.5 py-1 text-sm text-muted hover:text-ink"><Icon name="x" className="h-4 w-4" /></button>
       </div>
 
       {phase === "result" && coach ? (
         <CoachResult coach={coach} onRetry={reset} onClose={onClose} />
       ) : phase === "evaluating" ? (
         <div className="py-10 text-center">
-          <div className="text-2xl">🎓</div>
+          <div className="flex justify-center"><Icon name="academy" className="h-8 w-8" /></div>
           <p className="mt-2 font-semibold">KI-Coach wertet aus…</p>
           <Dots center />
         </div>
       ) : (
         <>
-          <p className="mb-2 rounded-lg bg-surface-2 px-3 py-2 text-xs text-muted">🛍 Du bist der/die VerkäuferIn. Antworte natürlich, wie im Laden. Die KI spielt die Kundin/den Kunden.</p>
+          <p className="mb-2 rounded-lg bg-surface-2 px-3 py-2 text-xs text-muted"><Icon name="bag" className="h-4 w-4 inline-block mr-1" />Du bist der/die VerkäuferIn. Antworte natürlich, wie im Laden. Die KI spielt die Kundin/den Kunden.</p>
           <div ref={chatRef} className="flex max-h-[46vh] min-h-[180px] flex-col gap-2 overflow-y-auto rounded-lg border border-line bg-bg/40 p-3">
             {visible.map((m, i) => (
               <Bubble key={i} seller={m.role === "user"} text={m.content} />
@@ -132,7 +133,8 @@ export function RoleplayRunner({ rp, onClose }: { rp: Rollenspiel; onClose: () =
 
           {err && (
             <p className="mt-2 rounded-lg bg-red/10 px-3 py-2 text-xs text-red">
-              {err === "no_key" ? "⚙️ Kein KI-Key konfiguriert (Vercel-Env BOT_AI_KEY) — bitte ergänzen."
+              {err === "no_key" ? <><Icon name="settings" className="h-4 w-4 inline-block mr-1" />Kein KI-Key konfiguriert (Vercel-Env BOT_AI_KEY) — bitte ergänzen.</>
+
                 : err === "min" ? "Sag erst ein paar Sätze, dann auswerten."
                 : err === "coach" ? "Auto-Bewertung nicht möglich — nochmal versuchen."
                 : "KI nicht erreichbar — nochmal senden."}
@@ -151,12 +153,12 @@ export function RoleplayRunner({ rp, onClose }: { rp: Rollenspiel; onClose: () =
               className="flex-1 resize-none rounded-lg border border-line bg-surface-2 px-3 py-2 text-sm text-ink outline-none focus:border-accent disabled:opacity-60"
             />
             <button onClick={send} disabled={sending || !input.trim()} aria-label="Senden"
-              className="rounded-lg bg-accent px-4 py-2.5 font-semibold text-bg disabled:opacity-50">➤</button>
+              className="rounded-lg bg-accent px-4 py-2.5 font-semibold text-bg disabled:opacity-50"><Icon name="send" className="h-4 w-4" /></button>
           </div>
           <div className="mt-2 flex items-center justify-between">
             <span className="text-xs text-muted-2">{turns} Wechsel</span>
             <button onClick={evaluate} disabled={sending}
-              className="rounded-lg bg-surface-2 px-3 py-1.5 text-sm font-semibold text-ink hover:bg-surface-2/70 disabled:opacity-50">🏁 Gespräch auswerten</button>
+              className="rounded-lg bg-surface-2 px-3 py-1.5 text-sm font-semibold text-ink hover:bg-surface-2/70 disabled:opacity-50"><Icon name="target" className="h-4 w-4 inline-block mr-1" />Gespräch auswerten</button>
           </div>
         </>
       )}
@@ -165,12 +167,12 @@ export function RoleplayRunner({ rp, onClose }: { rp: Rollenspiel; onClose: () =
 }
 
 function CoachResult({ coach, onRetry, onClose }: { coach: Coach; onRetry: () => void; onClose: () => void }) {
-  const emoji = coach.pct >= 90 ? "🎉" : coach.pct >= 75 ? "🏆" : coach.pct >= 55 ? "🎯" : coach.pct >= 35 ? "💪" : "📚";
+  const icon = coach.pct >= 90 ? "party" : coach.pct >= 75 ? "trophy" : coach.pct >= 55 ? "target" : coach.pct >= 35 ? "bolt" : "book";
   return (
     <div>
       {coach.pct >= 75 && <Confetti intensity={coach.pct >= 90 ? 1.4 : 1} />}
       <div className="text-center">
-        <div className="text-4xl">{emoji}</div>
+        <div className="flex justify-center"><Icon name={icon} className="h-10 w-10" /></div>
         <div className="mt-1 text-3xl font-extrabold">{coach.got}<span className="text-lg text-muted">/{coach.max}</span></div>
         <div className="text-muted">{coach.pct}%</div>
       </div>
@@ -192,8 +194,8 @@ function CoachResult({ coach, onRetry, onClose }: { coach: Coach; onRetry: () =>
         })}
       </div>
       <div className="mt-4 flex justify-center gap-2">
-        <button onClick={onRetry} className="rounded-lg bg-accent px-4 py-2 font-semibold text-bg">🔄 Nochmal</button>
-        <button onClick={onClose} className="rounded-lg bg-surface-2 px-4 py-2 font-semibold">✓ Fertig</button>
+        <button onClick={onRetry} className="rounded-lg bg-accent px-4 py-2 font-semibold text-bg"><Icon name="repeat" className="h-4 w-4 inline-block mr-1" />Nochmal</button>
+        <button onClick={onClose} className="rounded-lg bg-surface-2 px-4 py-2 font-semibold"><Icon name="check" className="h-4 w-4 inline-block mr-1" />Fertig</button>
       </div>
     </div>
   );
@@ -202,7 +204,7 @@ function CoachResult({ coach, onRetry, onClose }: { coach: Coach; onRetry: () =>
 function Bubble({ seller, text, typing }: { seller: boolean; text?: string; typing?: boolean }) {
   return (
     <div className={cn("flex flex-col", seller ? "items-end" : "items-start")}>
-      <span className="mb-0.5 text-[10px] font-semibold uppercase tracking-wide text-muted-2">{seller ? "Du" : "👤 Kunde"}</span>
+      <span className="mb-0.5 text-[10px] font-semibold uppercase tracking-wide text-muted-2">{seller ? "Du" : <><Icon name="user" className="h-3 w-3 inline-block mr-0.5" />Kunde</>}</span>
       <div className={cn("max-w-[85%] whitespace-pre-wrap rounded-2xl px-3 py-2 text-sm",
         seller ? "rounded-br-sm bg-accent/20 text-ink" : "rounded-bl-sm bg-surface-2 text-ink")}>
         {typing ? <Dots /> : text}

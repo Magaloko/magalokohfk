@@ -29,14 +29,14 @@ export type Badge = { id: string; icon: string; label: string; hint: string };
 
 // Badge-Katalog (Reihenfolge = Anzeige).
 export const BADGES: Badge[] = [
-  { id: "first_steps", icon: "👣", label: "Erste Schritte", hint: "Erstes Training abgeschlossen" },
-  { id: "perfect", icon: "💯", label: "Perfektionist", hint: "Ein Training mit 100 %" },
-  { id: "sharp", icon: "🎯", label: "Treffsicher", hint: "100 richtige Antworten" },
-  { id: "streak_3", icon: "🔥", label: "3-Tage-Serie", hint: "3 Tage in Folge geübt" },
-  { id: "streak_7", icon: "⚡", label: "7-Tage-Serie", hint: "7 Tage in Folge geübt" },
-  { id: "roleplayer", icon: "🎭", label: "Rollenspieler", hint: "Erstes KI-Rollenspiel bewertet" },
-  { id: "marathon", icon: "🏃", label: "Marathon", hint: "25 Trainings abgeschlossen" },
-  { id: "scholar", icon: "🎓", label: "Gelehrte:r", hint: "2000 XP erreicht" },
+  { id: "first_steps", icon: "footprints", label: "Erste Schritte", hint: "Erstes Training abgeschlossen" },
+  { id: "perfect", icon: "trophy", label: "Perfektionist", hint: "Ein Training mit 100 %" },
+  { id: "sharp", icon: "target", label: "Treffsicher", hint: "100 richtige Antworten" },
+  { id: "streak_3", icon: "flame", label: "3-Tage-Serie", hint: "3 Tage in Folge geübt" },
+  { id: "streak_7", icon: "bolt", label: "7-Tage-Serie", hint: "7 Tage in Folge geübt" },
+  { id: "roleplayer", icon: "masks", label: "Rollenspieler", hint: "Erstes KI-Rollenspiel bewertet" },
+  { id: "marathon", icon: "user", label: "Marathon", hint: "25 Trainings abgeschlossen" },
+  { id: "scholar", icon: "academy", label: "Gelehrte:r", hint: "2000 XP erreicht" },
 ];
 
 const XP_PER_LEVEL = 400;

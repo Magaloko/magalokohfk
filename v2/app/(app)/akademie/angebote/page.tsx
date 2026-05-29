@@ -11,9 +11,9 @@ export default async function AngebotePage() {
   const sess = await requireArea("angebote");
   const admin = isAdmin(sess);
   const { angebote } = await getAkademieData();
-  if (!angebote.length) return <PageShell title="Beratungsangebote" action={admin ? <NewAngebotButton /> : undefined}><EmptyState title="Noch keine Angebote" /></PageShell>;
+  if (!angebote.length) return <PageShell title="Beratungsangebote" icon="package" action={admin ? <NewAngebotButton /> : undefined}><EmptyState title="Noch keine Angebote" /></PageShell>;
   return (
-    <PageShell title="Beratungsangebote" subtitle={`${angebote.length} Angebote`} action={admin ? <NewAngebotButton /> : undefined}>
+    <PageShell title="Beratungsangebote" icon="package" subtitle={`${angebote.length} Angebote`} action={admin ? <NewAngebotButton /> : undefined}>
       <CardGrid>
         {angebote.map((a, i) => (
           <Card key={a.id || i}>

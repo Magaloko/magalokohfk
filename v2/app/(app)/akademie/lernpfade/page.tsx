@@ -11,7 +11,7 @@ export default async function LernpfadePage() {
   const progress = await getProgress(sess.email);
   const paths = progress?.stats.paths || {};
   return (
-    <PageShell title="🧭 Lernpfade" subtitle="Geführte Kurse — Schritt für Schritt zum Verkaufs-Profi · +60 XP pro Abschluss">
+    <PageShell title="Lernpfade" icon="compass" subtitle="Geführte Kurse — Schritt für Schritt zum Verkaufs-Profi · +60 XP pro Abschluss">
       <div className="grid gap-4 lg:grid-cols-2">
         {PATHS.map((p) => <PathCard key={p.id} path={p} initial={paths[p.id] || []} />)}
       </div>

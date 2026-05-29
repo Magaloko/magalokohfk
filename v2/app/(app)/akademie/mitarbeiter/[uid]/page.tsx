@@ -7,6 +7,7 @@ import { getCockpitData } from "@/lib/cockpit";
 import { PATHS } from "@/lib/paths";
 import { PageShell } from "@/components/_primitives/page-shell";
 import { Pill } from "@/components/_primitives/card";
+import { Icon } from "@/components/icon";
 
 export const dynamic = "force-dynamic";
 
@@ -52,7 +53,7 @@ export default async function MitarbeiterDetail({ params }: { params: Promise<{ 
   );
 
   return (
-    <PageShell title={`👤 ${name}`} subtitle={`#${uidNum}`} action={Back}>
+    <PageShell title={name} icon="user" subtitle={`#${uidNum}`} action={Back}>
       <div className="flex flex-col gap-4">
         <div className="flex flex-wrap gap-2">
           <Pill tone={role === "admin" ? "accent" : "muted"}>{role}</Pill>
@@ -64,19 +65,24 @@ export default async function MitarbeiterDetail({ params }: { params: Promise<{ 
             <div className="grid h-12 w-12 place-items-center rounded-xl bg-accent/20 text-lg font-extrabold text-accent">L{lvl.level}</div>
             <div className="text-sm">
               <div className="font-bold">Level {lvl.level} · {p.xp} XP</div>
-              <div className="text-xs text-muted-2">{p.sessions_count} Trainings · 🔥 {p.streak} (Best {p.best_streak}) · 🏅 {p.badges.length}/{BADGES.length}{weakCount ? ` · 🔁 ${weakCount} Wiederholungs-Items` : ""}</div>
+              <div className="flex flex-wrap items-center gap-2 text-xs text-muted-2">
+                <span>{p.sessions_count} Trainings</span>
+                <span className="inline-flex items-center gap-1"><Icon name="flame" className="h-3.5 w-3.5" /> {p.streak} (Best {p.best_streak})</span>
+                <span className="inline-flex items-center gap-1"><Icon name="medal" className="h-3.5 w-3.5" /> {p.badges.length}/{BADGES.length}</span>
+                {weakCount ? <span className="inline-flex items-center gap-1"><Icon name="repeat" className="h-3.5 w-3.5" /> {weakCount} Wiederholungs-Items</span> : null}
+              </div>
             </div>
           </div>
           <div className="mt-3 h-2 overflow-hidden rounded-full bg-surface-2"><div className="h-full rounded-full bg-accent" style={{ width: `${lvl.pct}%` }} /></div>
           <div className="mt-3 flex flex-wrap gap-2">
             {BADGES.map((b) => {
               const earned = p.badges.includes(b.id);
-              return <span key={b.id} title={b.hint} className={`inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-xs font-semibold ${earned ? "bg-green/15 text-green" : "bg-surface-2 text-muted-2 opacity-60"}`}><span className={earned ? "" : "grayscale"}>{b.icon}</span>{b.label}</span>;
+              return <span key={b.id} title={b.hint} className={`inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-xs font-semibold ${earned ? "bg-green/15 text-green" : "bg-surface-2 text-muted-2 opacity-60"}`}><Icon name={b.icon} className={`h-3.5 w-3.5 ${earned ? "" : "opacity-60"}`} />{b.label}</span>;
             })}
           </div>
         </Section>
 
-        <Section title="🧭 Lernpfade">
+        <Section title="Lernpfade">
           <div className="flex flex-col gap-2">
             {PATHS.map((path) => {
               const dn = (p.stats.paths?.[path.id]?.length || 0);
@@ -84,7 +90,7 @@ export default async function MitarbeiterDetail({ params }: { params: Promise<{ 
               const full = dn >= path.steps.length;
               return (
                 <div key={path.id} className="flex items-center gap-3">
-                  <span className="w-44 shrink-0 truncate text-sm">{path.icon} {path.title}</span>
+                  <span className="inline-flex w-44 shrink-0 items-center gap-1 truncate text-sm"><Icon name={path.icon} className="h-4 w-4 shrink-0" /> {path.title}</span>
                   <div className="h-1.5 flex-1 overflow-hidden rounded-full bg-surface-2"><div className={`h-full rounded-full ${full ? "bg-green" : "bg-accent"}`} style={{ width: `${pct}%` }} /></div>
                   <span className={`w-10 shrink-0 text-right text-xs ${full ? "font-bold text-green" : "text-muted-2"}`}>{dn}/{path.steps.length}</span>
                 </div>
@@ -108,7 +114,7 @@ export default async function MitarbeiterDetail({ params }: { params: Promise<{ 
         </Section>
 
         {staff && (staff.completedScenarios || []).length > 0 && (
-          <Section title="🎓 Trainings-Historie (Rollenspiele/Szenarien)">
+          <Section title="Trainings-Historie (Rollenspiele/Szenarien)">
             {staff.strengths && <p className="mb-1 text-xs text-green">+ {staff.strengths}</p>}
             {staff.weaknesses && <p className="mb-1 text-xs text-red">– {staff.weaknesses}</p>}
             <ul className="flex flex-col gap-1">

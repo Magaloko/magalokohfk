@@ -3,6 +3,7 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { cockpitMutate, errText } from "./mutate";
 import { Modal } from "./task-editor";
+import { Icon } from "@/components/icon";
 import type { Lever } from "@/lib/cockpit";
 
 const STATUSES = ["Backlog", "Geplant", "In Arbeit", "Live", "Verworfen"];
@@ -59,8 +60,8 @@ export function LeverActions({ id, lever }: { id: string; lever: Lever }) {
         ))}
       </div>
       <div className="mt-3 flex gap-2">
-        <button disabled={busy} onClick={() => setEdit(true)} className="rounded-lg bg-surface-2 px-3 py-1.5 text-sm font-semibold hover:text-ink disabled:opacity-50">✎ Bearbeiten</button>
-        <button disabled={busy} onClick={del} className="rounded-lg bg-red/10 px-3 py-1.5 text-sm font-semibold text-red hover:bg-red/20 disabled:opacity-50">🗑 Löschen</button>
+        <button disabled={busy} onClick={() => setEdit(true)} className="flex items-center gap-1.5 rounded-lg bg-surface-2 px-3 py-1.5 text-sm font-semibold hover:text-ink disabled:opacity-50"><Icon name="edit" className="h-3.5 w-3.5" /> Bearbeiten</button>
+        <button disabled={busy} onClick={del} className="flex items-center gap-1.5 rounded-lg bg-red/10 px-3 py-1.5 text-sm font-semibold text-red hover:bg-red/20 disabled:opacity-50"><Icon name="trash" className="h-3.5 w-3.5" /> Löschen</button>
       </div>
       {err && <p className="mt-2 text-sm text-red">{err}</p>}
       {edit && <LeverForm id={id} lever={lever} onClose={() => setEdit(false)} />}

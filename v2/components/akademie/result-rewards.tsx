@@ -1,6 +1,7 @@
 "use client";
 import { useEffect, useRef, useState } from "react";
 import { Confetti } from "./confetti";
+import { Icon } from "@/components/icon";
 import type { TrainingType } from "@/lib/progress";
 
 type Reward = { xpGain: number; streak: number; level: { level: number }; newBadges: { id: string; icon: string; label: string }[] };
@@ -32,9 +33,9 @@ export function ResultRewards({ type, score, total, itemResults }: { type: Train
       {r.newBadges.length > 0 && <Confetti intensity={0.7} />}
       <span className="rounded-full bg-accent/15 px-3 py-1 font-bold text-accent">+{r.xpGain} XP</span>
       <span className="rounded-full bg-surface-2 px-3 py-1 font-semibold text-muted">Level {r.level.level}</span>
-      {r.streak >= 2 && <span className="rounded-full bg-amber/15 px-3 py-1 font-semibold text-amber">🔥 {r.streak} Tage</span>}
+      {r.streak >= 2 && <span className="rounded-full bg-amber/15 px-3 py-1 font-semibold text-amber flex items-center gap-1"><Icon name="flame" className="h-4 w-4" /> {r.streak} Tage</span>}
       {r.newBadges.map((b, i) => (
-        <span key={b.id} className="mag-pop rounded-full bg-green/15 px-3 py-1 font-semibold text-green shadow-sm" style={{ animationDelay: `${i * 0.12}s` }} title={b.label}>🎉 {b.icon} {b.label}</span>
+        <span key={b.id} className="mag-pop rounded-full bg-green/15 px-3 py-1 font-semibold text-green shadow-sm flex items-center gap-1" style={{ animationDelay: `${i * 0.12}s` }} title={b.label}><Icon name="party" className="h-4 w-4" /> <Icon name={b.icon} className="h-4 w-4" /> {b.label}</span>
       ))}
     </div>
   );

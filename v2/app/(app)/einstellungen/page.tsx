@@ -13,7 +13,7 @@ export default async function EinstellungenPage() {
     modules: Array.isArray(u.modules) ? (u.modules as string[]) : [], hasCode: !!u.web_code_hash,
   }));
   return (
-    <PageShell title="⚙️ Einstellungen" subtitle="Nur du (Super-Admin) verwaltest hier Zugänge, Rollen & Akademie-Bereiche">
+    <PageShell title="Einstellungen" icon="settings" subtitle="Nur du (Super-Admin) verwaltest hier Zugänge, Rollen & Akademie-Bereiche">
       <UserManager initial={users} />
     </PageShell>
   );

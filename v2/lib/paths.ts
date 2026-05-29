@@ -4,7 +4,7 @@ export type LearnPath = { id: string; icon: string; title: string; desc: string;
 
 export const PATHS: LearnPath[] = [
   {
-    id: "basics", icon: "🚀", title: "Verkaufs-Basics",
+    id: "basics", icon: "rocket", title: "Verkaufs-Basics",
     desc: "Der Einstieg: Kundentypen verstehen & souverän auf Einwände antworten.",
     steps: [
       { title: "Personas kennenlernen", hint: "Wer kauft bei uns?", href: "/akademie/personas" },
@@ -14,7 +14,7 @@ export const PATHS: LearnPath[] = [
     ],
   },
   {
-    id: "marken", icon: "🏷", title: "Marken-Profi",
+    id: "marken", icon: "tag", title: "Marken-Profi",
     desc: "Produktwissen, das im Verkaufsgespräch überzeugt.",
     steps: [
       { title: "Marken-Bibel lesen", hint: "Herkunft, USPs, Hero-Produkte", href: "/akademie/marken" },
@@ -23,7 +23,7 @@ export const PATHS: LearnPath[] = [
     ],
   },
   {
-    id: "gespraech", icon: "🎙", title: "Gesprächs-Champion",
+    id: "gespraech", icon: "mic", title: "Gesprächs-Champion",
     desc: "Vom Skript zum echten Verkaufsgespräch — mit KI-Kunde.",
     steps: [
       { title: "Szenario spielen", hint: "Mehrstufige Übung", href: "/akademie/szenarien" },
@@ -32,7 +32,7 @@ export const PATHS: LearnPath[] = [
     ],
   },
   {
-    id: "einwand", icon: "💬", title: "Einwand-Meister",
+    id: "einwand", icon: "chat", title: "Einwand-Meister",
     desc: "Jeden Einwand souverän in einen Abschluss verwandeln.",
     steps: [
       { title: "Einwände-Bibliothek lesen", hint: "Antworten & Beweise", href: "/akademie/einwaende" },
@@ -42,7 +42,7 @@ export const PATHS: LearnPath[] = [
     ],
   },
   {
-    id: "beratung", icon: "🤝", title: "Premium-Beratung",
+    id: "beratung", icon: "handshake", title: "Premium-Beratung",
     desc: "Hochwertig beraten: vom Bedarf zur passenden Empfehlung.",
     steps: [
       { title: "Angebote kennen", hint: "Beratungs- & Service-Pakete", href: "/akademie/angebote" },

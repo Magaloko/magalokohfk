@@ -5,6 +5,7 @@ import { getAkademieData, type Persona } from "@/lib/akademie";
 import { PageShell } from "@/components/_primitives/page-shell";
 import { Pill } from "@/components/_primitives/card";
 import { PersonaActions } from "@/components/akademie/persona-editor";
+import { Icon } from "@/components/icon";
 
 export const dynamic = "force-dynamic";
 
@@ -35,7 +36,7 @@ export default async function PersonaDetailPage({ params }: { params: Promise<{ 
   const werte = toList(p.werte);
 
   return (
-    <PageShell title={`${p.avatar || "👤"} ${p.name || "Persona"}`} subtitle={[p.alter, p.kontext].filter(Boolean).join(" · ") || undefined} action={BackLink}>
+    <PageShell title={p.name || "Persona"} icon="user" subtitle={[p.alter, p.kontext].filter(Boolean).join(" · ") || undefined} action={BackLink}>
       <div className="flex flex-col gap-4">
         {p.zitat && (
           <section className="rounded-xl border-l-4 border-accent bg-surface p-4 shadow-sm">
@@ -44,7 +45,7 @@ export default async function PersonaDetailPage({ params }: { params: Promise<{ 
         )}
 
         {!!schmerz.length && (
-          <Section title="Schmerzpunkte" icon="😟">
+          <Section title="Schmerzpunkte" iconName="frown">
             <ul className="space-y-2">
               {schmerz.map((x, i) => <li key={i} className="flex gap-2 text-sm"><span className="text-red">•</span><span>{x}</span></li>)}
             </ul>
@@ -52,19 +53,19 @@ export default async function PersonaDetailPage({ params }: { params: Promise<{ 
         )}
 
         {!!werte.length && (
-          <Section title="Werte & Motivation" icon="💎">
+          <Section title="Werte & Motivation" iconName="gem">
             <div className="flex flex-wrap gap-2">{werte.map((x, i) => <Pill key={i} tone="teal">{x}</Pill>)}</div>
           </Section>
         )}
 
         {p.einwaendeTypisch && (
-          <Section title="Typische Einwände" icon="💬">
+          <Section title="Typische Einwände" iconName="chat">
             <p className="text-sm text-muted">{p.einwaendeTypisch}</p>
           </Section>
         )}
 
         {!!s(p.budget) && (
-          <Section title="Budget" icon="💰">
+          <Section title="Budget" iconName="money">
             <p className="text-sm">{s(p.budget)}</p>
           </Section>
         )}
@@ -74,10 +75,12 @@ export default async function PersonaDetailPage({ params }: { params: Promise<{ 
   );
 }
 
-function Section({ title, icon, children }: { title: string; icon: string; children: React.ReactNode }) {
+function Section({ title, iconName, children }: { title: string; iconName: string; children: React.ReactNode }) {
   return (
     <section className="rounded-xl border border-line bg-surface p-4 shadow-sm">
-      <h2 className="mb-2 text-xs font-bold uppercase tracking-wide text-muted-2">{icon} {title}</h2>
+      <h2 className="mb-2 flex items-center gap-1.5 text-xs font-bold uppercase tracking-wide text-muted-2">
+        <Icon name={iconName} className="h-4 w-4" /> {title}
+      </h2>
       {children}
     </section>
   );

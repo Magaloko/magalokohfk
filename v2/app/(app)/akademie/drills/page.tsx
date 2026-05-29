@@ -21,7 +21,7 @@ export default async function DrillsPage() {
   ];
   if (admin) cols.push({ key: "act", label: "", align: "right", render: (r) => <DrillRowActions id={r.id || String(d.drills.indexOf(r))} drill={r} /> });
   return (
-    <PageShell title="Daily-Drills" subtitle={`${d.drills.length} Drills · tägliches Mikro-Training`} action={admin ? <NewDrillButton /> : undefined}>
+    <PageShell title="Daily-Drills" icon="bolt" subtitle={`${d.drills.length} Drills · tägliches Mikro-Training`} action={admin ? <NewDrillButton /> : undefined}>
       <DrillLauncher drills={d.drills} />
       <QuizLauncher drills={d.drills} einwaende={d.einwaende} marken={d.marken} />
       <DataTable columns={cols} rows={d.drills} getKey={(r, i) => r.id || String(i)} empty={{ title: "Noch keine Drills", hint: "Lernsystem importieren." }} />

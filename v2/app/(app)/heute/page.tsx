@@ -4,6 +4,7 @@ import { getCockpitData, leverScore, formatEur, isTaskOpen, isLeverActive, sorte
 import { getProgress, levelInfo, emptyProgress } from "@/lib/progress";
 import { PATHS } from "@/lib/paths";
 import { PageShell } from "@/components/_primitives/page-shell";
+import { Icon } from "@/components/icon";
 
 export const dynamic = "force-dynamic";
 
@@ -35,18 +36,18 @@ export default async function HeutePage() {
     : [];
 
   return (
-    <PageShell title="🏠 Heute" subtitle={dateLabel}>
+    <PageShell title="Heute" icon="home" subtitle={dateLabel}>
       <div className="flex flex-col gap-5">
         <div className="grid grid-cols-2 gap-3 lg:grid-cols-5">
-          <Stat href="/cockpit/tasks" icon="🔴" label="Fällig / überfällig" value={dueTasks.length} sub={`${openTasks.length} offen`} />
-          <Stat href="/cockpit/entscheidungen" icon="⏰" label="Anstehende Fristen" value={upcomingDecisions.length} sub="Entscheidungen" />
-          <Stat href="/akademie/lernpfade" icon="🧭" label="Lernpfade" value={pathsDone} sub={`von ${PATHS.length} abgeschlossen`} />
-          <Stat href="/cockpit/hebel" icon="🎚" label="Aktive Hebel" value={levers.filter(isLeverActive).length} sub={topLevers[0] ? `Top: ${formatEur(topLevers[0].expectedImpactEur)}/J` : "—"} />
-          <Stat href="/akademie" icon="🎓" label="Dein Level" value={lvl.level} sub={`${progress.xp} XP · 🔥 ${progress.streak}`} />
+          <Stat href="/cockpit/tasks" icon="alert" label="Fällig / überfällig" value={dueTasks.length} sub={`${openTasks.length} offen`} />
+          <Stat href="/cockpit/entscheidungen" icon="clock" label="Anstehende Fristen" value={upcomingDecisions.length} sub="Entscheidungen" />
+          <Stat href="/akademie/lernpfade" icon="compass" label="Lernpfade" value={pathsDone} sub={`von ${PATHS.length} abgeschlossen`} />
+          <Stat href="/cockpit/hebel" icon="lever" label="Aktive Hebel" value={levers.filter(isLeverActive).length} sub={topLevers[0] ? `Top: ${formatEur(topLevers[0].expectedImpactEur)}/J` : "—"} />
+          <Stat href="/akademie" icon="academy" label="Dein Level" value={lvl.level} sub={`${progress.xp} XP · `} subIcon="flame" subIconSuffix={String(progress.streak)} />
         </div>
 
         <div className="grid gap-5 lg:grid-cols-2">
-          <Section title="🔴 Heute fällig & überfällig" href="/cockpit/tasks">
+          <Section titleIcon="alert" title="Heute fällig & überfällig" href="/cockpit/tasks">
             {dueTasks.length ? (
               <ul className="flex flex-col gap-2">
                 {dueTasks.slice(0, 8).map((t, i) => {
@@ -59,10 +60,10 @@ export default async function HeutePage() {
                   );
                 })}
               </ul>
-            ) : <Empty>Nichts fällig. 🎉</Empty>}
+            ) : <Empty><Icon name="party" className="h-4 w-4 inline-block" /> Nichts fällig.</Empty>}
           </Section>
 
-          <Section title="⏰ Anstehende Entscheidungs-Fristen" href="/cockpit/entscheidungen">
+          <Section titleIcon="clock" title="Anstehende Entscheidungs-Fristen" href="/cockpit/entscheidungen">
             {upcomingDecisions.length ? (
               <ul className="flex flex-col gap-2">
                 {upcomingDecisions.map((d, i) => {
@@ -78,7 +79,7 @@ export default async function HeutePage() {
             ) : <Empty>Keine offenen Fristen.</Empty>}
           </Section>
 
-          <Section title="🎚 Top-Hebel nach ROI" href="/cockpit/hebel">
+          <Section titleIcon="lever" title="Top-Hebel nach ROI" href="/cockpit/hebel">
             {topLevers.length ? (
               <ul className="flex flex-col gap-2">
                 {topLevers.map((l, i) => (
@@ -91,7 +92,7 @@ export default async function HeutePage() {
             ) : <Empty>Keine aktiven Hebel.</Empty>}
           </Section>
 
-          <Section title={`📈 KPI-Snapshot${latest ? ` · ${latest.weekLabel || latest.weekStart}` : ""}`} href="/cockpit/kpis">
+          <Section titleIcon="kpi" title={`KPI-Snapshot${latest ? ` · ${latest.weekLabel || latest.weekStart}` : ""}`} href="/cockpit/kpis">
             {latestMetrics.length ? (
               <div className="grid grid-cols-2 gap-2">
                 {latestMetrics.map(([k, v]) => (
@@ -109,20 +110,26 @@ export default async function HeutePage() {
   );
 }
 
-function Stat({ href, icon, label, value, sub }: { href: string; icon: string; label: string; value: number; sub?: string }) {
+function Stat({ href, icon, label, value, sub, subIcon, subIconSuffix }: { href: string; icon: string; label: string; value: number; sub?: string; subIcon?: string; subIconSuffix?: string }) {
   return (
     <Link href={href} className="rounded-xl border border-line bg-surface p-4 shadow-sm transition hover:border-accent">
-      <div className="flex items-center justify-between"><span className="text-lg">{icon}</span><span className="text-2xl font-extrabold">{value}</span></div>
+      <div className="flex items-center justify-between"><Icon name={icon} className="h-5 w-5" /><span className="text-2xl font-extrabold">{value}</span></div>
       <div className="mt-2 text-sm font-semibold">{label}</div>
-      {sub && <div className="text-xs text-muted-2">{sub}</div>}
+      {sub && (
+        <div className="text-xs text-muted-2">
+          {sub}{subIcon && <><Icon name={subIcon} className="h-3 w-3 inline-block mx-0.5" />{subIconSuffix}</>}
+        </div>
+      )}
     </Link>
   );
 }
-function Section({ title, href, children }: { title: string; href: string; children: React.ReactNode }) {
+function Section({ titleIcon, title, href, children }: { titleIcon: string; title: string; href: string; children: React.ReactNode }) {
   return (
     <section className="rounded-xl border border-line bg-surface p-4 shadow-sm">
       <div className="mb-3 flex items-center justify-between">
-        <h2 className="text-xs font-bold uppercase tracking-wide text-muted-2">{title}</h2>
+        <h2 className="flex items-center gap-1.5 text-xs font-bold uppercase tracking-wide text-muted-2">
+          <Icon name={titleIcon} className="h-3.5 w-3.5" />{title}
+        </h2>
         <Link href={href} className="text-xs font-semibold text-accent">Alle →</Link>
       </div>
       {children}

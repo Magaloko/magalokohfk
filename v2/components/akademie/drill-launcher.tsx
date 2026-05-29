@@ -1,6 +1,7 @@
 "use client";
 import { useMemo, useState } from "react";
 import { DrillRunner } from "./drill-runner";
+import { Icon } from "@/components/icon";
 import type { Drill } from "@/lib/akademie";
 
 export function DrillLauncher({ drills }: { drills: Drill[] }) {
@@ -22,9 +23,9 @@ export function DrillLauncher({ drills }: { drills: Drill[] }) {
       <button
         onClick={() => setOpen(true)}
         disabled={!playable}
-        className="rounded-lg bg-accent px-4 py-2 text-sm font-semibold text-bg transition hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-40"
+        className="rounded-lg bg-accent px-4 py-2 text-sm font-semibold text-bg transition hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-40 flex items-center gap-1.5"
       >
-        ⚡ Drill-Training starten{playable ? ` (${playable})` : ""}
+        <Icon name="bolt" className="h-4 w-4" /> Drill-Training starten{playable ? ` (${playable})` : ""}
       </button>
       {marken.length > 0 && (
         <select

@@ -3,14 +3,15 @@ import { useState, type ReactNode } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { cn } from "@/lib/cn";
+import { Icon } from "@/components/icon";
 
 type Hub = { href: string; label: string; icon: string; adminOnly?: boolean; superOnly?: boolean };
 const HUBS: Hub[] = [
-  { href: "/heute", label: "Heute", icon: "🏠", adminOnly: true },
-  { href: "/kalender", label: "Kalender", icon: "📅", adminOnly: true },
-  { href: "/akademie", label: "Akademie", icon: "🎓" },
-  { href: "/cockpit", label: "Cockpit", icon: "📊", adminOnly: true },
-  { href: "/einstellungen", label: "Einstellungen", icon: "⚙️", superOnly: true },
+  { href: "/heute", label: "Heute", icon: "home", adminOnly: true },
+  { href: "/kalender", label: "Kalender", icon: "calendar", adminOnly: true },
+  { href: "/akademie", label: "Akademie", icon: "academy" },
+  { href: "/cockpit", label: "Cockpit", icon: "cockpit", adminOnly: true },
+  { href: "/einstellungen", label: "Einstellungen", icon: "settings", superOnly: true },
 ];
 
 export function MagShell({ role, superAdmin = false, children }: { role: string; superAdmin?: boolean; children: ReactNode }) {
@@ -28,12 +29,12 @@ export function MagShell({ role, superAdmin = false, children }: { role: string;
             "flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-semibold transition",
             active(h.href) ? "bg-accent/15 text-accent" : "text-muted hover:bg-surface-2 hover:text-ink",
           )}>
-          <span className="text-lg">{h.icon}</span>{h.label}
+          <Icon name={h.icon} className="h-5 w-5" />{h.label}
         </Link>
       ))}
       <form action="/api/logout" method="post" className="mt-2">
         <button className="flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-sm text-muted-2 hover:bg-surface-2 hover:text-red">
-          <span className="text-lg">⎋</span>Abmelden
+<Icon name="logout" className="h-5 w-5" />Abmelden
         </button>
       </form>
     </nav>
@@ -57,7 +58,7 @@ export function MagShell({ role, superAdmin = false, children }: { role: string;
           <aside className="absolute left-0 top-0 h-full w-72 border-r border-line bg-surface">
             <div className="flex items-center justify-between px-4 py-5">
               <span className="font-extrabold">MAGALOKO</span>
-              <button onClick={() => setOpen(false)} className="text-muted-2">✕</button>
+              <button onClick={() => setOpen(false)} aria-label="Schließen" className="text-muted-2"><Icon name="x" className="h-5 w-5" /></button>
             </div>
             {Nav}
           </aside>
@@ -67,7 +68,7 @@ export function MagShell({ role, superAdmin = false, children }: { role: string;
       <div className="flex min-w-0 flex-1 flex-col">
         {/* Topbar (mobil) */}
         <header className="flex items-center gap-3 border-b border-line bg-surface px-4 py-3 md:hidden">
-          <button onClick={() => setOpen(true)} aria-label="Menü" className="text-xl">☰</button>
+          <button onClick={() => setOpen(true)} aria-label="Menü"><Icon name="menu" className="h-6 w-6" /></button>
           <span className="font-extrabold">MAGALOKO</span>
         </header>
         <main className="min-w-0 flex-1">{children}</main>

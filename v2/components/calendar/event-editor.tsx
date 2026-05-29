@@ -1,6 +1,7 @@
 "use client";
 import { useState } from "react";
 import { useRouter } from "next/navigation";
+import { Icon } from "@/components/icon";
 import { cockpitMutate, errText } from "@/components/cockpit/mutate";
 import { Modal } from "@/components/cockpit/task-editor";
 import type { CalendarEvent } from "@/lib/cockpit";
@@ -33,8 +34,8 @@ export function EventEditButton({ event }: { event: CalendarEvent }) {
   }
   return (
     <span className="inline-flex gap-1">
-      <button disabled={busy} onClick={() => setEdit(true)} className="rounded bg-surface-2 px-1.5 py-0.5 text-xs hover:text-ink disabled:opacity-50" aria-label="Bearbeiten">✎</button>
-      <button disabled={busy} onClick={del} className="rounded bg-red/10 px-1.5 py-0.5 text-xs text-red hover:bg-red/20 disabled:opacity-50" aria-label="Löschen">🗑</button>
+      <button disabled={busy} onClick={() => setEdit(true)} className="rounded bg-surface-2 px-1.5 py-0.5 text-xs hover:text-ink disabled:opacity-50" aria-label="Bearbeiten"><Icon name="edit" className="h-3 w-3" /></button>
+      <button disabled={busy} onClick={del} className="rounded bg-red/10 px-1.5 py-0.5 text-xs text-red hover:bg-red/20 disabled:opacity-50" aria-label="Löschen"><Icon name="trash" className="h-3 w-3" /></button>
       {edit && <EventForm event={event} onClose={() => setEdit(false)} />}
     </span>
   );

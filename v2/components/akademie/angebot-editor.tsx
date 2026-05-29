@@ -4,6 +4,7 @@ import { useRouter } from "next/navigation";
 import { cockpitMutate, errText } from "@/components/cockpit/mutate";
 import { Modal } from "@/components/cockpit/task-editor";
 import type { Angebot } from "@/lib/akademie";
+import { Icon } from "@/components/icon";
 
 const COL = "consultingServices";
 const sel = "w-full rounded-lg border border-line bg-surface-2 px-3 py-2 text-sm text-ink outline-none focus:border-accent";
@@ -32,8 +33,8 @@ export function AngebotActions({ id, angebot }: { id: string; angebot: Angebot }
   }
   return (
     <div className="mt-3 flex gap-2 border-t border-line/60 pt-3">
-      <button disabled={busy} onClick={() => setEdit(true)} className="rounded-lg bg-surface-2 px-3 py-1.5 text-xs font-semibold hover:text-ink disabled:opacity-50">✎ Bearbeiten</button>
-      <button disabled={busy} onClick={del} className="rounded-lg bg-red/10 px-3 py-1.5 text-xs font-semibold text-red hover:bg-red/20 disabled:opacity-50">🗑 Löschen</button>
+      <button disabled={busy} onClick={() => setEdit(true)} className="rounded-lg bg-surface-2 px-3 py-1.5 text-xs font-semibold hover:text-ink disabled:opacity-50"><Icon name="edit" className="h-4 w-4 inline-block mr-1" />Bearbeiten</button>
+      <button disabled={busy} onClick={del} className="rounded-lg bg-red/10 px-3 py-1.5 text-xs font-semibold text-red hover:bg-red/20 disabled:opacity-50"><Icon name="trash" className="h-4 w-4 inline-block mr-1" />Löschen</button>
       {edit && <AngebotForm id={id} angebot={angebot} onClose={() => setEdit(false)} />}
     </div>
   );

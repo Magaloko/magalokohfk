@@ -22,10 +22,10 @@ export default async function KpisPage() {
   const { weeklyKpis } = await getCockpitData();
   const weeks = sortedWeeks(weeklyKpis).slice(0, 12);
 
-  if (!weeks.length) return <PageShell title="📈 KPIs" action={<NewKpiButton />}><EmptyState title="Noch keine KPI-Wochen" hint="Wöchentliche Kennzahlen erfassen." /></PageShell>;
+  if (!weeks.length) return <PageShell icon="kpi" title="KPIs" action={<NewKpiButton />}><EmptyState title="Noch keine KPI-Wochen" hint="Wöchentliche Kennzahlen erfassen." /></PageShell>;
 
   return (
-    <PageShell title="📈 KPIs" subtitle={`${weeklyKpis.length} erfasste Wochen`} action={<NewKpiButton />}>
+    <PageShell icon="kpi" title="KPIs" subtitle={`${weeklyKpis.length} erfasste Wochen`} action={<NewKpiButton />}>
       <div className="flex flex-col gap-3">
         {weeks.map((w, i) => {
           const metrics = Object.entries(w).filter(([k, v]) =>

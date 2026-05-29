@@ -1,5 +1,6 @@
 "use client";
 import { useEffect, useState } from "react";
+import { Icon } from "@/components/icon";
 
 export default function LoginPage() {
   const [pass, setPass] = useState("");
@@ -58,7 +59,7 @@ export default function LoginPage() {
           <button disabled={busy} className="rounded-lg bg-accent px-4 py-3 font-semibold text-bg disabled:opacity-60">Anmelden</button>
         </form>
         {msg && <p className="mt-3 text-sm text-muted">{msg}</p>}
-        <p className="mt-5 text-center text-xs text-muted-2">🔒 Admin per Passwort · Mitarbeiter per Code</p>
+        <p className="mt-5 inline-flex w-full items-center justify-center gap-1.5 text-xs text-muted-2"><Icon name="lock" className="h-3.5 w-3.5" /> Admin per Passwort · Mitarbeiter per Code</p>
       </div>
       <script src="https://telegram.org/js/telegram-web-app.js" async />
     </div>

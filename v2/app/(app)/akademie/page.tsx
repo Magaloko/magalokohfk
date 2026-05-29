@@ -8,6 +8,7 @@ import { ContinueCard } from "@/components/akademie/continue-card";
 import { ChallengeCard } from "@/components/akademie/challenge-card";
 import { getProgress, getLeaderboard, levelInfo, BADGES, emptyProgress } from "@/lib/progress";
 import { PATHS } from "@/lib/paths";
+import { Icon } from "@/components/icon";
 
 export const dynamic = "force-dynamic";
 
@@ -21,13 +22,13 @@ export default async function AkademieHub() {
   const d = await getAkademieData();
 
   const all: Tile[] = [
-    { area: "drills", icon: "⚡", title: "Daily-Drills", desc: "Mikro-Training mit Sofort-Feedback", count: d.drills.length, tone: "from-sky-500/15" },
-    { area: "szenarien", icon: "🎬", title: "Szenarien", desc: "Mehrstufige Gesprächsübungen", count: d.szenarien.length, tone: "from-violet-500/15" },
-    { area: "rollenspiele", icon: "🎙", title: "Rollenspiele", desc: "Live-Gespräch mit KI-Kunde", count: d.rollenspiele.length, tone: "from-pink-500/15" },
-    { area: "marken", icon: "🏷", title: "Marken-Bibel", desc: "Herkunft, USPs, Hero-Produkte", count: d.marken.length, tone: "from-teal-500/15" },
-    { area: "personas", icon: "👥", title: "Personas", desc: "Kundentypen verstehen", count: d.personas.length, tone: "from-amber-500/15" },
-    { area: "einwaende", icon: "💬", title: "Einwände", desc: "Antworten auf Kundeneinwände", count: d.einwaende.length, tone: "from-emerald-500/15" },
-    { area: "angebote", icon: "📦", title: "Angebote", desc: "Beratungs- & Service-Pakete", count: d.angebote.length, tone: "from-orange-500/15" },
+    { area: "drills", icon: "bolt", title: "Daily-Drills", desc: "Mikro-Training mit Sofort-Feedback", count: d.drills.length, tone: "from-sky-500/15" },
+    { area: "szenarien", icon: "scenario", title: "Szenarien", desc: "Mehrstufige Gesprächsübungen", count: d.szenarien.length, tone: "from-violet-500/15" },
+    { area: "rollenspiele", icon: "mic", title: "Rollenspiele", desc: "Live-Gespräch mit KI-Kunde", count: d.rollenspiele.length, tone: "from-pink-500/15" },
+    { area: "marken", icon: "tag", title: "Marken-Bibel", desc: "Herkunft, USPs, Hero-Produkte", count: d.marken.length, tone: "from-teal-500/15" },
+    { area: "personas", icon: "users", title: "Personas", desc: "Kundentypen verstehen", count: d.personas.length, tone: "from-amber-500/15" },
+    { area: "einwaende", icon: "chat", title: "Einwände", desc: "Antworten auf Kundeneinwände", count: d.einwaende.length, tone: "from-emerald-500/15" },
+    { area: "angebote", icon: "package", title: "Angebote", desc: "Beratungs- & Service-Pakete", count: d.angebote.length, tone: "from-orange-500/15" },
   ];
   const tiles = all.filter((t) => has(t.area));
   const showQuick = has("drills") || has("einwaende") || has("marken");
@@ -40,7 +41,7 @@ export default async function AkademieHub() {
   const pathsDone = PATHS.filter((p) => (progress.stats.paths?.[p.id]?.length || 0) >= p.steps.length).length;
 
   return (
-    <PageShell title="🎓 Akademie" subtitle="Dein Verkaufstraining — wähle einen Bereich oder leg direkt los.">
+    <PageShell title="Akademie" icon="academy" subtitle="Dein Verkaufstraining — wähle einen Bereich oder leg direkt los.">
       <div className="flex flex-col gap-5">
         {/* Fortschritt */}
         <section className="rounded-xl border border-line bg-gradient-to-br from-accent/10 to-transparent p-4 shadow-sm">
@@ -53,8 +54,8 @@ export default async function AkademieHub() {
               </div>
             </div>
             <div className="flex gap-2 text-sm">
-              <span className="rounded-full bg-amber/15 px-3 py-1 font-semibold text-amber">🔥 {progress.streak} Tage</span>
-              <span className="rounded-full bg-surface-2 px-3 py-1 font-semibold text-muted">🏅 {progress.badges.length}/{BADGES.length}</span>
+              <span className="inline-flex items-center gap-1 rounded-full bg-amber/15 px-3 py-1 font-semibold text-amber"><Icon name="flame" className="h-4 w-4" /> {progress.streak} Tage</span>
+              <span className="inline-flex items-center gap-1 rounded-full bg-surface-2 px-3 py-1 font-semibold text-muted"><Icon name="medal" className="h-4 w-4" /> {progress.badges.length}/{BADGES.length}</span>
             </div>
           </div>
           <div className="mt-3 h-2 overflow-hidden rounded-full bg-surface-2">
@@ -68,7 +69,7 @@ export default async function AkademieHub() {
               return (
                 <span key={b.id} title={`${b.label} — ${b.hint}`}
                   className={`inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-xs font-semibold ${earned ? "bg-green/15 text-green" : "bg-surface-2 text-muted-2 opacity-60"}`}>
-                  <span className={earned ? "" : "grayscale"}>{b.icon}</span>{b.label}
+                  <Icon name={b.icon} className={`h-3.5 w-3.5 ${earned ? "" : "opacity-60"}`} />{b.label}
                 </span>
               );
             })}
@@ -79,7 +80,7 @@ export default async function AkademieHub() {
 
         <Link href="/akademie/lernpfade" className="group flex items-center justify-between rounded-xl border border-line bg-gradient-to-br from-accent/10 to-transparent p-4 shadow-sm transition hover:border-accent">
           <div className="flex items-center gap-3">
-            <span className="text-2xl">🧭</span>
+            <Icon name="compass" className="h-6 w-6 text-accent" />
             <div>
               <div className="text-sm font-bold">Lernpfade</div>
               <div className="text-xs text-muted">{PATHS.length} geführte Kurse · {pathsDone}/{PATHS.length} abgeschlossen · +60 XP pro Pfad</div>
@@ -92,7 +93,7 @@ export default async function AkademieHub() {
 
         {showQuick && (
           <section className="rounded-xl border border-line bg-surface p-4 shadow-sm">
-            <h2 className="mb-3 text-xs font-bold uppercase tracking-wide text-muted-2">⚡ Schnellstart</h2>
+            <h2 className="mb-3 flex items-center gap-1.5 text-xs font-bold uppercase tracking-wide text-muted-2"><Icon name="bolt" className="h-4 w-4" /> Schnellstart</h2>
             <div className="flex flex-col gap-3">
               {has("drills") && <DrillLauncher drills={d.drills} />}
               <QuizLauncher drills={d.drills} einwaende={d.einwaende} marken={d.marken} />
@@ -107,7 +108,7 @@ export default async function AkademieHub() {
               <Link key={t.area} href={`/akademie/${t.area}`}
                 className={`group relative overflow-hidden rounded-xl border border-line bg-gradient-to-br ${t.tone} to-transparent p-4 transition hover:border-accent`}>
                 <div className="flex items-start justify-between">
-                  <span className="text-2xl">{t.icon}</span>
+                  <Icon name={t.icon} className="h-6 w-6" />
                   <span className="rounded-full bg-surface-2 px-2 py-0.5 text-xs font-mono font-bold text-muted">{t.count}</span>
                 </div>
                 <h3 className="mt-3 font-bold">{t.title}</h3>
@@ -118,7 +119,7 @@ export default async function AkademieHub() {
             {admin && (
               <Link href="/akademie/mitarbeiter"
                 className="group rounded-xl border border-line bg-surface p-4 transition hover:border-accent">
-                <span className="text-2xl">👤</span>
+                <Icon name="user" className="h-6 w-6" />
                 <h3 className="mt-3 font-bold">Mitarbeiter</h3>
                 <p className="mt-0.5 text-xs text-muted">Team-Fortschritt & Verwaltung</p>
                 <span className="mt-3 inline-block text-xs font-semibold text-accent opacity-0 transition group-hover:opacity-100">Öffnen →</span>
@@ -129,13 +130,15 @@ export default async function AkademieHub() {
 
         {board.length > 0 && (
           <section>
-            <h2 className="mb-3 text-xs font-bold uppercase tracking-wide text-muted-2">🏆 Bestenliste (anonym)</h2>
+            <h2 className="mb-3 flex items-center gap-1.5 text-xs font-bold uppercase tracking-wide text-muted-2"><Icon name="trophy" className="h-4 w-4" /> Bestenliste (anonym)</h2>
             <div className="overflow-hidden rounded-xl border border-line bg-surface">
               {board.map((e) => (
                 <div key={e.rank}
                   className={`flex items-center justify-between px-4 py-2.5 text-sm ${e.me ? "bg-accent/10" : ""} ${e.rank > 1 ? "border-t border-line" : ""}`}>
                   <span className="flex items-center gap-3">
-                    <span className="w-6 text-center font-mono font-bold text-muted-2">{e.rank === 1 ? "🥇" : e.rank === 2 ? "🥈" : e.rank === 3 ? "🥉" : e.rank}</span>
+                    <span className="w-6 text-center font-mono font-bold text-muted-2">
+                      {e.rank === 1 ? <Icon name="trophy" className="h-4 w-4 text-amber-400" /> : e.rank === 2 ? <Icon name="medal" className="h-4 w-4 text-slate-400" /> : e.rank === 3 ? <Icon name="medal" className="h-4 w-4 text-amber-700" /> : e.rank}
+                    </span>
                     <span className={e.me ? "font-bold text-accent" : "font-medium"}>{e.label}</span>
                   </span>
                   <span className="flex items-center gap-3 text-xs text-muted-2">

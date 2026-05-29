@@ -5,6 +5,7 @@ import { PageShell } from "@/components/_primitives/page-shell";
 import { Card, CardGrid, Pill } from "@/components/_primitives/card";
 import { EmptyState } from "@/components/_primitives/empty-state";
 import { NewMarkeButton } from "@/components/akademie/marke-editor";
+import { Icon } from "@/components/icon";
 
 export const dynamic = "force-dynamic";
 const txt = (v: unknown) => (typeof v === "string" ? v : (v as any)?.name || (v as any)?.argument || (v as any)?.text || "");
@@ -13,9 +14,9 @@ export default async function MarkenPage() {
   const sess = await requireArea("marken");
   const admin = isAdmin(sess);
   const { marken } = await getAkademieData();
-  if (!marken.length) return <PageShell title="Marken-Bibel" action={admin ? <NewMarkeButton /> : undefined}><EmptyState title="Noch keine Marken" /></PageShell>;
+  if (!marken.length) return <PageShell title="Marken-Bibel" icon="tag" action={admin ? <NewMarkeButton /> : undefined}><EmptyState title="Noch keine Marken" /></PageShell>;
   return (
-    <PageShell title="Marken-Bibel" subtitle={`${marken.length} Marken · Herkunft, USPs, Hero-Produkte`} action={admin ? <NewMarkeButton /> : undefined}>
+    <PageShell title="Marken-Bibel" icon="tag" subtitle={`${marken.length} Marken · Herkunft, USPs, Hero-Produkte`} action={admin ? <NewMarkeButton /> : undefined}>
       <CardGrid>
         {marken.map((m, i) => (
           <Link key={m.id || i} href={`/akademie/marken/${encodeURIComponent(m.id || String(i))}`} className="group block">
@@ -27,7 +28,9 @@ export default async function MarkenPage() {
               {m.philosophie && <p className="mt-2 line-clamp-2 text-sm italic text-muted">„{m.philosophie}"</p>}
               {!!(m.verkaufsargumente || m.usps || []).length && (
                 <ul className="mt-3 space-y-1 text-sm">
-                  {(m.verkaufsargumente || m.usps || []).slice(0, 3).map((a, j) => <li key={j}>✓ {txt(a)}</li>)}
+                  {(m.verkaufsargumente || m.usps || []).slice(0, 3).map((a, j) => (
+                    <li key={j} className="flex items-center gap-1.5"><Icon name="check" className="h-3.5 w-3.5 text-green shrink-0" />{txt(a)}</li>
+                  ))}
                 </ul>
               )}
               <span className="mt-3 inline-block text-xs font-semibold text-accent opacity-0 transition group-hover:opacity-100">Details →</span>

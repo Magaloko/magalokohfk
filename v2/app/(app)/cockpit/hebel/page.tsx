@@ -30,7 +30,7 @@ export default async function HebelPage() {
   ];
 
   return (
-    <PageShell title="🎚 Hebel" subtitle={`${levers.filter(isLeverActive).length} aktiv · sortiert nach ROI`} action={<NewLeverButton />}>
+    <PageShell icon="lever" title="Hebel" subtitle={`${levers.filter(isLeverActive).length} aktiv · sortiert nach ROI`} action={<NewLeverButton />}>
       <DataTable columns={cols} rows={rows} getKey={(r, i) => r.id || String(i)} empty={{ title: "Keine Hebel" }} />
     </PageShell>
   );

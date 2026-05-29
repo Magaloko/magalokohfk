@@ -4,6 +4,7 @@ import { useRouter } from "next/navigation";
 import { cockpitMutate, errText } from "@/components/cockpit/mutate";
 import { Modal } from "@/components/cockpit/task-editor";
 import type { Persona } from "@/lib/akademie";
+import { Icon } from "@/components/icon";
 
 const COL = "salesPersonas";
 const sel = "w-full rounded-lg border border-line bg-surface-2 px-3 py-2 text-sm text-ink outline-none focus:border-accent";
@@ -37,8 +38,8 @@ export function PersonaActions({ id, persona }: { id: string; persona: Persona }
   }
   return (
     <div className="mt-3 flex gap-2 border-t border-line/60 pt-3">
-      <button disabled={busy} onClick={() => setEdit(true)} className="rounded-lg bg-surface-2 px-3 py-1.5 text-xs font-semibold hover:text-ink disabled:opacity-50">✎ Bearbeiten</button>
-      <button disabled={busy} onClick={del} className="rounded-lg bg-red/10 px-3 py-1.5 text-xs font-semibold text-red hover:bg-red/20 disabled:opacity-50">🗑 Löschen</button>
+      <button disabled={busy} onClick={() => setEdit(true)} className="rounded-lg bg-surface-2 px-3 py-1.5 text-xs font-semibold hover:text-ink disabled:opacity-50"><Icon name="edit" className="h-4 w-4 inline-block mr-1" />Bearbeiten</button>
+      <button disabled={busy} onClick={del} className="rounded-lg bg-red/10 px-3 py-1.5 text-xs font-semibold text-red hover:bg-red/20 disabled:opacity-50"><Icon name="trash" className="h-4 w-4 inline-block mr-1" />Löschen</button>
       {edit && <PersonaForm id={id} persona={persona} onClose={() => setEdit(false)} />}
     </div>
   );
@@ -64,7 +65,7 @@ function PersonaForm({ id, persona, onClose }: { id?: string; persona?: Persona;
     <Modal onClose={onClose} title={id ? "Persona bearbeiten" : "Neue Persona"}>
       <div className="flex max-h-[70vh] flex-col gap-3 overflow-y-auto pr-1">
         <div className="grid grid-cols-[80px_1fr] gap-3">
-          <label className="block">{L("Avatar")}<input value={f.avatar} onChange={set("avatar")} placeholder="👤" className={`${sel} text-center`} /></label>
+          <label className="block">{L("Avatar")}<input value={f.avatar} onChange={set("avatar")} placeholder="Avatar" className={`${sel} text-center`} /></label>
           <label className="block">{L("Name *")}<input value={f.name} onChange={set("name")} className={sel} /></label>
         </div>
         <div className="grid grid-cols-2 gap-3">

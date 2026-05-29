@@ -18,7 +18,7 @@ export default async function EinwaendePage() {
   ];
   if (admin) cols.push({ key: "act", label: "", align: "right", render: (r) => <EinwandRowActions id={r.id || String(einwaende.indexOf(r))} einwand={r} /> });
   return (
-    <PageShell title="Einwände-Bibliothek" subtitle={`${einwaende.length} Einwände + Antworten`} action={admin ? <NewEinwandButton /> : undefined}>
+    <PageShell title="Einwände-Bibliothek" icon="chat" subtitle={`${einwaende.length} Einwände + Antworten`} action={admin ? <NewEinwandButton /> : undefined}>
       <DataTable columns={cols} rows={einwaende} getKey={(r, i) => r.id || String(i)} empty={{ title: "Noch keine Einwände" }} />
     </PageShell>
   );

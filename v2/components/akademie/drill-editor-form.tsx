@@ -5,6 +5,7 @@ import { cockpitMutate, errText } from "@/components/cockpit/mutate";
 import { Modal } from "@/components/cockpit/task-editor";
 import { StrList } from "./str-list";
 import type { Drill } from "@/lib/akademie";
+import { Icon } from "@/components/icon";
 
 const COL = "akademieDrills";
 const sel = "w-full rounded-lg border border-line bg-surface-2 px-3 py-2 text-sm text-ink outline-none focus:border-accent";
@@ -33,8 +34,8 @@ export function DrillRowActions({ id, drill }: { id: string; drill: Drill }) {
   }
   return (
     <span className="inline-flex gap-1">
-      <button disabled={busy} onClick={() => setEdit(true)} className="rounded bg-surface-2 px-2 py-1 text-xs hover:text-ink disabled:opacity-50" aria-label="Bearbeiten">✎</button>
-      <button disabled={busy} onClick={del} className="rounded bg-red/10 px-2 py-1 text-xs text-red hover:bg-red/20 disabled:opacity-50" aria-label="Löschen">🗑</button>
+      <button disabled={busy} onClick={() => setEdit(true)} className="rounded bg-surface-2 px-2 py-1 text-xs hover:text-ink disabled:opacity-50" aria-label="Bearbeiten"><Icon name="edit" className="h-4 w-4" /></button>
+      <button disabled={busy} onClick={del} className="rounded bg-red/10 px-2 py-1 text-xs text-red hover:bg-red/20 disabled:opacity-50" aria-label="Löschen"><Icon name="trash" className="h-4 w-4" /></button>
       {edit && <DrillForm id={id} drill={drill} onClose={() => setEdit(false)} />}
     </span>
   );
@@ -82,7 +83,7 @@ function DrillForm({ id, drill, onClose }: { id?: string; drill?: Drill; onClose
                   </label>
                   <input value={o.text} onChange={(e) => updOpt(i, { text: e.target.value })} placeholder={`Option ${String.fromCharCode(65 + i)}`} className={`${sel} flex-1`} />
                   <input value={o.punkte} onChange={(e) => updOpt(i, { punkte: e.target.value })} placeholder="Pkt" inputMode="numeric" className={`${sel} w-16`} />
-                  <button onClick={() => setOpts(opts.filter((_, j) => j !== i))} className="text-muted-2 hover:text-red" aria-label="entfernen">✕</button>
+                  <button onClick={() => setOpts(opts.filter((_, j) => j !== i))} className="text-muted-2 hover:text-red" aria-label="entfernen"><Icon name="x" className="h-4 w-4" /></button>
                 </div>
                 <input value={o.feedback} onChange={(e) => updOpt(i, { feedback: e.target.value })} placeholder="Feedback" className={`${sel} mt-2`} />
               </div>

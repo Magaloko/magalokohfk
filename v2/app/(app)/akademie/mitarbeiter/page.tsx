@@ -7,6 +7,7 @@ import { PATHS } from "@/lib/paths";
 import { PageShell } from "@/components/_primitives/page-shell";
 import { Pill } from "@/components/_primitives/card";
 import { EmptyState } from "@/components/_primitives/empty-state";
+import { Icon } from "@/components/icon";
 
 export const dynamic = "force-dynamic";
 
@@ -69,7 +70,7 @@ export default async function MitarbeiterPage() {
   const staff = (cockpit.staffTraining || []).filter((m) => (m.completedScenarios || []).length);
 
   return (
-    <PageShell title="👥 Mitarbeiter" subtitle={`${members.length} Lernende · Team-Fortschritt`}>
+    <PageShell title="Mitarbeiter" icon="users" subtitle={`${members.length} Lernende · Team-Fortschritt`}>
       <div className="flex flex-col gap-6">
         {members.length ? (
           <section className="overflow-hidden rounded-xl border border-line bg-surface">
@@ -79,10 +80,10 @@ export default async function MitarbeiterPage() {
                 <th className="px-4 py-3 text-left font-semibold">Rolle / Bereiche</th>
                 <th className="px-4 py-3 text-right font-semibold">Level</th>
                 <th className="px-4 py-3 text-right font-semibold">XP</th>
-                <th className="px-4 py-3 text-right font-semibold">🔥</th>
+                <th className="px-4 py-3 text-right font-semibold"><Icon name="flame" className="h-4 w-4 inline" /></th>
                 <th className="px-4 py-3 text-right font-semibold">Trainings</th>
-                <th className="px-4 py-3 text-right font-semibold" title="Lernpfade abgeschlossen">🧭 Pfade</th>
-                <th className="px-4 py-3 text-right font-semibold">🏅</th>
+                <th className="px-4 py-3 text-right font-semibold" title="Lernpfade abgeschlossen"><Icon name="compass" className="h-4 w-4 inline" /> Pfade</th>
+                <th className="px-4 py-3 text-right font-semibold"><Icon name="medal" className="h-4 w-4 inline" /></th>
                 <th className="px-4 py-3 text-right font-semibold">Antwort-Quote</th>
               </tr></thead>
               <tbody>
@@ -112,7 +113,11 @@ export default async function MitarbeiterPage() {
                   <li key={m.key} className="p-4">
                     <div className="flex items-center justify-between"><span className="font-semibold">{m.uid ? <Link href={`/akademie/mitarbeiter/${m.uid}`} className="hover:text-accent">{m.name}</Link> : m.name}</span><Pill tone={m.role === "admin" ? "accent" : "muted"}>{m.role}</Pill></div>
                     <div className="mt-1 flex flex-wrap gap-3 text-xs text-muted-2">
-                      <span>L{m.level} · {m.xp} XP</span><span>🔥 {m.streak}</span><span>{m.sessions} Trainings</span><span>🧭 {m.pathsDone}/{PATHS_TOTAL}</span><span>🏅 {m.badges}</span>
+                      <span>L{m.level} · {m.xp} XP</span>
+                      <span className="inline-flex items-center gap-1"><Icon name="flame" className="h-3.5 w-3.5" /> {m.streak}</span>
+                      <span>{m.sessions} Trainings</span>
+                      <span className="inline-flex items-center gap-1"><Icon name="compass" className="h-3.5 w-3.5" /> {m.pathsDone}/{PATHS_TOTAL}</span>
+                      <span className="inline-flex items-center gap-1"><Icon name="medal" className="h-3.5 w-3.5" /> {m.badges}</span>
                       {pct != null && <span>{pct}% ({m.ansCorrect}/{m.ansTotal})</span>}
                     </div>
                   </li>
@@ -124,7 +129,7 @@ export default async function MitarbeiterPage() {
 
         {!!staff.length && (
           <section>
-            <h2 className="mb-3 text-xs font-bold uppercase tracking-wide text-muted-2">🎓 Trainings-Historie (Rollenspiele/Szenarien)</h2>
+            <h2 className="mb-3 flex items-center gap-1.5 text-xs font-bold uppercase tracking-wide text-muted-2"><Icon name="academy" className="h-4 w-4" /> Trainings-Historie (Rollenspiele/Szenarien)</h2>
             <div className="grid gap-3 sm:grid-cols-2">
               {staff.map((m, i) => (
                 <div key={i} className="rounded-xl border border-line bg-surface p-4 shadow-sm">

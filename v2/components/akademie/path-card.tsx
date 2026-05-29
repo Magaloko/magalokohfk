@@ -3,6 +3,7 @@ import { useState } from "react";
 import Link from "next/link";
 import { cn } from "@/lib/cn";
 import { Confetti } from "./confetti";
+import { Icon } from "@/components/icon";
 import type { LearnPath } from "@/lib/paths";
 
 export function PathCard({ path, initial }: { path: LearnPath; initial: number[] }) {
@@ -36,14 +37,14 @@ export function PathCard({ path, initial }: { path: LearnPath; initial: number[]
       {celebrate && <Confetti intensity={1.2} />}
       <div className="flex items-start justify-between gap-3">
         <div className="flex items-start gap-3">
-          <span className="text-2xl">{path.icon}</span>
+          <Icon name={path.icon} className="h-5 w-5 shrink-0" />
           <div>
             <h3 className="font-bold">{path.title}</h3>
             <p className="mt-0.5 text-xs text-muted">{path.desc}</p>
           </div>
         </div>
         {finished
-          ? <span className="shrink-0 rounded-full bg-green/15 px-3 py-1 text-xs font-semibold text-green">✓ Abgeschlossen · +60 XP</span>
+          ? <span className="shrink-0 rounded-full bg-green/15 px-3 py-1 text-xs font-semibold text-green flex items-center gap-1"><Icon name="check" className="h-4 w-4" /> Abgeschlossen · +60 XP</span>
           : <span className="shrink-0 rounded-full bg-surface-2 px-3 py-1 text-xs font-semibold text-muted">{completed}/{total}</span>}
       </div>
 
@@ -60,7 +61,7 @@ export function PathCard({ path, initial }: { path: LearnPath; initial: number[]
                 aria-label={isDone ? "Als offen markieren" : "Als erledigt markieren"}
                 className={cn("grid h-6 w-6 shrink-0 place-items-center rounded-full border text-xs transition disabled:opacity-50",
                   isDone ? "border-green bg-green text-bg" : "border-line text-muted-2 hover:border-accent")}>
-                {isDone ? "✓" : i + 1}
+                {isDone ? <Icon name="check" className="h-3 w-3" /> : i + 1}
               </button>
               <div className="min-w-0 flex-1">
                 <div className={cn("text-sm font-medium", isDone && "text-muted line-through")}>{s.title}</div>

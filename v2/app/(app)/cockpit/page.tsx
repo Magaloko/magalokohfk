@@ -2,6 +2,7 @@ import Link from "next/link";
 import { requireAdmin } from "@/lib/auth-helpers";
 import { getCockpitData, leverScore, formatEur, isTaskOpen, isLeverActive, sortedWeeks } from "@/lib/cockpit";
 import { PageShell } from "@/components/_primitives/page-shell";
+import { Icon } from "@/components/icon";
 
 export const dynamic = "force-dynamic";
 
@@ -15,17 +16,17 @@ export default async function CockpitOverview() {
   const latestWeek = sortedWeeks(weeklyKpis)[0];
 
   return (
-    <PageShell title="📊 Cockpit" subtitle="Tasks · Hebel · KPIs · Entscheidungen — dein Steuerstand">
+    <PageShell icon="cockpit" title="Cockpit" subtitle="Tasks · Hebel · KPIs · Entscheidungen — dein Steuerstand">
       <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-        <Stat href="/cockpit/tasks" icon="✅" label="Offene Tasks" value={openTasks.length} sub={`${tasks.length} gesamt`} />
-        <Stat href="/cockpit/hebel" icon="🎚" label="Aktive Hebel" value={levers.filter(isLeverActive).length} sub={`${levers.length} gesamt`} />
-        <Stat href="/cockpit/kpis" icon="📈" label="KPI-Wochen" value={weeklyKpis.length} sub={latestWeek?.weekLabel || latestWeek?.weekStart || "—"} />
-        <Stat href="/cockpit/entscheidungen" icon="🧭" label="Offene Entsch." value={openDecisions.length} sub={`${decisions.length} gesamt`} />
+        <Stat href="/cockpit/tasks" icon="check" label="Offene Tasks" value={openTasks.length} sub={`${tasks.length} gesamt`} />
+        <Stat href="/cockpit/hebel" icon="lever" label="Aktive Hebel" value={levers.filter(isLeverActive).length} sub={`${levers.length} gesamt`} />
+        <Stat href="/cockpit/kpis" icon="kpi" label="KPI-Wochen" value={weeklyKpis.length} sub={latestWeek?.weekLabel || latestWeek?.weekStart || "—"} />
+        <Stat href="/cockpit/entscheidungen" icon="compass" label="Offene Entsch." value={openDecisions.length} sub={`${decisions.length} gesamt`} />
       </div>
 
       <section className="mt-5 rounded-xl border border-line bg-surface p-4 shadow-sm">
         <div className="mb-3 flex items-center justify-between">
-          <h2 className="text-xs font-bold uppercase tracking-wide text-muted-2">🎚 Top-Hebel nach ROI</h2>
+          <h2 className="flex items-center gap-1.5 text-xs font-bold uppercase tracking-wide text-muted-2"><Icon name="lever" className="h-3.5 w-3.5" /> Top-Hebel nach ROI</h2>
           <Link href="/cockpit/hebel" className="text-xs font-semibold text-accent">Alle →</Link>
         </div>
         {topLevers.length ? (
@@ -45,7 +46,7 @@ export default async function CockpitOverview() {
 
       <section className="mt-3 rounded-xl border border-line bg-surface p-4 shadow-sm">
         <div className="mb-3 flex items-center justify-between">
-          <h2 className="text-xs font-bold uppercase tracking-wide text-muted-2">✅ Nächste offene Tasks</h2>
+          <h2 className="flex items-center gap-1.5 text-xs font-bold uppercase tracking-wide text-muted-2"><Icon name="check" className="h-3.5 w-3.5" /> Nächste offene Tasks</h2>
           <Link href="/cockpit/tasks" className="text-xs font-semibold text-accent">Alle →</Link>
         </div>
         {openTasks.length ? (
@@ -57,7 +58,7 @@ export default async function CockpitOverview() {
               </li>
             ))}
           </ul>
-        ) : <p className="text-sm text-muted-2">Keine offenen Tasks. 🎉</p>}
+        ) : <p className="text-sm text-muted-2">Keine offenen Tasks. <Icon name="party" className="h-4 w-4 inline" /></p>}
       </section>
     </PageShell>
   );
@@ -67,7 +68,7 @@ function Stat({ href, icon, label, value, sub }: { href: string; icon: string; l
   return (
     <Link href={href} className="group rounded-xl border border-line bg-surface p-4 shadow-sm transition hover:border-accent">
       <div className="flex items-center justify-between">
-        <span className="text-xl">{icon}</span>
+        <Icon name={icon} className="h-5 w-5 text-accent" />
         <span className="text-2xl font-extrabold">{value}</span>
       </div>
       <div className="mt-2 text-sm font-semibold">{label}</div>

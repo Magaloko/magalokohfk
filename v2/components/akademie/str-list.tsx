@@ -1,4 +1,5 @@
 "use client";
+import { Icon } from "@/components/icon";
 
 const sel = "w-full rounded-lg border border-line bg-surface-2 px-3 py-2 text-sm text-ink outline-none focus:border-accent";
 
@@ -11,7 +12,7 @@ export function StrList({ label, items, setItems, placeholder }: { label: string
         {items.map((v, i) => (
           <div key={i} className="flex gap-2">
             <input value={v} onChange={(e) => setItems(items.map((x, j) => (j === i ? e.target.value : x)))} placeholder={placeholder} className={`${sel} flex-1`} />
-            <button onClick={() => setItems(items.filter((_, j) => j !== i))} className="text-muted-2 hover:text-red" aria-label="entfernen">✕</button>
+            <button onClick={() => setItems(items.filter((_, j) => j !== i))} className="text-muted-2 hover:text-red" aria-label="entfernen"><Icon name="x" className="h-4 w-4" /></button>
           </div>
         ))}
       </div>

@@ -2,6 +2,7 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { QuizRunner } from "./quiz-runner";
+import { Icon } from "@/components/icon";
 import type { Drill, Einwand, Marke } from "@/lib/akademie";
 
 export function ChallengeCard({ drills, einwaende, marken, doneToday, streak }: {
@@ -15,13 +16,13 @@ export function ChallengeCard({ drills, einwaende, marken, doneToday, streak }: 
     <section className="rounded-xl border border-amber/30 bg-gradient-to-br from-amber/10 to-transparent p-4 shadow-sm">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
-          <h2 className="text-sm font-bold">☀️ Tages-Challenge</h2>
+          <h2 className="text-sm font-bold flex items-center gap-1.5"><Icon name="sun" className="h-4 w-4" /> Tages-Challenge</h2>
           <p className="mt-0.5 text-xs text-muted">5 gemischte Fragen · <span className="font-semibold text-amber">+25 Bonus-XP</span> · hält deine Serie am Leben</p>
         </div>
         <div className="flex items-center gap-2">
-          <span className="rounded-full bg-amber/15 px-3 py-1 text-sm font-semibold text-amber">🔥 {streak} Tage</span>
+          <span className="rounded-full bg-amber/15 px-3 py-1 text-sm font-semibold text-amber flex items-center gap-1"><Icon name="flame" className="h-4 w-4" /> {streak} Tage</span>
           {doneToday ? (
-            <span className="rounded-full bg-green/15 px-3 py-1.5 text-sm font-semibold text-green">✓ heute erledigt</span>
+            <span className="rounded-full bg-green/15 px-3 py-1.5 text-sm font-semibold text-green flex items-center gap-1"><Icon name="check" className="h-4 w-4" /> heute erledigt</span>
           ) : (
             <button onClick={() => setOpen(true)} disabled={!playable}
               className="rounded-lg bg-accent px-4 py-2 text-sm font-semibold text-bg transition hover:opacity-90 disabled:opacity-50">

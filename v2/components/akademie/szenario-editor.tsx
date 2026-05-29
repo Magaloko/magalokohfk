@@ -4,6 +4,7 @@ import { useRouter } from "next/navigation";
 import { cockpitMutate, errText } from "@/components/cockpit/mutate";
 import { Modal } from "@/components/cockpit/task-editor";
 import type { Szenario } from "@/lib/akademie";
+import { Icon } from "@/components/icon";
 
 const COL = "trainingScenarios";
 const sel = "w-full rounded-lg border border-line bg-surface-2 px-3 py-2 text-sm text-ink outline-none focus:border-accent";
@@ -35,8 +36,8 @@ export function SzenarioActions({ id, szenario, personas }: { id: string; szenar
   }
   return (
     <div className="mt-3 flex gap-2 border-t border-line/60 pt-3">
-      <button disabled={busy} onClick={() => setEdit(true)} className="rounded-lg bg-surface-2 px-3 py-1.5 text-xs font-semibold hover:text-ink disabled:opacity-50">✎ Bearbeiten</button>
-      <button disabled={busy} onClick={del} className="rounded-lg bg-red/10 px-3 py-1.5 text-xs font-semibold text-red hover:bg-red/20 disabled:opacity-50">🗑 Löschen</button>
+      <button disabled={busy} onClick={() => setEdit(true)} className="rounded-lg bg-surface-2 px-3 py-1.5 text-xs font-semibold hover:text-ink disabled:opacity-50"><Icon name="edit" className="h-4 w-4 inline-block mr-1" />Bearbeiten</button>
+      <button disabled={busy} onClick={del} className="rounded-lg bg-red/10 px-3 py-1.5 text-xs font-semibold text-red hover:bg-red/20 disabled:opacity-50"><Icon name="trash" className="h-4 w-4 inline-block mr-1" />Löschen</button>
       {edit && <SzenarioForm id={id} szenario={szenario} personas={personas} onClose={() => setEdit(false)} />}
     </div>
   );
@@ -97,7 +98,7 @@ function SzenarioForm({ id, szenario, personas, onClose }: { id?: string; szenar
                     <input type="radio" name={`correct-${i}`} checked={s.correctIdx === j} onChange={() => upd(i, { correctIdx: j })} title="richtige Antwort" className="accent-green" />
                     <input value={o.text} onChange={(e) => updOpt(i, j, { text: e.target.value })} placeholder={`Option ${String.fromCharCode(65 + j)}`} className={`${sel} flex-1`} />
                     <input value={o.feedback} onChange={(e) => updOpt(i, j, { feedback: e.target.value })} placeholder="Feedback" className={`${sel} flex-1`} />
-                    <button onClick={() => upd(i, { options: s.options.filter((_, k) => k !== j), correctIdx: Math.min(s.correctIdx, Math.max(0, s.options.length - 2)) })} className="text-muted-2 hover:text-red" aria-label="Option entfernen">✕</button>
+                    <button onClick={() => upd(i, { options: s.options.filter((_, k) => k !== j), correctIdx: Math.min(s.correctIdx, Math.max(0, s.options.length - 2)) })} className="text-muted-2 hover:text-red" aria-label="Option entfernen"><Icon name="x" className="h-4 w-4" /></button>
                   </div>
                 ))}
               </div>

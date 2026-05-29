@@ -5,6 +5,7 @@ import { getAkademieData, type Marke } from "@/lib/akademie";
 import { PageShell } from "@/components/_primitives/page-shell";
 import { Pill } from "@/components/_primitives/card";
 import { MarkeActions } from "@/components/akademie/marke-editor";
+import { Icon } from "@/components/icon";
 
 export const dynamic = "force-dynamic";
 
@@ -46,9 +47,9 @@ export default async function MarkeDetailPage({ params }: { params: Promise<{ id
         {(m.herkunft?.land || m.herkunft?.stadt || gruendung) && (
           <Section title="Herkunft">
             <div className="flex flex-wrap gap-2">
-              {m.herkunft?.land && <Pill tone="teal">🌍 {m.herkunft.land}</Pill>}
-              {m.herkunft?.stadt && <Pill>📍 {m.herkunft.stadt}</Pill>}
-              {gruendung && <Pill>📅 {gruendung}</Pill>}
+              {m.herkunft?.land && <Pill tone="teal"><span className="inline-flex items-center gap-1"><Icon name="globe" className="h-3.5 w-3.5" /> {m.herkunft.land}</span></Pill>}
+              {m.herkunft?.stadt && <Pill><span className="inline-flex items-center gap-1"><Icon name="pin" className="h-3.5 w-3.5" /> {m.herkunft.stadt}</span></Pill>}
+              {gruendung && <Pill><span className="inline-flex items-center gap-1"><Icon name="calendar" className="h-3.5 w-3.5" /> {gruendung}</span></Pill>}
             </div>
           </Section>
         )}
@@ -62,7 +63,11 @@ export default async function MarkeDetailPage({ params }: { params: Promise<{ id
         {!!hero.length && (
           <Section title="Hero-Produkte">
             <ul className="grid gap-2 sm:grid-cols-2">
-              {hero.map((h, i) => <li key={i} className="rounded-lg border border-line bg-surface-2 px-3 py-2 text-sm">⭐ {h}</li>)}
+              {hero.map((h, i) => (
+                <li key={i} className="flex items-center gap-1.5 rounded-lg border border-line bg-surface-2 px-3 py-2 text-sm">
+                  <Icon name="star" className="h-3.5 w-3.5 shrink-0 text-amber-400" /> {h}
+                </li>
+              ))}
             </ul>
           </Section>
         )}
@@ -71,7 +76,7 @@ export default async function MarkeDetailPage({ params }: { params: Promise<{ id
           <Section title="Verkaufsargumente">
             <ul className="space-y-2">
               {argumente.map((a, i) => (
-                <li key={i} className="flex gap-2 text-sm"><span className="text-green">✓</span><span>{a}</span></li>
+                <li key={i} className="flex gap-2 text-sm"><Icon name="check" className="h-4 w-4 shrink-0 text-green mt-0.5" /><span>{a}</span></li>
               ))}
             </ul>
           </Section>

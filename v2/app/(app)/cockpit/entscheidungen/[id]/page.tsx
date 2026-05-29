@@ -5,6 +5,7 @@ import { getCockpitData, type Decision } from "@/lib/cockpit";
 import { PageShell } from "@/components/_primitives/page-shell";
 import { Pill } from "@/components/_primitives/card";
 import { DecisionActions } from "@/components/cockpit/decision-editor";
+import { Icon } from "@/components/icon";
 
 export const dynamic = "force-dynamic";
 
@@ -35,8 +36,16 @@ export default async function DecisionDetail({ params }: { params: Promise<{ id:
         <section className="rounded-xl border border-line bg-surface p-4 shadow-sm">
           <div className="flex flex-wrap gap-2">
             <Pill tone={statusTone(d.status)}>{d.status || "offen"}</Pill>
-            {d.frist && <Pill tone={overdue ? "red" : "muted"}>⏰ {d.frist}{overdue ? " (überfällig)" : ""}</Pill>}
-            {d.kategorie && <Pill tone="teal">📁 {d.kategorie}</Pill>}
+            {d.frist && (
+              <Pill tone={overdue ? "red" : "muted"}>
+                <span className="flex items-center gap-1"><Icon name="clock" className="h-3 w-3" /> {d.frist}{overdue ? " (überfällig)" : ""}</span>
+              </Pill>
+            )}
+            {d.kategorie && (
+              <Pill tone="teal">
+                <span className="flex items-center gap-1"><Icon name="folder" className="h-3 w-3" /> {d.kategorie}</span>
+              </Pill>
+            )}
           </div>
         </section>
         {d.empfehlung && (

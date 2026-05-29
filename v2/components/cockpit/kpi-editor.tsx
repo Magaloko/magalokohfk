@@ -3,6 +3,7 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { cockpitMutate, errText } from "./mutate";
 import { Modal } from "./task-editor";
+import { Icon } from "@/components/icon";
 import type { WeeklyKpi } from "@/lib/cockpit";
 
 const COL = "weeklyKpis";
@@ -37,8 +38,8 @@ export function KpiActions({ id, week }: { id: string; week: WeeklyKpi }) {
 
   return (
     <div className="mt-3 flex items-center gap-2 border-t border-line/60 pt-3">
-      <button disabled={busy} onClick={() => setEdit(true)} className="rounded-lg bg-surface-2 px-3 py-1.5 text-xs font-semibold hover:text-ink disabled:opacity-50">✎ Bearbeiten</button>
-      <button disabled={busy} onClick={del} className="rounded-lg bg-red/10 px-3 py-1.5 text-xs font-semibold text-red hover:bg-red/20 disabled:opacity-50">🗑 Löschen</button>
+      <button disabled={busy} onClick={() => setEdit(true)} className="flex items-center gap-1.5 rounded-lg bg-surface-2 px-3 py-1.5 text-xs font-semibold hover:text-ink disabled:opacity-50"><Icon name="edit" className="h-3 w-3" /> Bearbeiten</button>
+      <button disabled={busy} onClick={del} className="flex items-center gap-1.5 rounded-lg bg-red/10 px-3 py-1.5 text-xs font-semibold text-red hover:bg-red/20 disabled:opacity-50"><Icon name="trash" className="h-3 w-3" /> Löschen</button>
       {err && <span className="text-xs text-red">{err}</span>}
       {edit && <KpiForm id={id} week={week} onClose={() => setEdit(false)} />}
     </div>
@@ -89,7 +90,9 @@ function KpiForm({ id, week, onClose }: { id?: string; week?: WeeklyKpi; onClose
               <div key={i} className="flex gap-2">
                 <input value={r.key} onChange={(e) => setRow(i, "key", e.target.value)} placeholder="z. B. umsatz" className={`${sel} flex-1`} />
                 <input value={r.value} onChange={(e) => setRow(i, "value", e.target.value)} placeholder="Wert" className={`${sel} w-28`} />
-                <button onClick={() => delRow(i)} aria-label="Zeile entfernen" className="rounded-lg bg-surface-2 px-2 text-muted-2 hover:text-red">✕</button>
+                <button onClick={() => delRow(i)} aria-label="Zeile entfernen" className="rounded-lg bg-surface-2 px-2 text-muted-2 hover:text-red">
+                  <Icon name="x" className="h-3.5 w-3.5" />
+                </button>
               </div>
             ))}
           </div>

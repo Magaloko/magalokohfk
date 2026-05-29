@@ -2,13 +2,14 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { cn } from "@/lib/cn";
+import { Icon } from "@/components/icon";
 
 const TABS = [
-  { href: "/cockpit", label: "📊 Übersicht" },
-  { href: "/cockpit/tasks", label: "✅ Tasks" },
-  { href: "/cockpit/hebel", label: "🎚 Hebel" },
-  { href: "/cockpit/kpis", label: "📈 KPIs" },
-  { href: "/cockpit/entscheidungen", label: "🧭 Entscheidungen" },
+  { href: "/cockpit", icon: "cockpit", label: "Übersicht" },
+  { href: "/cockpit/tasks", icon: "check", label: "Tasks" },
+  { href: "/cockpit/hebel", icon: "lever", label: "Hebel" },
+  { href: "/cockpit/kpis", icon: "kpi", label: "KPIs" },
+  { href: "/cockpit/entscheidungen", icon: "compass", label: "Entscheidungen" },
 ];
 
 export function CockpitTabs() {
@@ -21,9 +22,12 @@ export function CockpitTabs() {
           return (
             <Link key={t.href} href={t.href}
               className={cn(
-                "whitespace-nowrap rounded-lg px-3 py-1.5 text-sm font-semibold transition",
+                "flex items-center gap-1.5 whitespace-nowrap rounded-lg px-3 py-1.5 text-sm font-semibold transition",
                 active ? "bg-accent/15 text-accent" : "text-muted hover:bg-surface-2 hover:text-ink",
-              )}>{t.label}</Link>
+              )}>
+              <Icon name={t.icon} className="h-3.5 w-3.5" />
+              {t.label}
+            </Link>
           );
         })}
       </div>

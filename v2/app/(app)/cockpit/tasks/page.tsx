@@ -43,7 +43,7 @@ export default async function TasksPage() {
   ];
 
   return (
-    <PageShell title="✅ Tasks" subtitle={`${tasks.filter(isTaskOpen).length} offen · ${tasks.length} gesamt`} action={<NewTaskButton />}>
+    <PageShell icon="check" title="Tasks" subtitle={`${tasks.filter(isTaskOpen).length} offen · ${tasks.length} gesamt`} action={<NewTaskButton />}>
       <DataTable columns={cols} rows={rows} getKey={(r, i) => r.id || String(i)} empty={{ title: "Keine Tasks" }} />
     </PageShell>
   );

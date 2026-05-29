@@ -3,9 +3,10 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useEffect } from "react";
 import { cn } from "@/lib/cn";
+import { Icon } from "@/components/icon";
 
 const TABS: { area: string; label: string; adminOnly?: boolean; always?: boolean }[] = [
-  { area: "lernpfade", label: "🧭 Lernpfade", always: true },
+  { area: "lernpfade", label: "Lernpfade", always: true },
   { area: "angebote", label: "Angebote" },
   { area: "personas", label: "Personas" },
   { area: "einwaende", label: "Einwände" },
@@ -34,7 +35,7 @@ export function AkademieTabs({ allowed, isAdmin }: { allowed: string[]; isAdmin:
           className={cn(
             "whitespace-nowrap rounded-lg px-3 py-1.5 text-sm font-semibold transition",
             overviewActive ? "bg-accent/15 text-accent" : "text-muted hover:bg-surface-2 hover:text-ink",
-          )}>🎓 Übersicht</Link>
+          )}><span className="flex items-center gap-1"><Icon name="academy" className="h-4 w-4" />Übersicht</span></Link>
         {tabs.map((t) => {
           const href = `/akademie/${t.area}`;
           const active = pathname === href;
@@ -43,7 +44,7 @@ export function AkademieTabs({ allowed, isAdmin }: { allowed: string[]; isAdmin:
               className={cn(
                 "whitespace-nowrap rounded-lg px-3 py-1.5 text-sm font-semibold transition",
                 active ? "bg-accent/15 text-accent" : "text-muted hover:bg-surface-2 hover:text-ink",
-              )}>{t.label}</Link>
+              )}>{t.area === "lernpfade" ? <span className="flex items-center gap-1"><Icon name="compass" className="h-4 w-4" />{t.label}</span> : t.label}</Link>
           );
         })}
       </div>

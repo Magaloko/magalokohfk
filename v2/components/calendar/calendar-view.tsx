@@ -3,6 +3,7 @@ import { useMemo, useState } from "react";
 import Link from "next/link";
 import { cn } from "@/lib/cn";
 import { NewEventButton, EventEditButton } from "./event-editor";
+import { Icon } from "@/components/icon";
 import type { Task, Decision, WeeklyKpi, CalendarEvent, Lever, StaffMember } from "@/lib/cockpit";
 
 type Tone = "accent" | "amber" | "red" | "green" | "teal" | "muted";
@@ -43,11 +44,11 @@ export function CalendarView({ events, tasks, decisions, kpis, levers, staff, to
     for (const l of levers) {
       if (l.status === "Verworfen") continue;
       const href = `/cockpit/hebel/${encodeURIComponent(l.id || String(levers.indexOf(l)))}`;
-      if (l.startDate) push(l.startDate, { title: `🎚 Start: ${l.title || "Hebel"}`, kindLabel: "Hebel-Start", tone: "accent", href, sort: 4 });
-      if (l.finishDate) push(l.finishDate, { title: `🎚 Ziel: ${l.title || "Hebel"}`, kindLabel: "Hebel-Ziel", tone: (l.finishDate < today && l.status !== "Live") ? "red" : "teal", href, sort: 4 });
+      if (l.startDate) push(l.startDate, { title: `Start: ${l.title || "Hebel"}`, kindLabel: "Hebel-Start", tone: "accent", href, sort: 4 });
+      if (l.finishDate) push(l.finishDate, { title: `Ziel: ${l.title || "Hebel"}`, kindLabel: "Hebel-Ziel", tone: (l.finishDate < today && l.status !== "Live") ? "red" : "teal", href, sort: 4 });
     }
     for (const m of staff) for (const c of m.completedScenarios || []) {
-      push(c.completedAt, { title: `👤 ${m.name || "?"}: ${c.titel || "Training"}${typeof c.score === "number" ? ` (${c.score}%)` : ""}`, kindLabel: "Training", tone: "green", href: "/akademie/mitarbeiter", sort: 5 });
+      push(c.completedAt, { title: `${m.name || "?"}: ${c.titel || "Training"}${typeof c.score === "number" ? ` (${c.score}%)` : ""}`, kindLabel: "Training", tone: "green", href: "/akademie/mitarbeiter", sort: 5 });
     }
     for (const d of Object.keys(map)) map[d].sort((a, b) => a.sort - b.sort || (a.time || "").localeCompare(b.time || ""));
     return map;
