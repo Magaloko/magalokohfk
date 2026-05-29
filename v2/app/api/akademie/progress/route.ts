@@ -22,8 +22,14 @@ export async function POST(req: NextRequest) {
   const sess = await getSession();
   if (!sess) return NextResponse.json({ error: "unauthorized" }, { status: 401 });
 
-  let body: { type?: string; score?: unknown; total?: unknown };
+  let body: { type?: string; score?: unknown; total?: unknown; itemResults?: unknown };
   try { body = await req.json(); } catch { return NextResponse.json({ error: "bad_request" }, { status: 400 }); }
+
+  const itemResults = Array.isArray(body?.itemResults)
+    ? (body.itemResults as any[]).slice(0, 50)
+        .map((r) => ({ key: String(r?.key || "").slice(0, 80), correct: !!r?.correct }))
+        .filter((r) => r.key)
+    : undefined;
 
   const type = TYPES.includes(body?.type as TrainingType) ? (body!.type as TrainingType) : null;
   if (!type) return NextResponse.json({ error: "bad_type" }, { status: 400 });
@@ -35,7 +41,7 @@ export async function POST(req: NextRequest) {
   const total = Math.max(0, Math.min(10000, Math.round(Number(body?.total) || 0)));
   if (!total || score > total) return NextResponse.json({ error: "bad_score" }, { status: 400 });
 
-  const res = await recordResult(sess.email, "Du", { type, score, total });
+  const res = await recordResult(sess.email, "Du", { type, score, total, itemResults });
   return NextResponse.json({
     ok: res.ok,
     xpGain: res.xpGain,

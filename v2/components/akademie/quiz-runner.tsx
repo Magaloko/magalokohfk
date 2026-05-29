@@ -1,5 +1,5 @@
 "use client";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { cn } from "@/lib/cn";
 import { Confetti } from "./confetti";
 import { ResultRewards } from "./result-rewards";
@@ -7,57 +7,85 @@ import type { Drill, Einwand, Marke } from "@/lib/akademie";
 import type { TrainingType } from "@/lib/progress";
 
 type Opt = { text: string; correct: boolean; feedback?: string };
-type Q = { type: string; label: string; frage: string; opts: Opt[]; muster?: string };
+type Q = { type: string; label: string; frage: string; opts: Opt[]; muster?: string; itemKey: string };
+type Weak = Record<string, number>;
 
 function shuffle<T>(a: T[]): T[] { const r = [...a]; for (let i = r.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [r[i], r[j]] = [r[j], r[i]]; } return r; }
 const pick = <T,>(a: T[]) => a[Math.floor(Math.random() * a.length)];
+// Adaptive Auswahl: schwache Items (häufig falsch) bekommen höheres Gewicht.
+function pickWeighted<T>(pool: T[], keyOf: (t: T) => string, weak: Weak): T {
+  const w = pool.map((t) => 1 + (weak[keyOf(t)] || 0) * 2);
+  const sum = w.reduce((a, b) => a + b, 0);
+  let r = Math.random() * sum;
+  for (let i = 0; i < pool.length; i++) { r -= w[i]; if (r <= 0) return pool[i]; }
+  return pool[pool.length - 1];
+}
 
-function makeDrillQ(drills: Drill[]): Q | null {
+function makeDrillQ(drills: Drill[], weak: Weak): Q | null {
   const pool = drills.filter((d) => (d.optionen || []).length >= 2 && d.optionen!.some((o) => o.ist_richtig === true || (o.punkte || 0) > 0));
   if (!pool.length) return null;
-  const d = pick(pool);
+  const d = pickWeighted(pool, (x) => `drill:${x.id || ""}`, weak);
   const opts = shuffle((d.optionen || []).map((o) => ({ text: (o.text || "").slice(0, 140), correct: o.ist_richtig === true || (o.punkte || 0) > 0, feedback: o.feedback })));
   if (!opts.some((o) => o.correct)) return null;
-  return { type: "drill", label: `⚡ Drill — ${d.marke || "allgemein"}`, frage: d.frage || "", opts, muster: d.musterantwort };
+  return { type: "drill", label: `⚡ Drill — ${d.marke || "allgemein"}`, frage: d.frage || "", opts, muster: d.musterantwort, itemKey: `drill:${d.id || ""}` };
 }
-function makeEinwandQ(einw: Einwand[]): Q | null {
+function makeEinwandQ(einw: Einwand[], weak: Weak): Q | null {
   const pool = einw.filter((e) => e.antwort && e.antwort.trim().length >= 8);
   if (pool.length < 4) return null;
-  const t = pick(pool);
+  const t = pickWeighted(pool, (x) => `einwand:${x.id || ""}`, weak);
   const wrong = shuffle(pool.filter((e) => e !== t)).slice(0, 3);
   const opts = shuffle([{ text: t.antwort!.slice(0, 140), correct: true, feedback: `✓ Beste Strategie bei „${t.kategorie || "diesem Einwand"}"` },
     ...wrong.map((e) => ({ text: e.antwort!.slice(0, 140), correct: false, feedback: "✗ Passt zu einem anderen Einwand-Typ." }))]);
-  return { type: "einwand", label: "💬 Einwand", frage: `Kunde sagt: „${t.einwand}"\n\nWelche Antwort ist am besten?`, opts, muster: t.beweis ? `💡 ${t.beweis.slice(0, 160)}` : undefined };
+  return { type: "einwand", label: "💬 Einwand", frage: `Kunde sagt: „${t.einwand}"\n\nWelche Antwort ist am besten?`, opts, muster: t.beweis ? `💡 ${t.beweis.slice(0, 160)}` : undefined, itemKey: `einwand:${t.id || ""}` };
 }
-function makeMarkenQ(marken: Marke[]): Q | null {
+function makeMarkenQ(marken: Marke[], weak: Weak): Q | null {
   const pool = marken.filter((m) => m.herkunft?.land);
   if (pool.length < 4) return null;
-  const t = pick(pool);
+  const t = pickWeighted(pool, (x) => `marken:${x.id || ""}`, weak);
   const laender = [...new Set(pool.map((m) => m.herkunft!.land!))];
   const wrong = shuffle(laender.filter((l) => l !== t.herkunft!.land)).slice(0, 3);
   if (wrong.length < 3) return null;
   const opts = shuffle([{ text: t.herkunft!.land!, correct: true, feedback: `✓ ${t.name} kommt aus ${t.herkunft!.land}` },
     ...wrong.map((l) => ({ text: l, correct: false, feedback: `✗ ${t.name} kommt aus ${t.herkunft!.land}.` }))]);
-  return { type: "marken", label: "🏷 Marke", frage: `Aus welchem Land kommt die Marke ${t.name}?`, opts, muster: t.philosophie ? `„${t.philosophie.slice(0, 120)}"` : undefined };
+  return { type: "marken", label: "🏷 Marke", frage: `Aus welchem Land kommt die Marke ${t.name}?`, opts, muster: t.philosophie ? `„${t.philosophie.slice(0, 120)}"` : undefined, itemKey: `marken:${t.id || ""}` };
 }
 
 export function QuizRunner({ drills, einwaende, marken, n = 5, onClose, recordType = "quiz", title }: { drills: Drill[]; einwaende: Einwand[]; marken: Marke[]; n?: number; onClose: () => void; recordType?: TrainingType; title?: string }) {
+  // Spaced Repetition: gemerkte Schwächen laden, dann Fragen gewichtet generieren.
+  const [weak, setWeak] = useState<Weak | null>(null);
+  useEffect(() => {
+    const headers: Record<string, string> = {};
+    const init = (typeof window !== "undefined" && (window as any).Telegram?.WebApp?.initData) || "";
+    if (init) headers["X-Tg-Init"] = init;
+    fetch("/api/akademie/progress", { headers })
+      .then((r) => (r.ok ? r.json() : null))
+      .then((j) => setWeak((j?.progress?.stats?.weak as Weak) || {}))
+      .catch(() => setWeak({}));
+  }, []);
+
   const questions = useMemo<Q[]>(() => {
+    if (weak === null) return [];
     const gens: Array<() => Q | null> = [];
-    if (drills.length >= 2) gens.push(() => makeDrillQ(drills));
-    if (einwaende.length >= 4) gens.push(() => makeEinwandQ(einwaende));
-    if (marken.length >= 4) gens.push(() => makeMarkenQ(marken));
-    const out: Q[] = []; let tries = 0;
-    while (out.length < n && tries < n * 10) { tries++; const q = gens.length ? pick(gens)() : null; if (q) out.push(q); }
+    if (drills.length >= 2) gens.push(() => makeDrillQ(drills, weak));
+    if (einwaende.length >= 4) gens.push(() => makeEinwandQ(einwaende, weak));
+    if (marken.length >= 4) gens.push(() => makeMarkenQ(marken, weak));
+    const out: Q[] = []; const seen = new Set<string>(); let tries = 0;
+    while (out.length < n && tries < n * 12) {
+      tries++;
+      const q = gens.length ? pick(gens)() : null;
+      if (q && (!q.itemKey.endsWith(":") ? !seen.has(q.itemKey) : true)) { if (q.itemKey) seen.add(q.itemKey); out.push(q); }
+    }
     return out;
-  }, [drills, einwaende, marken, n]);
+  }, [drills, einwaende, marken, n, weak]);
 
   const [idx, setIdx] = useState(0);
   const [score, setScore] = useState(0);
   const [streak, setStreak] = useState(0);
   const [best, setBest] = useState(0);
   const [answered, setAnswered] = useState<number | null>(null);
+  const resultsRef = useRef<{ key: string; correct: boolean }[]>([]);
 
+  if (weak === null) return <Modal onClose={onClose}><p className="py-6 text-center text-muted">Quiz wird vorbereitet…</p></Modal>;
   if (!questions.length) return <Modal onClose={onClose}><p className="text-center text-muted">Nicht genug Daten für ein Quiz.</p></Modal>;
 
   const done = idx >= questions.length;
@@ -71,9 +99,9 @@ export function QuizRunner({ drills, einwaende, marken, n = 5, onClose, recordTy
           <div className="text-5xl">{emoji}</div>
           <div className="mt-2 text-3xl font-extrabold">{score}<span className="text-lg text-muted">/{questions.length}</span></div>
           <div className="text-muted">{pct}% richtig{best >= 2 ? ` · 🔥 beste Serie ${best}` : ""}</div>
-          <ResultRewards type={recordType} score={score} total={questions.length} />
+          <ResultRewards type={recordType} score={score} total={questions.length} itemResults={resultsRef.current} />
           <div className="mt-5 flex justify-center gap-2">
-            <button onClick={() => { setIdx(0); setScore(0); setStreak(0); setBest(0); setAnswered(null); }} className="rounded-lg bg-accent px-4 py-2 font-semibold text-bg">🔄 Nochmal</button>
+            <button onClick={() => { resultsRef.current = []; setIdx(0); setScore(0); setStreak(0); setBest(0); setAnswered(null); }} className="rounded-lg bg-accent px-4 py-2 font-semibold text-bg">🔄 Nochmal</button>
             <button onClick={onClose} className="rounded-lg bg-surface-2 px-4 py-2 font-semibold">✓ Fertig</button>
           </div>
         </div>
@@ -86,6 +114,7 @@ export function QuizRunner({ drills, einwaende, marken, n = 5, onClose, recordTy
     if (answered !== null) return;
     setAnswered(i);
     const correct = q.opts[i].correct;
+    if (q.itemKey && q.itemKey.length > q.itemKey.indexOf(":") + 1) resultsRef.current.push({ key: q.itemKey, correct });
     if (correct) { setScore((s) => s + 1); setStreak((s) => { const ns = s + 1; setBest((b) => Math.max(b, ns)); return ns; }); }
     else setStreak(0);
   };

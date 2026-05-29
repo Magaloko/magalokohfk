@@ -8,6 +8,7 @@ export type Stats = {
   totalAnswered: number;
   byType: Partial<Record<TrainingType, number>>;
   lastChallenge?: string; // YYYY-MM-DD der letzten Tages-Challenge
+  weak?: Record<string, number>; // itemKey ("drill:<id>" …) -> Fehlversuch-Gewicht (Spaced Repetition)
 };
 
 export type Progress = {
@@ -53,6 +54,7 @@ function normStats(s: unknown): Stats {
     totalAnswered: Number(o.totalAnswered) || 0,
     byType: (o.byType && typeof o.byType === "object" ? o.byType : {}) as Stats["byType"],
     lastChallenge: typeof o.lastChallenge === "string" ? o.lastChallenge : undefined,
+    weak: (o.weak && typeof o.weak === "object" ? o.weak : {}) as Record<string, number>,
   };
 }
 
@@ -116,6 +118,18 @@ function daysBetween(a: string, b: string): number {
   return Math.round((db_ - da) / 86400000);
 }
 
+// Spaced-Repetition-Gewichte aktualisieren: Fehler erhöhen, Treffer senken; auf 120 Items begrenzt.
+function updateWeak(prev: Record<string, number> | undefined, results?: { key: string; correct: boolean }[]): Record<string, number> {
+  const weak: Record<string, number> = { ...(prev || {}) };
+  for (const r of results || []) {
+    if (!r || !r.key) continue;
+    if (r.correct) { const v = (weak[r.key] || 0) - 1; if (v <= 0) delete weak[r.key]; else weak[r.key] = v; }
+    else weak[r.key] = Math.min((weak[r.key] || 0) + 1, 9);
+  }
+  const entries = Object.entries(weak).sort((a, b) => b[1] - a[1]).slice(0, 120);
+  return Object.fromEntries(entries);
+}
+
 export type RecordResult = {
   ok: boolean;
   xpGain: number;
@@ -127,7 +141,7 @@ export type RecordResult = {
 export async function recordResult(
   userKey: string,
   display: string,
-  input: { type: TrainingType; score: number; total: number },
+  input: { type: TrainingType; score: number; total: number; itemResults?: { key: string; correct: boolean }[] },
 ): Promise<RecordResult> {
   const score = Math.max(0, Math.round(input.score) || 0);
   const total = Math.max(0, Math.round(input.total) || 0);
@@ -152,6 +166,7 @@ export async function recordResult(
     totalAnswered: prev.stats.totalAnswered + total,
     byType: { ...prev.stats.byType, [input.type]: (prev.stats.byType[input.type] || 0) + 1 },
     lastChallenge: input.type === "challenge" ? today : prev.stats.lastChallenge,
+    weak: updateWeak(prev.stats.weak, input.itemResults),
   };
 
   const next: Progress = {
