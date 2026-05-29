@@ -49,6 +49,29 @@ export function stephanSystem(context: string, today: string): string {
   ].join("\n");
 }
 
+// Werkstatt: bewertet einen Verkaufs-Beitrag/Vorschlag (eigene Antwort, Einwand-Lösung, Idee) und gibt JSON zurück.
+export function answerReviewSystem(task: string): string {
+  return [
+    "Du bist ein erfahrener, fairer Verkaufstrainer im Babyfachhandel HFK (Herr und Frau Klein, Wien/Österreich).",
+    task,
+    "Bewerte konstruktiv, konkret und wohlwollend. Antworte auf Deutsch.",
+    "Antworte AUSSCHLIESSLICH als JSON ohne Markdown, exakt in diesem Format:",
+    '{"score": 0-100, "feedback": "2-4 Sätze: Stärken + was konkret besser geht", "improved": "eine verbesserte, sofort verwendbare Fassung"}',
+  ].join("\n");
+}
+export function parseReview(raw: string): { score: number; feedback: string; improved: string } {
+  let t = String(raw || "").trim().replace(/^```(?:json)?/i, "").replace(/```$/, "").trim();
+  const s = t.indexOf("{"), e = t.lastIndexOf("}");
+  if (s >= 0 && e > s) t = t.slice(s, e + 1);
+  try {
+    const p = JSON.parse(t);
+    const score = Math.max(0, Math.min(100, Math.round(Number(p.score) || 0)));
+    return { score, feedback: String(p.feedback || ""), improved: String(p.improved || "") };
+  } catch {
+    return { score: 0, feedback: String(raw || "").slice(0, 600), improved: "" };
+  }
+}
+
 // Die KI spielt die Kundin/den Kunden (Persona) im Rollenspiel.
 export function customerSystem(rp: Rollenspiel): string {
   const einw = (rp.einwaende || []).map((e, i) => `${i + 1}. „${e.einwand || ""}"`).join("\n");

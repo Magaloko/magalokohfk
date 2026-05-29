@@ -11,6 +11,7 @@ const HUBS: Hub[] = [
   { href: "/kalender", label: "Kalender", icon: "calendar", adminOnly: true },
   { href: "/akademie", label: "Akademie", icon: "academy" },
   { href: "/cockpilot", label: "Cockpilot", icon: "sparkles" },
+  { href: "/werkstatt", label: "Werkstatt", icon: "bulb" },
   { href: "/cockpit", label: "Cockpit", icon: "cockpit", adminOnly: true },
   { href: "/einstellungen", label: "Einstellungen", icon: "settings", superOnly: true },
 ];
