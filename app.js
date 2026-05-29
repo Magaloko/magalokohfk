@@ -1100,7 +1100,10 @@ let _bootSyncDone = false;
           if (info && info.role) {
             window.tmaRole = info.role;
             window.tmaModules = Array.isArray(info.modules) ? info.modules : ["akademie"];
+            // Variante B: freigegebene Akademie-Bereiche (leer/Admin = alle)
+            window.tmaAreas = Array.isArray(info.areas) ? info.areas : null;
             applyTmaRoleLock(); // sofort sperren + ggf. umleiten
+            applyAkademieAreaLock(); // Akademie-Tabs nach Freigabe ein-/ausblenden
           }
         } catch {}
       }
@@ -1570,6 +1573,30 @@ function applyTmaRoleLock() {
   if (!allowed.has(currentView)) {
     const target = allowed.has("akademie") ? "akademie" : [...allowed][0];
     if (target) setView(target);
+  }
+}
+
+// Variante B: Akademie-Tabs nach freigegebenen Bereichen ein-/ausblenden (nur Mitarbeiter).
+// window.tmaAreas = Liste erlaubter Bereiche; null/leer oder Admin = alle Tabs sichtbar.
+function applyAkademieAreaLock() {
+  if (window.tmaRole !== "mitarbeiter") return; // Admin: alle Tabs
+  const areas = Array.isArray(window.tmaAreas) ? window.tmaAreas : [];
+  if (!areas.length) return; // leer = alle Bereiche (Standard)
+  const allowed = new Set(areas); // Tab-Keys == Bereichs-Keys (angebote, drills, …)
+  const tabs = document.querySelectorAll("#akademie .ak-tab-btn");
+  let firstVisible = null;
+  tabs.forEach((btn) => {
+    const tab = btn.dataset.akTab;
+    const ok = allowed.has(tab); // "mitarbeiter"-Tab (Staff) ist nie in areas → bleibt für MA aus
+    btn.style.display = ok ? "" : "none";
+    const content = byId("ak-tab-" + tab);
+    if (content && !ok) content.classList.remove("active");
+    if (ok && !firstVisible) firstVisible = tab;
+  });
+  // Aktiver Tab unsichtbar → auf ersten sichtbaren wechseln
+  const activeBtn = document.querySelector("#akademie .ak-tab-btn.active");
+  if (firstVisible && (!activeBtn || activeBtn.style.display === "none")) {
+    try { akSwitchTab(firstVisible); } catch {}
   }
 }
 

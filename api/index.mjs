@@ -5,7 +5,7 @@ import {
   db, tgConfig, requireAuth, publicUrl, slackWebhook, STATE_ID,
   hashToken, createHmac, timingSafeEqual, randomBytes, parseCookies,
   getSession, isSessionAdmin, setSessionCookie, clearSessionCookie,
-  requireSameOrigin, sanitizeStateJson, filterStateForTgRole, readRawBody, audit
+  requireSameOrigin, sanitizeStateJson, filterStateForTgRole, normAreas, AKADEMIE_AREAS, readRawBody, audit
 } from "../lib/db.mjs";
 
 const JSON_H = { "Content-Type": "application/json; charset=utf-8" };
@@ -94,8 +94,8 @@ export default async function handler(req, res) {
       if (error) return send(res, 500, "read failed");
       const full = data?.data || {};
       if (sess && sess.tgRole === "mitarbeiter") {
-        const filtered = filterStateForTgRole(full, sess.tgModules?.length ? sess.tgModules : ["akademie"]);
-        return send(res, 200, filtered, { "X-MAGALOKO-Role": "mitarbeiter" });
+        const filtered = filterStateForTgRole(full, sess.tgModules); // tg_modules = freigegebene Bereiche
+        return send(res, 200, filtered, { "X-MAGALOKO-Role": "mitarbeiter", "X-MAGALOKO-Areas": normAreas(sess.tgModules).join(",") });
       }
       return send(res, 200, full); // Admin oder gültiges Stephan-OTP → volle (read-only) Sicht
     }
@@ -275,28 +275,36 @@ async function tgAuth(req, res) {
   // Zugang/Rolle aus Env UND der per-Chat verwalteten bot_users-Tabelle mergen.
   const allowSet = new Set(tgCfg.allowedUserIds);
   const adminSet = new Set(adminEnv);
+  let myAreas = []; // Akademie-Bereiche dieses Users (aus bot_users.modules)
   try {
-    const { data: bu } = await db.from("bot_users").select("uid, role");
-    for (const r of (bu || [])) { const id = Number(r.uid); if (!Number.isInteger(id)) continue; allowSet.add(id); if (r.role === "admin") adminSet.add(id); }
+    const { data: bu } = await db.from("bot_users").select("uid, role, modules");
+    for (const r of (bu || [])) {
+      const id = Number(r.uid); if (!Number.isInteger(id)) continue;
+      allowSet.add(id); if (r.role === "admin") adminSet.add(id);
+      if (id === userId && Array.isArray(r.modules)) myAreas = r.modules;
+    }
   } catch (e) { console.error("[tg-auth] bot_users", e.message); }
   if (!allowAll && allowSet.size === 0) return send(res, 503, { error: "Zugang nicht konfiguriert" });
   if (!allowAll && !allowSet.has(userId)) return send(res, 403, { error: "Kein Zugriff" });
 
-  const ALL_MODULES = ["akademie", "produkt", "ai"];
   const isTgAdmin = adminSet.has(userId);
   const role = isTgAdmin ? "admin" : "mitarbeiter";
-  // Policy: NUR Admin sieht alles. Alle anderen ausschließlich Akademie.
-  const modules = isTgAdmin ? ALL_MODULES.slice() : ["akademie"];
+  // Variante B: tg_modules in der Session = freigegebene Akademie-Bereiche (für State-Filter).
+  // Admin → ["*"] (kein Filter). Mitarbeiter → normalisierte Bereichsliste.
+  const sessionAreas = isTgAdmin ? ["*"] : normAreas(myAreas);
+  // Client-Antwort: modules = View-Gating (Akademie-View!), areas = Sub-Tab-Gating.
+  const clientModules = isTgAdmin ? ["akademie", "produkt", "ai"] : ["akademie"];
+  const clientAreas = isTgAdmin ? [] : sessionAreas; // [] = alle Tabs (Admin)
 
   const sessionToken = randomBytes(32).toString("base64url");
   const sessionHashed = hashToken(sessionToken);
   const email = `tg:${userId}@telegram`;
   const now = Date.now();
   const { error } = await db.from("sessions").insert({
-    token_hash: sessionHashed, tg_user_id: userId, tg_role: role, tg_modules: modules,
+    token_hash: sessionHashed, tg_user_id: userId, tg_role: role, tg_modules: sessionAreas,
     email, created_at: now, last_seen: now, ua: (req.headers["user-agent"] || "").slice(0, 300)
   });
   if (error) { console.error("[tg-auth] session insert", error.message); return send(res, 500, { error: "Interner Fehler" }); }
   setSessionCookie(res, sessionToken);
-  return send(res, 200, { ok: true, email, role, modules, userId });
+  return send(res, 200, { ok: true, email, role, modules: clientModules, areas: clientAreas, userId });
 }

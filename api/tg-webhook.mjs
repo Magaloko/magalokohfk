@@ -65,6 +65,25 @@ const ALL_MODULES = ["akademie", "produkt", "ai"];
 // Policy: NUR Admin sieht alles. Alle anderen ausschließlich Akademie.
 function getUserModules(uid) { return isAdmin(uid) ? ALL_MODULES : ["akademie"]; }
 function hasModule(uid, mod) { return isAdmin(uid) || mod === "akademie"; }
+
+// Variante B: feingranulare Akademie-Bereiche pro Person (bot_users.modules; leer = alle).
+const AKADEMIE_AREAS = ["angebote", "personas", "einwaende", "szenarien", "drills", "rollenspiele", "marken"];
+const AREA_LABEL = { angebote: "Angebote", personas: "Personas", einwaende: "Einwände", szenarien: "Szenarien", drills: "Drills", rollenspiele: "Rollenspiele", marken: "Marken" };
+function getUserAreas(uid) {
+  if (isAdmin(uid)) return AKADEMIE_AREAS.slice();
+  const m = USERS[Number(uid)]?.modules;
+  const a = Array.isArray(m) ? m.filter((x) => AKADEMIE_AREAS.includes(x)) : [];
+  return a.length ? a : AKADEMIE_AREAS.slice(); // leer = alle Bereiche
+}
+function hasArea(uid, area) { return getUserAreas(uid).includes(area); }
+// Quiz-Typen, die der User üben darf (drills→drill, einwaende→einwand, marken→marken)
+function allowedQuizTypes(uid) {
+  const a = getUserAreas(uid); const t = [];
+  if (a.includes("drills")) t.push("drill");
+  if (a.includes("einwaende")) t.push("einwand");
+  if (a.includes("marken")) t.push("marken");
+  return t;
+}
 function isPrivateChat(chat) { return chat?.type === "private"; }
 
 // === Daten aus Supabase (app_state) ===
@@ -188,16 +207,17 @@ function makeSrChooser(histMap, getId, nowMs) {
     return pool[pool.length - 1];
   };
 }
-async function generateAdaptiveQuiz(profile, n = 5, itemHist = null) {
+async function generateAdaptiveQuiz(profile, n = 5, itemHist = null, allowedTypes = null) {
   const d = await loadData();
   const nowMs = Date.now();
+  const ok = (t) => !allowedTypes || allowedTypes.includes(t);
   const dC = itemHist ? makeSrChooser(itemHist.drill, (x) => x.id || x.frage || "", nowMs) : pick;
   const eC = itemHist ? makeSrChooser(itemHist.einwand, (x) => x.id || x.einwand || "", nowMs) : pick;
   const mC = itemHist ? makeSrChooser(itemHist.marken, (x) => x.id || x.name || "", nowMs) : pick;
   const avail = [];
-  if (d.drills.length >= 2) avail.push({ topic: "drill", gen: () => makeDrillQ(d.drills, dC) });
-  if (d.einwaende.length >= 4) avail.push({ topic: "einwand", gen: () => makeEinwandQ(d.einwaende, eC) });
-  if (d.marken.length >= 4) avail.push({ topic: "marken", gen: () => makeMarkenQ(d.marken, mC) });
+  if (ok("drill") && d.drills.length >= 2) avail.push({ topic: "drill", gen: () => makeDrillQ(d.drills, dC) });
+  if (ok("einwand") && d.einwaende.length >= 4) avail.push({ topic: "einwand", gen: () => makeEinwandQ(d.einwaende, eC) });
+  if (ok("marken") && d.marken.length >= 4) avail.push({ topic: "marken", gen: () => makeMarkenQ(d.marken, mC) });
   if (!avail.length) return [];
   const weightOf = (t) => Math.max(0.15, 1 - (profile[t]?.skill ?? 0.5));
   const questions = []; let attempts = 0;
@@ -263,18 +283,24 @@ function setUserMenuButton(chatId, userId) {
 }
 async function sendMenu(chatId, userId) {
   setUserMenuButton(chatId, userId);
-  const rows = [
-    [{ text: "⚡ Drill", callback_data: "menu|drill" }, { text: "🏷️ Marke", callback_data: "menu|marken" }, { text: "💬 Einwand", callback_data: "menu|einwand" }],
-    [{ text: "🎭 Rollenspiel", callback_data: "menu|rollenspiel" }, { text: "👤 Persona", callback_data: "menu|persona" }, { text: "📊 Score", callback_data: "menu|score" }],
-    [{ text: "🎯 Quiz", callback_data: "menu|quiz" }, { text: "☀️ Tages-Aufgabe", callback_data: "menu|tagesaufgabe" }, { text: "📚 Lehren", callback_data: "menu|lern" }]
-  ];
+  const areas = getUserAreas(userId);
+  const btns = [];
+  if (areas.includes("drills")) btns.push({ text: "⚡ Drill", callback_data: "menu|drill" });
+  if (areas.includes("marken")) btns.push({ text: "🏷️ Marke", callback_data: "menu|marken" });
+  if (areas.includes("einwaende")) btns.push({ text: "💬 Einwand", callback_data: "menu|einwand" });
+  if (areas.includes("rollenspiele")) btns.push({ text: "🎭 Rollenspiel", callback_data: "menu|rollenspiel" });
+  if (areas.includes("personas")) btns.push({ text: "👤 Persona", callback_data: "menu|persona" });
+  if (allowedQuizTypes(userId).length) { btns.push({ text: "🎯 Quiz", callback_data: "menu|quiz" }); btns.push({ text: "☀️ Tagesaufgabe", callback_data: "menu|tagesaufgabe" }); }
+  btns.push({ text: "📊 Score", callback_data: "menu|score" });
+  btns.push({ text: "📚 Lehren", callback_data: "menu|lern" });
+  const rows = []; for (let i = 0; i < btns.length; i += 3) rows.push(btns.slice(i, i + 3));
   if (isAdmin(userId)) { rows.push([{ text: "📱 Cockpit", web_app: { url: WEBAPP_URL + "#dashboard" } }, { text: "👔 Stephan", web_app: { url: WEBAPP_URL + "#stephan-decisions" } }]); rows.push([{ text: "⚙️ Admin", callback_data: "admin|panel" }]); }
   return tgApi("sendMessage", { chat_id: chatId, text: "<b>🎯 MAGALOKO</b> — Was möchtest du tun?", parse_mode: "HTML", reply_markup: { inline_keyboard: rows } });
 }
 async function cmdStart(chatId, userId) {
   const lines = ["🎓 <b>HFK Verkaufs-Akademie</b>", "", "Trainiere Produktwissen & Verkauf — direkt im Chat.", "", "<b>🎯 Training:</b>", "/drill — Zufalls-Quiz", "/quiz — Gemischtes Quiz (z.B. <code>/quiz 7</code>)", "/tagesaufgabe — Tägliche Challenge ☀️", "/marke <i>LIEWOOD</i> · /einwand <i>preis</i> · /persona <i>anna</i>", "/rollenspiel · /score · /lern", "/check — Wissens-Check · /fortschritt — Skill-Profil"];
   if (hasModule(userId, "ai")) lines.push("/frag <i>…</i> — KI-Assistent");
-  if (isAdmin(userId)) lines.push("", "<b>⚙️ Admin:</b>", "/admin — Panel · /users — Liste", "/adduser <i>ID Name</i> · /setrole <i>ID admin|mitarbeiter</i> · /removeuser <i>ID</i>");
+  if (isAdmin(userId)) lines.push("", "<b>⚙️ Admin:</b>", "/admin — Panel (User + Bereiche)", "/adduser <i>ID Name</i> · /setrole <i>ID admin|mitarbeiter</i> · /removeuser <i>ID</i>", "/grant <i>ID bereich</i> · /revoke <i>ID bereich</i> — Akademie-Bereiche je Person");
   await send(chatId, lines.join("\n"));
   return sendMenu(chatId, userId);
 }
@@ -433,10 +459,12 @@ async function cmdFrag(chatId, question, from) {
 
 // === Quiz-Flow (Session in Supabase) ===
 async function cmdQuiz(chatId, userId, nArg) {
+  const types = allowedQuizTypes(userId);
+  if (!types.length) return send(chatId, "🔒 Für deine Freigabe ist kein Quiz verfügbar.", BACK_KB);
   const n = Math.min(Math.max(parseInt(nArg || "5", 10) || 5, 3), 10);
   const profile = await computeSkillProfile(userId);
-  const questions = await generateAdaptiveQuiz(profile, n, await buildItemHistory(userId));
-  if (!questions.length) return send(chatId, "❌ Keine Quiz-Fragen verfügbar. Drills, Einwände und Marken müssen geladen sein.", BACK_KB);
+  const questions = await generateAdaptiveQuiz(profile, n, await buildItemHistory(userId), types);
+  if (!questions.length) return send(chatId, "❌ Keine Quiz-Fragen verfügbar.", BACK_KB);
   await patchSess(userId, { quiz: { questions, idx: 0, score: 0, streak: 0, best: 0, type: "quiz", attempt: 0 } });
   await send(chatId, adaptiveFocusNote(profile));
   const { text, keyboard } = renderQuizMsg(questions[0], 0, n, 0);
@@ -449,8 +477,10 @@ async function cmdTagesaufgabe(chatId, userId) {
     const s = existing.score, e = s === 3 ? "🏆 Perfekt!" : s >= 2 ? "🎯 Stark!" : "📚 Weiter üben!";
     return send(chatId, `☀️ <b>Tages-Aufgabe — ${today}</b>\n\nHeute bereits erledigt!\n\nScore: <b>${s}/3</b> ${e}`, BACK_KB);
   }
+  const types = allowedQuizTypes(userId);
+  if (!types.length) return send(chatId, "🔒 Für deine Freigabe ist keine Tages-Aufgabe verfügbar.", BACK_KB);
   const profile = await computeSkillProfile(userId);
-  const questions = await generateAdaptiveQuiz(profile, 3, await buildItemHistory(userId));
+  const questions = await generateAdaptiveQuiz(profile, 3, await buildItemHistory(userId), types);
   if (!questions.length) return send(chatId, "❌ Keine Fragen verfügbar.", BACK_KB);
   await patchSess(userId, { quiz: { questions, idx: 0, score: 0, streak: 0, best: 0, type: "tagesaufgabe", attempt: 0 }, daily: { date: today, done: false, score: 0 } });
   await send(chatId, `☀️ <b>Tages-Aufgabe — ${today}</b>\n\n3 gemischte Fragen. Bleib scharf!`);
@@ -458,6 +488,8 @@ async function cmdTagesaufgabe(chatId, userId) {
   return tgApi("sendMessage", { chat_id: chatId, text, parse_mode: "HTML", reply_markup: keyboard });
 }
 async function cmdCheck(chatId, userId, from) {
+  const types = allowedQuizTypes(userId);
+  if (!["drill", "einwand", "marken"].every((t) => types.includes(t))) return send(chatId, "🔒 Der Wissens-Check braucht Zugriff auf Drills, Einwände und Marken.", BACK_KB);
   const sess = await getSess(userId); const stored = sess.check; const now = Date.now();
   if (stored?.preTs && !stored.postTs) {
     const daysSince = (now - stored.preTs) / 86400000;
@@ -587,11 +619,21 @@ async function sendManageUser(chatId, targetId, msgId = null) {
   const adminFlag = isAdmin(id);
   const envFixed = ENV_ADMINS.includes(id) || ENV_ALLOWED.includes(id);
   const kb = [];
+  // Variante B: pro Bereich an/aus (nur für Nicht-Admins; Admin sieht ohnehin alles)
+  let areaInfo = "";
+  if (!adminFlag) {
+    const eff = getUserAreas(id); // effektiv sichtbare Bereiche (leer=alle)
+    for (let i = 0; i < AKADEMIE_AREAS.length; i += 2) {
+      kb.push(AKADEMIE_AREAS.slice(i, i + 2).map((a) => ({ text: `${eff.includes(a) ? "✅" : "➕"} ${AREA_LABEL[a]}`, callback_data: `admin|area|${id}|${a}` })));
+    }
+    const rawMods = Array.isArray(u.modules) ? u.modules.filter((a) => AKADEMIE_AREAS.includes(a)) : [];
+    areaInfo = `\nBereiche: ${rawMods.length ? rawMods.map((a) => AREA_LABEL[a]).join(", ") : "alle (Standard)"}`;
+  }
   if (!adminFlag) kb.push([{ text: "🔑 Zu Admin machen", callback_data: `admin|promote|${id}` }]);
   else if (ADMINS.size > 1) kb.push([{ text: "🔓 Admin-Rechte entziehen", callback_data: `admin|demote|${id}` }]);
   if (!envFixed) kb.push([{ text: "🗑 User entfernen", callback_data: `admin|remove|${id}` }]);
   kb.push([{ text: "⬅️ User-Liste", callback_data: "admin|users" }]);
-  return tgMsgOrEdit(chatId, msgId, `<b>⚙️ ${esc(u.name || id)}</b>\nID: <code>${id}</code>\nRolle: ${adminFlag ? "🔑 Admin (sieht alles)" : "👤 Mitarbeiter (nur Akademie)"}${envFixed ? "\n<i>(via Vercel-Env fixiert)</i>" : ""}`, { reply_markup: { inline_keyboard: kb } });
+  return tgMsgOrEdit(chatId, msgId, `<b>⚙️ ${esc(u.name || id)}</b>\nID: <code>${id}</code>\nRolle: ${adminFlag ? "🔑 Admin (sieht alles)" : "👤 Mitarbeiter"}${areaInfo}${envFixed ? "\n<i>(via Vercel-Env fixiert)</i>" : ""}`, { reply_markup: { inline_keyboard: kb } });
 }
 async function handleAdminCallback(cbq) {
   const data = cbq.data, chatId = cbq.message?.chat?.id, msgId = cbq.message?.message_id;
@@ -603,6 +645,18 @@ async function handleAdminCallback(cbq) {
   if (data.startsWith("admin|promote|")) { const id = Number(data.slice("admin|promote|".length)); const ex = USERS[id] || {}; await dbUpsertUser(id, { name: ex.name || ("User" + id), role: "admin", modules: ex.modules || [] }); await loadAccess(); setUserMenuButton(id, id); return sendManageUser(chatId, id, msgId); }
   if (data.startsWith("admin|demote|")) { const id = Number(data.slice("admin|demote|".length)); if (ADMINS.size > 1 && !ENV_ADMINS.includes(id)) { const ex = USERS[id] || {}; await dbUpsertUser(id, { name: ex.name || ("User" + id), role: "mitarbeiter", modules: ex.modules || [] }); await loadAccess(); setUserMenuButton(id, id); } return sendManageUser(chatId, id, msgId); }
   if (data.startsWith("admin|remove|")) { const id = Number(data.slice("admin|remove|".length)); if (!ENV_ADMINS.includes(id) && !ENV_ALLOWED.includes(id)) { await dbRemoveUser(id); await loadAccess(); tgApi("setChatMenuButton", { chat_id: id, menu_button: { type: "commands" } }).catch(() => {}); } return sendUserList(chatId, msgId); }
+  if (data.startsWith("admin|area|")) {
+    const [, , idStr, key] = data.split("|"); const id = Number(idStr);
+    if (USERS[id] && AKADEMIE_AREAS.includes(key)) {
+      const eff = getUserAreas(id); // effektiv (leer=alle) → materialisieren, dann togglen
+      let next = eff.includes(key) ? eff.filter((a) => a !== key) : [...new Set([...eff, key])];
+      if (!next.length) next = eff; // mind. 1 Bereich — sonst /removeuser nutzen
+      const ex = USERS[id];
+      await dbUpsertUser(id, { name: ex.name || ("User" + id), role: ex.role || "mitarbeiter", modules: next });
+      await loadAccess(); setUserMenuButton(id, id);
+    }
+    return sendManageUser(chatId, id, msgId);
+  }
 }
 async function cmdAddUser(chatId, arg) {
   const [idStr, ...nameParts] = arg.trim().split(/\s+/); const id = Number(idStr);
@@ -631,6 +685,19 @@ async function cmdSetRole(chatId, arg) {
   await dbUpsertUser(id, { name: ex.name || ("User" + id), role, modules: ex.modules || [] }); await loadAccess(); setUserMenuButton(id, id);
   return send(chatId, role === "admin" ? `✅ <b>${esc(USERS[id]?.name || id)}</b> ist jetzt 🔑 <b>Admin</b> — sieht alles.` : `✅ <b>${esc(USERS[id]?.name || id)}</b> ist jetzt 👤 <b>Mitarbeiter</b> — nur Akademie.`);
 }
+async function cmdSetArea(chatId, arg, grant) {
+  const [idStr, areaRaw] = arg.trim().split(/\s+/); const id = Number(idStr); const area = (areaRaw || "").toLowerCase();
+  if (!id || isNaN(id) || !AKADEMIE_AREAS.includes(area)) return send(chatId, `❌ Syntax: <code>/${grant ? "grant" : "revoke"} 123456789 bereich</code>\nBereiche: ${AKADEMIE_AREAS.join(", ")}`);
+  if (!USERS[id]) return send(chatId, `❌ User <code>${id}</code> nicht gefunden. Zuerst <code>/adduser ${id} Name</code>.`);
+  if (isAdmin(id)) return send(chatId, "ℹ️ Admin sieht ohnehin alle Bereiche.");
+  const eff = getUserAreas(id);
+  let next = grant ? [...new Set([...eff, area])] : eff.filter((a) => a !== area);
+  if (!next.length) return send(chatId, "❌ Mindestens 1 Bereich nötig — sonst <code>/removeuser</code>.");
+  const ex = USERS[id];
+  await dbUpsertUser(id, { name: ex.name || ("User" + id), role: ex.role || "mitarbeiter", modules: next });
+  await loadAccess(); setUserMenuButton(id, id);
+  return send(chatId, `✅ <b>${esc(USERS[id]?.name || id)}</b> — Bereiche: ${getUserAreas(id).map((a) => AREA_LABEL[a]).join(", ")}`);
+}
 
 // === Update-Dispatch ===
 async function handleUpdate(u) {
@@ -641,6 +708,11 @@ async function handleUpdate(u) {
     if (!isAllowed(cbq.from?.id)) return tgApi("answerCallbackQuery", { callback_query_id: cbq.id, text: "Kein Zugriff" });
     const data = cbq.data || "", cid = cbq.message?.chat?.id, uid = cbq.from?.id;
     if (!data.startsWith("admin|") && data !== "menu|main" && !hasModule(uid, "akademie")) return tgApi("answerCallbackQuery", { callback_query_id: cbq.id, text: "🔒 Nicht freigeschaltet", show_alert: true });
+    // Variante B: Callback nach Akademie-Bereich gaten
+    const CB_AREA = { "menu|drill": "drills", "menu|marken": "marken", "menu|einwand": "einwaende", "menu|rollenspiel": "rollenspiele", "menu|persona": "personas" };
+    const cbArea = CB_AREA[data] || (data.startsWith("brand|") ? "marken" : data.startsWith("einwand|") ? "einwaende" : data.startsWith("persona|") ? "personas" : null);
+    if (cbArea && !hasArea(uid, cbArea)) return tgApi("answerCallbackQuery", { callback_query_id: cbq.id, text: "🔒 Nicht freigeschaltet", show_alert: true });
+    if ((data === "menu|quiz" || data === "menu|tagesaufgabe") && !allowedQuizTypes(uid).length) return tgApi("answerCallbackQuery", { callback_query_id: cbq.id, text: "🔒 Nicht freigeschaltet", show_alert: true });
     const selfAnswers = data.startsWith("drill|") || data.startsWith("quiz_ans|");
     if (!selfAnswers) tgApi("answerCallbackQuery", { callback_query_id: cbq.id }).catch(() => {});
     if (data.startsWith("drill|")) return handleDrillAnswer(cbq);
@@ -679,13 +751,17 @@ async function handleUpdate(u) {
       if (cmd === "/adduser") return cmdAddUser(chatId, arg);
       if (cmd === "/removeuser") return cmdRemoveUser(chatId, arg);
       if (cmd === "/setrole") return cmdSetRole(chatId, arg);
-      if (cmd === "/grant" || cmd === "/revoke") return send(chatId, "ℹ️ Modul-Grants gibt es nicht mehr. Policy: <b>Admin = alles, Mitarbeiter = nur Akademie</b>.\nNutze <code>/setrole ID admin</code> bzw. <code>mitarbeiter</code>.");
+      if (cmd === "/grant") return cmdSetArea(chatId, arg, true);
+      if (cmd === "/revoke") return cmdSetArea(chatId, arg, false);
     }
     if (cmd === "/start" || cmd === "/help") return cmdStart(chatId, userId);
     if (cmd === "/frag" || cmd === "/ask" || cmd === "/ai") { if (!hasModule(userId, "ai")) return denyModule(chatId, "KI-Assistent"); return cmdFrag(chatId, arg, msg.from); }
     if (cmd === "/produkt" || cmd === "/p") return send(chatId, "🔍 Produkt-Lookup ist im Cloud-Deployment deaktiviert (JTL-Daten liegen lokal). Nutze /marke für Marken-Infos.");
     const akademieCmds = ["/drill", "/marke", "/einwand", "/persona", "/rollenspiel", "/rollenspiele", "/score", "/punkte", "/lern", "/learn", "/korrektur", "/quiz", "/tagesaufgabe", "/ta"];
     if (akademieCmds.includes(cmd) && !hasModule(userId, "akademie")) return denyModule(chatId, "Akademie");
+    // Variante B: Befehl nach Akademie-Bereich gaten
+    const CMD_AREA = { "/drill": "drills", "/marke": "marken", "/einwand": "einwaende", "/persona": "personas", "/rollenspiel": "rollenspiele", "/rollenspiele": "rollenspiele" };
+    if (CMD_AREA[cmd] && !hasArea(userId, CMD_AREA[cmd])) return send(chatId, `🔒 <b>${AREA_LABEL[CMD_AREA[cmd]]}</b> ist für dich nicht freigeschaltet.\n\nFrag Mago, wenn du Zugriff brauchst.`);
     if (cmd === "/drill") return cmdDrill(chatId, arg);
     if (cmd === "/marke") return cmdMarke(chatId, arg);
     if (cmd === "/einwand") return cmdEinwand(chatId, arg);
