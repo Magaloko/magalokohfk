@@ -3,6 +3,7 @@ import { getAkademieData } from "@/lib/akademie";
 import { PageShell } from "@/components/_primitives/page-shell";
 import { Card, CardGrid, Pill } from "@/components/_primitives/card";
 import { EmptyState } from "@/components/_primitives/empty-state";
+import { RoleplayLauncher } from "@/components/akademie/roleplay-launcher";
 
 export const dynamic = "force-dynamic";
 
@@ -26,6 +27,7 @@ export default async function RollenspielePage() {
               <span>🛠 {(r.ablauf || []).length} Schritte</span>
               <span>💬 {(r.einwaende || []).length} Einwände</span>
             </div>
+            <RoleplayLauncher rp={r} />
           </Card>
         ))}
       </CardGrid>

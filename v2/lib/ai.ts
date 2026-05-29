@@ -1,0 +1,90 @@
+import type { Rollenspiel } from "./akademie";
+
+// DeepSeek-Anbindung (server-seitig — Key bleibt geheim). Gleicher Env wie der Bot.
+const AI_KEY = process.env.BOT_AI_KEY || "";
+const ENDPOINT = "https://api.deepseek.com/v1/chat/completions";
+
+export type ChatMsg = { role: "user" | "assistant"; content: string };
+
+export function aiConfigured(): boolean {
+  return !!AI_KEY;
+}
+
+export async function callAiChat(systemPrompt: string, messages: ChatMsg[], temperature = 0.8): Promise<string> {
+  if (!AI_KEY) throw new Error("NO_KEY");
+  const r = await fetch(ENDPOINT, {
+    method: "POST",
+    headers: { "Content-Type": "application/json", Authorization: `Bearer ${AI_KEY}` },
+    body: JSON.stringify({
+      model: "deepseek-chat",
+      messages: [{ role: "system", content: systemPrompt }, ...messages],
+      max_tokens: 1200,
+      temperature,
+    }),
+  });
+  const j = await r.json().catch(() => ({}));
+  const t = j?.choices?.[0]?.message?.content;
+  if (!t) throw new Error(j?.error?.message || "Leere Antwort");
+  return String(t);
+}
+
+// Die KI spielt die Kundin/den Kunden (Persona) im Rollenspiel.
+export function customerSystem(rp: Rollenspiel): string {
+  const einw = (rp.einwaende || []).map((e, i) => `${i + 1}. „${e.einwand || ""}"`).join("\n");
+  return [
+    "Du spielst eine Kundin/einen Kunden in einem Verkaufs-Rollenspiel für ein Babyfachgeschäft (HFK – Herr und Frau Klein, Wien/Österreich).",
+    "Bleib IMMER in der Kundenrolle. Antworte auf Deutsch, natürlich und menschlich, kurz (1–3 Sätze). Kein Erzähltext, keine Regie-Anweisungen — nur direkte wörtliche Rede.",
+    "",
+    `DEINE ROLLE (Persona): ${rp.persona || "interessierte Kundin"}`,
+    `SITUATION: ${rp.setting || ""}`,
+    rp.produkt ? `PRODUKTE im Fokus: ${rp.produkt}` : "",
+    "",
+    "Bring diese Einwände im Lauf des Gesprächs natürlich und nach und nach ein (nicht alle auf einmal, nur wenn es passt):",
+    einw || "(keine speziellen Einwände)",
+    "",
+    "Geht der/die VerkäuferIn überzeugend auf einen Einwand ein, akzeptierst du und das Gespräch entwickelt sich weiter. Bei schwachen Antworten bleibst du skeptisch.",
+    "Beende das Gespräch NICHT von dir aus und gib KEINE Bewertung ab. Reagiere nur als Kunde auf die letzte Aussage des/der VerkäuferIn.",
+  ].filter(Boolean).join("\n");
+}
+
+// Der KI-Coach bewertet das Transkript und liefert JSON.
+export function coachSystem(rp: Rollenspiel): string {
+  const krit = rp.bewertungskriterien || [];
+  return [
+    "Du bist ein erfahrener, fairer Verkaufstrainer im Babyfachhandel. Bewerte das folgende Verkaufsgespräch.",
+    `Im Transkript ist VERKÄUFER der/die zu bewertende Lernende; KUNDE ist die Trainings-Persona. Zieltechnik: ${rp.verkaufstechnik || "allgemein"}.`,
+    "Vergib pro Kriterium 0 bis max Punkte (ganzzahlig). Sei konkret und konstruktiv.",
+    "Antworte AUSSCHLIESSLICH als JSON ohne Markdown, exakt in diesem Format:",
+    '{"kriterien":[{"index":0,"punkte":2,"kommentar":"kurz"}],"gesamt":"2-3 Sätze Gesamtfeedback"}',
+    "Kriterien (index: Name (max) — Beschreibung):",
+    krit.map((k, i) => `${i}: ${k.kriterium || ""} (max ${k.punkte_max || 0}) — ${k.beschreibung || ""}`).join("\n"),
+  ].join("\n");
+}
+
+// Robustes JSON-Parsing der Coach-Antwort.
+export type CoachResult = {
+  perKrit: { name: string; punkte: number; max: number; kommentar: string }[];
+  gesamt: string;
+  got: number;
+  max: number;
+  pct: number;
+};
+
+export function parseCoach(raw: string, rp: Rollenspiel): CoachResult {
+  const krit = rp.bewertungskriterien || [];
+  let t = String(raw || "").trim().replace(/^```(?:json)?/i, "").replace(/```$/, "").trim();
+  const s = t.indexOf("{"), e = t.lastIndexOf("}");
+  if (s >= 0 && e > s) t = t.slice(s, e + 1);
+  const parsed = JSON.parse(t);
+  const arr: { index?: number; punkte?: number; kommentar?: string }[] = Array.isArray(parsed.kriterien) ? parsed.kriterien : [];
+  const perKrit = krit.map((k, i) => {
+    const c = arr.find((x) => Number(x.index) === i) || arr[i] || {};
+    const max = k.punkte_max || 0;
+    const punkte = Math.max(0, Math.min(max, Math.round(Number(c.punkte) || 0)));
+    return { name: k.kriterium || "", punkte, max, kommentar: String(c.kommentar || "") };
+  });
+  const got = perKrit.reduce((a, k) => a + k.punkte, 0);
+  const max = perKrit.reduce((a, k) => a + k.max, 0) || (rp.gesamtpunkte_max || 0);
+  const pct = max ? Math.round((got / max) * 100) : 0;
+  return { perKrit, gesamt: String(parsed.gesamt || ""), got, max, pct };
+}
