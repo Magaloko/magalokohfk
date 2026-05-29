@@ -1,17 +1,31 @@
 "use client";
-import { useMemo, useState } from "react";
+import { useMemo, useRef, useState } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { cn } from "@/lib/cn";
 import { NewEventButton, EventEditButton } from "./event-editor";
+import { cockpitMutate, errText } from "@/components/cockpit/mutate";
 import { Icon } from "@/components/icon";
 import type { Task, Decision, WeeklyKpi, CalendarEvent, Lever, StaffMember } from "@/lib/cockpit";
 
 type Tone = "accent" | "amber" | "red" | "green" | "teal" | "muted";
-type Item = { date: string; time?: string; title: string; kindLabel: string; tone: Tone; href?: string; event?: CalendarEvent; sort: number };
+type Drag = { collection: string; id: string; field: string };
+type Item = { date: string; time?: string; title: string; kindLabel: string; tone: Tone; href?: string; event?: CalendarEvent; sort: number; drag?: Drag };
+
+type View = "week" | "2weeks" | "month" | "quarter" | "year";
+const VIEWS: { id: View; label: string }[] = [
+  { id: "week", label: "Arbeitswoche" },
+  { id: "2weeks", label: "2 Wochen" },
+  { id: "month", label: "Monat" },
+  { id: "quarter", label: "3 Monate" },
+  { id: "year", label: "Jahr" },
+];
 
 const pad = (n: number) => String(n).padStart(2, "0");
 const ymd = (d: Date) => `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
 const parse = (s: string) => { const [y, m, d] = s.split("-").map(Number); return new Date(y, (m || 1) - 1, d || 1); };
+const addDays = (d: Date, n: number) => new Date(d.getFullYear(), d.getMonth(), d.getDate() + n);
+const startOfWeek = (d: Date) => { const x = new Date(d.getFullYear(), d.getMonth(), d.getDate()); x.setDate(x.getDate() - ((x.getDay() + 6) % 7)); return x; };
 const WD = ["Mo", "Di", "Mi", "Do", "Fr", "Sa", "So"];
 const toneChip: Record<Tone, string> = {
   accent: "bg-accent/15 text-accent", amber: "bg-amber/15 text-amber", red: "bg-red/15 text-red",
@@ -24,10 +38,14 @@ const toneDot: Record<Tone, string> = {
 export function CalendarView({ events, tasks, decisions, kpis, levers, staff, today }: {
   events: CalendarEvent[]; tasks: Task[]; decisions: Decision[]; kpis: WeeklyKpi[]; levers: Lever[]; staff: StaffMember[]; today: string;
 }) {
+  const router = useRouter();
   const now = parse(today);
-  const [vy, setVy] = useState(now.getFullYear());
-  const [vm, setVm] = useState(now.getMonth());
+  const [view, setView] = useState<View>("month");
+  const [anchor, setAnchor] = useState<Date>(now);
   const [sel, setSel] = useState(today);
+  const [busy, setBusy] = useState(false);
+  const [over, setOver] = useState<string | null>(null);
+  const dragRef = useRef<(Drag & { from: string }) | null>(null);
 
   const byDate = useMemo(() => {
     const map: Record<string, Item[]> = {};
@@ -37,15 +55,16 @@ export function CalendarView({ events, tasks, decisions, kpis, levers, staff, to
       (map[d] ||= []).push({ date: d, ...it });
     };
     const eKind: Record<string, Tone> = { Termin: "accent", Erinnerung: "teal", Deadline: "red", Block: "muted" };
-    for (const e of events) push(e.date, { title: e.title || "Termin", time: e.time, kindLabel: e.kind || "Termin", tone: eKind[e.kind || ""] || "accent", event: e, sort: 0 });
-    for (const t of tasks) if ((t.status || "") !== "Erledigt") push(t.dueDate, { title: t.title || "Aufgabe", kindLabel: "Aufgabe", tone: (t.dueDate || "") < today ? "red" : "amber", href: `/cockpit/tasks/${encodeURIComponent(t.id || String(tasks.indexOf(t)))}`, sort: 1 });
-    for (const d of decisions) if ((d.status || "offen") !== "entschieden" && d.status !== "verworfen") push(d.frist, { title: d.titel || "Entscheidung", kindLabel: "Entscheidung", tone: (d.frist || "") < today ? "red" : "accent", href: `/cockpit/entscheidungen/${encodeURIComponent(d.id || String(decisions.indexOf(d)))}`, sort: 2 });
+    for (const e of events) push(e.date, { title: e.title || "Termin", time: e.time, kindLabel: e.kind || "Termin", tone: eKind[e.kind || ""] || "accent", event: e, sort: 0, drag: e.id ? { collection: "calendarEvents", id: e.id, field: "date" } : undefined });
+    for (const t of tasks) if ((t.status || "") !== "Erledigt") push(t.dueDate, { title: t.title || "Aufgabe", kindLabel: "Aufgabe", tone: (t.dueDate || "") < today ? "red" : "amber", href: `/cockpit/tasks/${encodeURIComponent(t.id || String(tasks.indexOf(t)))}`, sort: 1, drag: t.id ? { collection: "tasks", id: t.id, field: "dueDate" } : undefined });
+    for (const d of decisions) if ((d.status || "offen") !== "entschieden" && d.status !== "verworfen") push(d.frist, { title: d.titel || "Entscheidung", kindLabel: "Entscheidung", tone: (d.frist || "") < today ? "red" : "accent", href: `/cockpit/entscheidungen/${encodeURIComponent(d.id || String(decisions.indexOf(d)))}`, sort: 2, drag: d.id ? { collection: "stephanDecisions", id: d.id, field: "frist" } : undefined });
     for (const k of kpis) push(k.weekStart, { title: `KPI-Woche${k.weekLabel ? " · " + k.weekLabel : ""}`, kindLabel: "KPI", tone: "teal", href: "/cockpit/kpis", sort: 3 });
     for (const l of levers) {
       if (l.status === "Verworfen") continue;
       const href = `/cockpit/hebel/${encodeURIComponent(l.id || String(levers.indexOf(l)))}`;
-      if (l.startDate) push(l.startDate, { title: `Start: ${l.title || "Hebel"}`, kindLabel: "Hebel-Start", tone: "accent", href, sort: 4 });
-      if (l.finishDate) push(l.finishDate, { title: `Ziel: ${l.title || "Hebel"}`, kindLabel: "Hebel-Ziel", tone: (l.finishDate < today && l.status !== "Live") ? "red" : "teal", href, sort: 4 });
+      const drag = (f: string): Drag | undefined => (l.id ? { collection: "levers", id: l.id, field: f } : undefined);
+      if (l.startDate) push(l.startDate, { title: `Start: ${l.title || "Hebel"}`, kindLabel: "Hebel-Start", tone: "accent", href, sort: 4, drag: drag("startDate") });
+      if (l.finishDate) push(l.finishDate, { title: `Ziel: ${l.title || "Hebel"}`, kindLabel: "Hebel-Ziel", tone: (l.finishDate < today && l.status !== "Live") ? "red" : "teal", href, sort: 4, drag: drag("finishDate") });
     }
     for (const m of staff) for (const c of m.completedScenarios || []) {
       push(c.completedAt, { title: `${m.name || "?"}: ${c.titel || "Training"}${typeof c.score === "number" ? ` (${c.score}%)` : ""}`, kindLabel: "Training", tone: "green", href: "/akademie/mitarbeiter", sort: 5 });
@@ -54,65 +73,153 @@ export function CalendarView({ events, tasks, decisions, kpis, levers, staff, to
     return map;
   }, [events, tasks, decisions, kpis, levers, staff, today]);
 
-  // 42 Zellen (6 Wochen), Montag-basiert.
-  const cells = useMemo(() => {
-    const first = new Date(vy, vm, 1);
-    const offset = (first.getDay() + 6) % 7;
-    const start = new Date(vy, vm, 1 - offset);
-    return Array.from({ length: 42 }, (_, i) => new Date(start.getFullYear(), start.getMonth(), start.getDate() + i));
-  }, [vy, vm]);
+  // --- Drag & Drop: Eintrag auf einen anderen Tag ziehen → Datum aktualisieren ---
+  async function move(to: string) {
+    const dr = dragRef.current; dragRef.current = null; setOver(null);
+    if (!dr || dr.from === to || busy) return;
+    setBusy(true);
+    const r = await cockpitMutate({ collection: dr.collection, action: "update", id: dr.id, patch: { [dr.field]: to } });
+    setBusy(false);
+    if (r.ok) router.refresh(); else alert(errText(r.error));
+  }
+  const dragProps = (it: Item) => it.drag && !busy ? {
+    draggable: true,
+    onDragStart: (e: React.DragEvent) => { dragRef.current = { ...it.drag!, from: it.date }; e.dataTransfer.effectAllowed = "move"; e.dataTransfer.setData("text/plain", it.title); },
+    onDragEnd: () => { dragRef.current = null; setOver(null); },
+  } : {};
+  const cellDrop = (ds: string) => ({
+    onDragOver: (e: React.DragEvent) => { if (dragRef.current) { e.preventDefault(); if (over !== ds) setOver(ds); } },
+    onDragLeave: () => { if (over === ds) setOver(null); },
+    onDrop: (e: React.DragEvent) => { e.preventDefault(); move(ds); },
+  });
 
-  const monthLabel = new Date(vy, vm, 1).toLocaleDateString("de-AT", { month: "long", year: "numeric" });
+  // --- Eine Tageszelle rendern ---
+  function renderDay(d: Date, opts: { dim?: boolean; size: "lg" | "md" | "sm"; maxChips?: number; dots?: boolean }) {
+    const ds = ymd(d);
+    const items = byDate[ds] || [];
+    const isToday = ds === today, isSel = ds === sel, isOver = over === ds;
+    const h = opts.size === "lg" ? "min-h-[72px]" : opts.size === "md" ? "min-h-[48px]" : "min-h-[30px]";
+    return (
+      <button key={ds} onClick={() => setSel(ds)} {...cellDrop(ds)}
+        className={cn(
+          "flex flex-col gap-1 rounded-lg border p-1.5 text-left transition", h,
+          isOver ? "border-accent bg-accent/20 ring-1 ring-accent" : isSel ? "border-accent bg-accent/5" : "border-line hover:border-accent/40",
+          opts.dim && "opacity-40",
+        )}>
+        <span className={cn("text-[11px] font-semibold leading-none", isToday ? "grid h-5 w-5 place-items-center rounded-full bg-accent text-bg" : "text-muted")}>{d.getDate()}</span>
+        {opts.dots ? (
+          items.length > 0 && <span className="flex flex-wrap gap-0.5">{items.slice(0, 5).map((it, i) => <span key={i} className={cn("h-1.5 w-1.5 rounded-full", toneDot[it.tone])} />)}</span>
+        ) : (
+          <span className="flex flex-col gap-0.5">
+            {items.slice(0, opts.maxChips ?? 2).map((it, i) => (
+              <span key={i} {...dragProps(it)} title={it.title}
+                className={cn("truncate rounded px-1 py-0.5 text-[10px] font-medium", toneChip[it.tone], it.drag && !busy && "cursor-grab active:cursor-grabbing")}>{it.title}</span>
+            ))}
+            {items.length > (opts.maxChips ?? 2) && <span className="px-1 text-[10px] text-muted-2">+{items.length - (opts.maxChips ?? 2)} mehr</span>}
+          </span>
+        )}
+      </button>
+    );
+  }
+
+  // --- Ein Monats-Block (für Monat / 3 Monate / Jahr) ---
+  function monthBlock(year: number, month: number, size: "lg" | "md" | "sm", maxChips: number, dots = false, framed = false) {
+    const first = new Date(year, month, 1);
+    const offset = (first.getDay() + 6) % 7;
+    const daysInMonth = new Date(year, month + 1, 0).getDate();
+    const weeks = size === "lg" ? 6 : Math.ceil((offset + daysInMonth) / 7);
+    const start = addDays(first, -offset);
+    const cells = Array.from({ length: weeks * 7 }, (_, i) => addDays(start, i));
+    return (
+      <div key={`${year}-${month}`} className={cn(framed && "rounded-lg border border-line p-2")}>
+        {framed && <div className="mb-1 text-center text-xs font-bold capitalize">{first.toLocaleDateString("de-AT", { month: "long" })}</div>}
+        <div className="grid grid-cols-7 gap-1">
+          {size !== "sm" && WD.map((w) => <div key={w} className="px-0.5 py-0.5 text-center text-[10px] font-semibold uppercase text-muted-2">{w}</div>)}
+          {cells.map((d) => renderDay(d, { dim: d.getMonth() !== month, size, maxChips, dots }))}
+        </div>
+      </div>
+    );
+  }
+
+  // --- Tage-Streifen (für Arbeitswoche / 2 Wochen) ---
+  function dayStrip(days: Date[], header: string[], cols: 5 | 7, maxChips: number) {
+    return (
+      <div className={cn("grid gap-1", cols === 5 ? "grid-cols-5" : "grid-cols-7")}>
+        {header.map((w) => <div key={w} className="px-1 py-1 text-center text-[11px] font-semibold uppercase text-muted-2">{w}</div>)}
+        {days.map((d) => renderDay(d, { size: "lg", maxChips }))}
+      </div>
+    );
+  }
+
+  // --- Navigation + Periodenbeschriftung je Ansicht ---
+  const step = (dir: number) => {
+    const d = new Date(anchor);
+    if (view === "week") d.setDate(d.getDate() + 7 * dir);
+    else if (view === "2weeks") d.setDate(d.getDate() + 14 * dir);
+    else if (view === "month") d.setMonth(d.getMonth() + dir);
+    else if (view === "quarter") d.setMonth(d.getMonth() + 3 * dir);
+    else d.setFullYear(d.getFullYear() + dir);
+    setAnchor(d);
+  };
+  const goToday = () => { setAnchor(now); setSel(today); };
+  const fmt = (d: Date, o: Intl.DateTimeFormatOptions) => d.toLocaleDateString("de-AT", o);
+
+  let body: React.ReactNode;
+  let periodLabel = "";
+  if (view === "week") {
+    const mo = startOfWeek(anchor);
+    body = dayStrip(Array.from({ length: 5 }, (_, i) => addDays(mo, i)), WD.slice(0, 5), 5, 4);
+    periodLabel = `${fmt(mo, { day: "numeric", month: "short" })} – ${fmt(addDays(mo, 4), { day: "numeric", month: "short", year: "numeric" })}`;
+  } else if (view === "2weeks") {
+    const mo = startOfWeek(anchor);
+    body = dayStrip(Array.from({ length: 14 }, (_, i) => addDays(mo, i)), WD, 7, 3);
+    periodLabel = `${fmt(mo, { day: "numeric", month: "short" })} – ${fmt(addDays(mo, 13), { day: "numeric", month: "short", year: "numeric" })}`;
+  } else if (view === "month") {
+    body = monthBlock(anchor.getFullYear(), anchor.getMonth(), "lg", 2);
+    periodLabel = fmt(new Date(anchor.getFullYear(), anchor.getMonth(), 1), { month: "long", year: "numeric" });
+  } else if (view === "quarter") {
+    const b = new Date(anchor.getFullYear(), anchor.getMonth(), 1);
+    body = <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">{[0, 1, 2].map((o) => { const m = new Date(b.getFullYear(), b.getMonth() + o, 1); return monthBlock(m.getFullYear(), m.getMonth(), "md", 1, false, true); })}</div>;
+    periodLabel = `${fmt(b, { month: "short" })} – ${fmt(new Date(b.getFullYear(), b.getMonth() + 2, 1), { month: "short", year: "numeric" })}`;
+  } else {
+    body = <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">{Array.from({ length: 12 }, (_, m) => monthBlock(anchor.getFullYear(), m, "sm", 0, true, true))}</div>;
+    periodLabel = String(anchor.getFullYear());
+  }
+
   const selItems = byDate[sel] || [];
   const selLabel = parse(sel).toLocaleDateString("de-AT", { weekday: "long", day: "numeric", month: "long", year: "numeric" });
-  const go = (delta: number) => { const d = new Date(vy, vm + delta, 1); setVy(d.getFullYear()); setVm(d.getMonth()); };
-  const goToday = () => { setVy(now.getFullYear()); setVm(now.getMonth()); setSel(today); };
 
   return (
     <div className="grid gap-5 lg:grid-cols-[1fr_340px]">
       {/* Kalenderblatt */}
       <div className="rounded-xl border border-line bg-surface p-4 shadow-sm">
-        <div className="mb-3 flex items-center justify-between">
-          <div className="flex items-center gap-1">
-            <button onClick={() => go(-1)} className="rounded-lg bg-surface-2 px-2.5 py-1.5 text-sm hover:text-ink" aria-label="Vorheriger Monat">‹</button>
-            <button onClick={() => go(1)} className="rounded-lg bg-surface-2 px-2.5 py-1.5 text-sm hover:text-ink" aria-label="Nächster Monat">›</button>
-            <button onClick={goToday} className="ml-1 rounded-lg bg-surface-2 px-3 py-1.5 text-xs font-semibold hover:text-ink">Heute</button>
+        <div className="mb-3 flex flex-col gap-3">
+          <div className="flex items-center justify-between gap-2">
+            <div className="flex items-center gap-1">
+              <button onClick={() => step(-1)} className="rounded-lg bg-surface-2 px-2.5 py-1.5 text-sm hover:text-ink" aria-label="Zurück">‹</button>
+              <button onClick={() => step(1)} className="rounded-lg bg-surface-2 px-2.5 py-1.5 text-sm hover:text-ink" aria-label="Weiter">›</button>
+              <button onClick={goToday} className="ml-1 rounded-lg bg-surface-2 px-3 py-1.5 text-xs font-semibold hover:text-ink">Heute</button>
+            </div>
+            <h2 className="text-base font-bold capitalize">{periodLabel}</h2>
           </div>
-          <h2 className="text-base font-bold capitalize">{monthLabel}</h2>
+          <div className="flex flex-wrap gap-1">
+            {VIEWS.map((v) => (
+              <button key={v.id} onClick={() => setView(v.id)}
+                className={cn("rounded-lg px-2.5 py-1.5 text-xs font-semibold transition", view === v.id ? "bg-accent text-bg" : "bg-surface-2 text-muted hover:text-ink")}>{v.label}</button>
+            ))}
+          </div>
         </div>
-        <div className="grid grid-cols-7 gap-1">
-          {WD.map((w) => <div key={w} className="px-1 py-1 text-center text-[11px] font-semibold uppercase text-muted-2">{w}</div>)}
-          {cells.map((d) => {
-            const ds = ymd(d);
-            const inMonth = d.getMonth() === vm;
-            const items = byDate[ds] || [];
-            const isToday = ds === today;
-            const isSel = ds === sel;
-            return (
-              <button key={ds} onClick={() => setSel(ds)}
-                className={cn(
-                  "flex min-h-[68px] flex-col gap-1 rounded-lg border p-1.5 text-left transition",
-                  isSel ? "border-accent bg-accent/5" : "border-line hover:border-accent/40",
-                  !inMonth && "opacity-40",
-                )}>
-                <span className={cn("text-xs font-semibold", isToday ? "grid h-5 w-5 place-items-center rounded-full bg-accent text-bg" : "text-muted")}>{d.getDate()}</span>
-                <span className="flex flex-col gap-0.5">
-                  {items.slice(0, 2).map((it, i) => (
-                    <span key={i} className={cn("truncate rounded px-1 py-0.5 text-[10px] font-medium", toneChip[it.tone])}>{it.title}</span>
-                  ))}
-                  {items.length > 2 && <span className="px-1 text-[10px] text-muted-2">+{items.length - 2} mehr</span>}
-                </span>
-              </button>
-            );
-          })}
-        </div>
-        <div className="mt-3 flex flex-wrap gap-3 text-[11px] text-muted-2">
+
+        <div className={cn("transition", busy && "pointer-events-none opacity-60")} aria-busy={busy}>{body}</div>
+
+        <div className="mt-3 flex flex-wrap items-center gap-3 text-[11px] text-muted-2">
           <Legend tone="accent" label="Termin / Entscheidung / Hebel-Start" />
           <Legend tone="teal" label="Erinnerung / KPI / Hebel-Ziel" />
           <Legend tone="amber" label="Aufgabe fällig" />
           <Legend tone="green" label="Mitarbeiter-Training" />
           <Legend tone="red" label="Überfällig / Deadline" />
         </div>
+        <p className="mt-2 flex items-center gap-1.5 text-[11px] text-muted-2"><Icon name="arrow-right" className="h-3 w-3" />Tipp: Einträge per Drag &amp; Drop auf einen anderen Tag ziehen{busy ? " · speichert …" : ""}.</p>
       </div>
 
       {/* Tages-Detail */}
