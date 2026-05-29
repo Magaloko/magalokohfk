@@ -6,17 +6,30 @@ export default function LoginPage() {
   const [msg, setMsg] = useState("");
   const [busy, setBusy] = useState(false);
 
-  // Telegram-Auto-Login + Redirect wenn bereits eingeloggt
+  // Telegram-Auto-Login + Redirect wenn bereits eingeloggt.
+  // telegram-web-app.js lädt async → wir pollen kurz auf window.Telegram.WebApp.initData,
+  // bevor wir das Web-Login-Formular als Fallback zeigen.
   useEffect(() => {
-    const tg = (window as any).Telegram?.WebApp;
-    if (tg?.initData) {
+    let done = false;
+    let tries = 0;
+    const tryTg = (): boolean => {
+      const tg = (window as any).Telegram?.WebApp;
+      const init: string = tg?.initData || "";
+      if (!init) return false;
+      done = true;
       try { tg.ready(); } catch { /* ignore */ }
       setMsg("Telegram-Login läuft …");
-      fetch("/api/tg-auth", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ initData: tg.initData }) })
+      fetch("/api/tg-auth", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ initData: init }) })
         .then((r) => { if (r.ok) location.href = "/"; else setMsg("Kein Zugriff — bitte bei Mago melden."); })
         .catch(() => setMsg("Verbindungsfehler."));
+      return true;
+    };
+    if (!tryTg()) {
+      const iv = setInterval(() => { tries += 1; if (tryTg() || tries > 25) clearInterval(iv); }, 150);
+      // Falls schon eine gültige Session existiert (Web), direkt weiter.
+      fetch("/auth/status").then((r) => r.json()).then((s) => { if (s.authenticated && !done) { clearInterval(iv); location.href = "/"; } }).catch(() => {});
+      return () => clearInterval(iv);
     }
-    fetch("/auth/status").then((r) => r.json()).then((s) => { if (s.authenticated) location.href = "/"; }).catch(() => {});
   }, []);
 
   async function submit(e: React.FormEvent) {
