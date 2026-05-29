@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { requireAdmin } from "@/lib/auth-helpers";
 import { getCockpitData, isTaskOpen, type Task } from "@/lib/cockpit";
 import { PageShell } from "@/components/_primitives/page-shell";
@@ -30,8 +31,9 @@ export default async function TasksPage() {
     return String(a.dueDate || "9999").localeCompare(String(b.dueDate || "9999"));
   });
 
+  const href = (r: Task) => `/cockpit/tasks/${encodeURIComponent(r.id || String(tasks.indexOf(r)))}`;
   const cols: Column<Task>[] = [
-    { key: "title", label: "Aufgabe", render: (r) => <span className="font-medium">{r.title}</span> },
+    { key: "title", label: "Aufgabe", render: (r) => <Link href={href(r)} className="font-medium text-ink hover:text-accent">{r.title}</Link> },
     { key: "area", label: "Bereich", hideOnMobile: true, render: (r) => <span className="text-muted">{r.area || "—"}</span> },
     { key: "prio", label: "Prio", hideOnMobile: true, render: (r) => (r.priority ? <Pill tone={prioTone(r.priority)}>{r.priority}</Pill> : <span className="text-muted-2">—</span>) },
     { key: "owner", label: "Owner", hideOnMobile: true, render: (r) => <span className="text-muted">{r.owner || "—"}</span> },

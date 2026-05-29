@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { requireAdmin } from "@/lib/auth-helpers";
 import { getCockpitData, type Decision } from "@/lib/cockpit";
 import { PageShell } from "@/components/_primitives/page-shell";
@@ -31,8 +32,11 @@ export default async function EntscheidungenPage() {
               <h2 className="flex items-center justify-between text-xs font-bold uppercase tracking-wide text-muted-2">
                 {c.label}<span className="rounded-full bg-surface-2 px-2 py-0.5 font-mono">{items.length}</span>
               </h2>
-              {items.length ? items.map((d, i) => <DecisionCard key={d.id || i} d={d} tone={c.tone} live={c.key !== "entschieden" && c.key !== "verworfen"} />)
-                : <p className="rounded-lg border border-dashed border-line px-3 py-4 text-center text-xs text-muted-2">—</p>}
+              {items.length ? items.map((d, i) => (
+                <Link key={d.id || i} href={`/cockpit/entscheidungen/${encodeURIComponent(d.id || String(decisions.indexOf(d)))}`} className="block">
+                  <DecisionCard d={d} tone={c.tone} live={c.key !== "entschieden" && c.key !== "verworfen"} />
+                </Link>
+              )) : <p className="rounded-lg border border-dashed border-line px-3 py-4 text-center text-xs text-muted-2">—</p>}
             </div>
           );
         })}

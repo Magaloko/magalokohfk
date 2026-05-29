@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { requireAdmin } from "@/lib/auth-helpers";
 import { getCockpitData, leverScore, formatEur, isLeverActive, type Lever } from "@/lib/cockpit";
 import { PageShell } from "@/components/_primitives/page-shell";
@@ -17,8 +18,9 @@ export default async function HebelPage() {
   const { levers } = await getCockpitData();
   const rows = [...levers].sort((a, b) => leverScore(b) - leverScore(a));
 
+  const href = (r: Lever) => `/cockpit/hebel/${encodeURIComponent(r.id || String(levers.indexOf(r)))}`;
   const cols: Column<Lever>[] = [
-    { key: "title", label: "Hebel", render: (r) => <span className="font-medium">{r.title}</span> },
+    { key: "title", label: "Hebel", render: (r) => <Link href={href(r)} className="font-medium text-ink hover:text-accent">{r.title}</Link> },
     { key: "area", label: "Bereich", hideOnMobile: true, render: (r) => <span className="text-muted">{r.area || "—"}</span> },
     { key: "impact", label: "Impact/J", align: "right", render: (r) => <span className="font-mono font-semibold text-green">{formatEur(r.expectedImpactEur)}</span> },
     { key: "effort", label: "Aufwand", align: "right", hideOnMobile: true, render: (r) => <span className="font-mono text-muted-2">{r.effortHours ? `${r.effortHours}h` : "—"}</span> },
