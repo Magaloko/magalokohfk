@@ -1037,6 +1037,24 @@ let _bootSyncDone = false;
 (function initTelegramWebApp() {
   const twa = window.Telegram?.WebApp;
   if (!twa) return; // nicht in Telegram geöffnet
+  // HÄRTUNG: an JEDEN API-/Auth-Request die aktuelle initData als X-Tg-Init-Header hängen.
+  // Der Server bindet die Session daran (HMAC + tgUserId + Frische) → kopiertes Cookie nützt nichts.
+  if (twa.initData && !window._tgFetchPatched) {
+    window._tgFetchPatched = true;
+    const _origFetch = window.fetch.bind(window);
+    window.fetch = function (input, init) {
+      try {
+        const u = typeof input === "string" ? input : (input && input.url) || "";
+        if (u.startsWith("/api/") || u.startsWith("/auth/") || u.startsWith(location.origin + "/api/") || u.startsWith(location.origin + "/auth/")) {
+          init = init || {};
+          const h = new Headers(init.headers || (typeof input !== "string" && input ? input.headers : undefined) || {});
+          h.set("X-Tg-Init", twa.initData);
+          init.headers = h;
+        }
+      } catch {}
+      return _origFetch(input, init);
+    };
+  }
   // expand() sofort — Vollbild ohne Verzögerung
   twa.expand();
   // ready() erst nach erstem Render → Telegram entfernt Loading-Overlay erst wenn UI da
