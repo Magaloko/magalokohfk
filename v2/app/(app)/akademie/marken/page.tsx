@@ -1,19 +1,21 @@
 import Link from "next/link";
-import { requireArea } from "@/lib/auth-helpers";
+import { requireArea, isAdmin } from "@/lib/auth-helpers";
 import { getAkademieData } from "@/lib/akademie";
 import { PageShell } from "@/components/_primitives/page-shell";
 import { Card, CardGrid, Pill } from "@/components/_primitives/card";
 import { EmptyState } from "@/components/_primitives/empty-state";
+import { NewMarkeButton } from "@/components/akademie/marke-editor";
 
 export const dynamic = "force-dynamic";
 const txt = (v: unknown) => (typeof v === "string" ? v : (v as any)?.name || (v as any)?.argument || (v as any)?.text || "");
 
 export default async function MarkenPage() {
-  await requireArea("marken");
+  const sess = await requireArea("marken");
+  const admin = isAdmin(sess);
   const { marken } = await getAkademieData();
-  if (!marken.length) return <PageShell title="Marken-Bibel"><EmptyState title="Noch keine Marken" /></PageShell>;
+  if (!marken.length) return <PageShell title="Marken-Bibel" action={admin ? <NewMarkeButton /> : undefined}><EmptyState title="Noch keine Marken" /></PageShell>;
   return (
-    <PageShell title="Marken-Bibel" subtitle={`${marken.length} Marken · Herkunft, USPs, Hero-Produkte`}>
+    <PageShell title="Marken-Bibel" subtitle={`${marken.length} Marken · Herkunft, USPs, Hero-Produkte`} action={admin ? <NewMarkeButton /> : undefined}>
       <CardGrid>
         {marken.map((m, i) => (
           <Link key={m.id || i} href={`/akademie/marken/${encodeURIComponent(m.id || String(i))}`} className="group block">

@@ -1,9 +1,10 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { requireArea } from "@/lib/auth-helpers";
+import { requireArea, isAdmin } from "@/lib/auth-helpers";
 import { getAkademieData, type Persona } from "@/lib/akademie";
 import { PageShell } from "@/components/_primitives/page-shell";
 import { Pill } from "@/components/_primitives/card";
+import { PersonaActions } from "@/components/akademie/persona-editor";
 
 export const dynamic = "force-dynamic";
 
@@ -20,7 +21,8 @@ const BackLink = (
 );
 
 export default async function PersonaDetailPage({ params }: { params: Promise<{ id: string }> }) {
-  await requireArea("personas");
+  const sess = await requireArea("personas");
+  const admin = isAdmin(sess);
   const { id } = await params;
   const key = decodeURIComponent(id);
   const { personas } = await getAkademieData();
@@ -66,6 +68,7 @@ export default async function PersonaDetailPage({ params }: { params: Promise<{ 
             <p className="text-sm">{s(p.budget)}</p>
           </Section>
         )}
+        {admin && <PersonaActions id={p.id || key} persona={p} />}
       </div>
     </PageShell>
   );

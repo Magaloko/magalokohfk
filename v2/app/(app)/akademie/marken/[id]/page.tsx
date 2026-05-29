@@ -1,9 +1,10 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { requireArea } from "@/lib/auth-helpers";
+import { requireArea, isAdmin } from "@/lib/auth-helpers";
 import { getAkademieData, type Marke } from "@/lib/akademie";
 import { PageShell } from "@/components/_primitives/page-shell";
 import { Pill } from "@/components/_primitives/card";
+import { MarkeActions } from "@/components/akademie/marke-editor";
 
 export const dynamic = "force-dynamic";
 
@@ -15,7 +16,8 @@ const BackLink = (
 );
 
 export default async function MarkeDetailPage({ params }: { params: Promise<{ id: string }> }) {
-  await requireArea("marken");
+  const sess = await requireArea("marken");
+  const admin = isAdmin(sess);
   const { id } = await params;
   const key = decodeURIComponent(id);
   const { marken } = await getAkademieData();
@@ -80,6 +82,7 @@ export default async function MarkeDetailPage({ params }: { params: Promise<{ id
             <div className="flex flex-wrap gap-2">{usps.map((u, i) => <Pill key={i} tone="amber">{u}</Pill>)}</div>
           </Section>
         )}
+        {admin && <MarkeActions id={m.id || key} marke={m} />}
       </div>
     </PageShell>
   );

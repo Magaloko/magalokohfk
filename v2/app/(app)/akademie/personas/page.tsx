@@ -1,19 +1,21 @@
 import Link from "next/link";
-import { requireArea } from "@/lib/auth-helpers";
+import { requireArea, isAdmin } from "@/lib/auth-helpers";
 import { getAkademieData } from "@/lib/akademie";
 import { PageShell } from "@/components/_primitives/page-shell";
 import { Card, CardGrid } from "@/components/_primitives/card";
 import { EmptyState } from "@/components/_primitives/empty-state";
+import { NewPersonaButton } from "@/components/akademie/persona-editor";
 
 export const dynamic = "force-dynamic";
 const s = (v: unknown) => (typeof v === "string" ? v : v ? JSON.stringify(v) : "");
 
 export default async function PersonasPage() {
-  await requireArea("personas");
+  const sess = await requireArea("personas");
+  const admin = isAdmin(sess);
   const { personas } = await getAkademieData();
-  if (!personas.length) return <PageShell title="Personas"><EmptyState title="Noch keine Personas" /></PageShell>;
+  if (!personas.length) return <PageShell title="Personas" action={admin ? <NewPersonaButton /> : undefined}><EmptyState title="Noch keine Personas" /></PageShell>;
   return (
-    <PageShell title="Kunden-Personas" subtitle={`${personas.length} Typen`}>
+    <PageShell title="Kunden-Personas" subtitle={`${personas.length} Typen`} action={admin ? <NewPersonaButton /> : undefined}>
       <CardGrid>
         {personas.map((p, i) => (
           <Link key={p.id || i} href={`/akademie/personas/${encodeURIComponent(p.id || String(i))}`} className="group block">

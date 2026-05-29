@@ -51,7 +51,41 @@ export function sanitizeRoleplay(input: unknown): Record<string, unknown> {
   return out;
 }
 
+const txtItem = (x: any, n: number) => S(typeof x === "string" ? x : (x?.name ?? x?.argument ?? x?.text), n);
+
+export function sanitizeMarke(input: unknown): Record<string, unknown> {
+  const o = (input || {}) as Record<string, any>;
+  return {
+    name: S(o.name, 300),
+    philosophie: S(o.philosophie, 1500),
+    herkunft: { land: S(o.herkunft?.land, 120), stadt: S(o.herkunft?.stadt, 120), gruendung: S(o.herkunft?.gruendung, 40) },
+    kategorien: arr(o.kategorien, 40).map((x) => txtItem(x, 200)).filter(Boolean),
+    hero_produkte: arr(o.hero_produkte, 40).map((x) => txtItem(x, 200)).filter(Boolean),
+    verkaufsargumente: arr(o.verkaufsargumente, 40).map((x) => txtItem(x, 300)).filter(Boolean),
+    usps: arr(o.usps, 40).map((x) => S(x, 200)).filter(Boolean),
+  };
+}
+
+export function sanitizeDrill(input: unknown): Record<string, unknown> {
+  const o = (input || {}) as Record<string, any>;
+  return {
+    marke: S(o.marke, 200),
+    frage: S(o.frage, 1000),
+    schwierigkeit: S(o.schwierigkeit, 60),
+    verkaufstechnik: S(o.verkaufstechnik, 200),
+    musterantwort: S(o.musterantwort, 2000),
+    lerntyp: arr(o.lerntyp, 12).map((x) => S(x, 60)).filter(Boolean),
+    optionen: arr(o.optionen, 8).map((op) => {
+      const out: Record<string, unknown> = { text: S(op?.text, 500), ist_richtig: !!op?.ist_richtig, feedback: S(op?.feedback, 500) };
+      const p = N(op?.punkte); if (p !== undefined) out.punkte = Math.round(p);
+      return out;
+    }),
+  };
+}
+
 export const STRUCTURED: Record<string, { fn: (i: unknown) => Record<string, unknown>; prefix: string; required: string }> = {
   trainingScenarios: { fn: sanitizeScenario, prefix: "sc", required: "name" },
   akademieRoleplays: { fn: sanitizeRoleplay, prefix: "rp", required: "titel" },
+  akademieMarken: { fn: sanitizeMarke, prefix: "m", required: "name" },
+  akademieDrills: { fn: sanitizeDrill, prefix: "dr", required: "frage" },
 };

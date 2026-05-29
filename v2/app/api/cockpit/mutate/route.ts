@@ -16,6 +16,7 @@ const SPEC: Record<string, { fields: string[]; numeric?: string[]; prefix: strin
   // Akademie-Inhalte (flach) — admin-only Pflege
   salesObjections: { fields: ["einwand", "kategorie", "antwort", "beweis"], prefix: "obj" },
   consultingServices: { fields: ["name", "dauer", "preis", "zielgruppe", "inhalt", "ergebnis"], prefix: "svc" },
+  salesPersonas: { fields: ["name", "avatar", "alter", "kontext", "zitat", "einwaendeTypisch", "schmerzpunkte", "werte", "budget"], prefix: "p" },
 };
 const DYNAMIC = new Set(["weeklyKpis"]); // dynamische Metrik-Felder
 const KPI_PREFIX = "kpi";
