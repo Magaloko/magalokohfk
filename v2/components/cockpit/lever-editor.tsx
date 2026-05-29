@@ -11,12 +11,13 @@ const LEVELS = ["", "hoch", "mittel", "niedrig"];
 const COL = "levers";
 const sel = "w-full rounded-lg border border-line bg-surface-2 px-3 py-2 text-sm text-ink outline-none focus:border-accent";
 
-type Form = { title: string; area: string; status: string; expectedImpactEur: string; effortHours: string; confidence: string; risk: string; description: string };
+type Form = { title: string; area: string; status: string; expectedImpactEur: string; effortHours: string; confidence: string; risk: string; description: string; startDate: string; finishDate: string };
 const toForm = (l?: Lever): Form => ({
   title: l?.title || "", area: l?.area || "", status: l?.status || "Backlog",
   expectedImpactEur: l?.expectedImpactEur != null ? String(l.expectedImpactEur) : "",
   effortHours: l?.effortHours != null ? String(l.effortHours) : "",
   confidence: l?.confidence || "", risk: l?.risk || "", description: (l as any)?.description || "",
+  startDate: l?.startDate || "", finishDate: l?.finishDate || "",
 });
 
 export function NewLeverButton() {
@@ -99,6 +100,8 @@ function LeverForm({ id, lever, onClose }: { id?: string; lever?: Lever; onClose
           <label className="block">{L("Aufwand (h)")}<input value={f.effortHours} onChange={set("effortHours")} inputMode="numeric" placeholder="16" className={sel} /></label>
           <label className="block">{L("Confidence")}<select value={f.confidence} onChange={set("confidence")} className={sel}>{LEVELS.map((v) => <option key={v} value={v}>{v || "—"}</option>)}</select></label>
           <label className="block">{L("Risiko")}<select value={f.risk} onChange={set("risk")} className={sel}>{LEVELS.map((v) => <option key={v} value={v}>{v || "—"}</option>)}</select></label>
+          <label className="block">{L("Start")}<input type="date" value={f.startDate} onChange={set("startDate")} className={sel} /></label>
+          <label className="block">{L("Ziel / Ende")}<input type="date" value={f.finishDate} onChange={set("finishDate")} className={sel} /></label>
         </div>
         <label className="block">{L("Beschreibung")}<textarea value={f.description} onChange={set("description")} rows={3} className={sel} /></label>
         {err && <p className="text-sm text-red">{err}</p>}

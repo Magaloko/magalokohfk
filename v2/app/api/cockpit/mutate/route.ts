@@ -12,7 +12,7 @@ export const maxDuration = 30;
 const SPEC: Record<string, { fields: string[]; numeric?: string[]; prefix: string }> = {
   tasks: { fields: ["title", "area", "status", "priority", "impact", "effort", "owner", "dueDate", "notes"], prefix: "t" },
   stephanDecisions: { fields: ["titel", "status", "kategorie", "frist", "empfehlung"], prefix: "d" },
-  levers: { fields: ["title", "area", "status", "confidence", "risk", "description", "notes"], numeric: ["expectedImpactEur", "effortHours"], prefix: "l" },
+  levers: { fields: ["title", "area", "status", "confidence", "risk", "description", "notes", "startDate", "finishDate"], numeric: ["expectedImpactEur", "effortHours"], prefix: "l" },
   calendarEvents: { fields: ["title", "date", "time", "kind", "notes"], prefix: "ev" },
   // Akademie-Inhalte (flach) — admin-only Pflege
   salesObjections: { fields: ["einwand", "kategorie", "antwort", "beweis"], prefix: "obj" },
