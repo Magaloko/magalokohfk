@@ -135,7 +135,8 @@ export default async function handler(req, res) {
       if (error) return send(res, 500, "Fehler beim Laden der Bot-Scores");
       const byUser = new Map();
       for (const s of (data || [])) {
-        const key = s.name || ("User" + s.uid);
+        // Pseudonym statt Klarname (DSGVO): stabiler Alias aus der uid
+        const key = "MA-" + String(s.uid || "").slice(-4);
         if (!byUser.has(key)) byUser.set(key, { name: key, uid: s.uid, total: 0, correct: 0, lastTs: "", byMarke: {} });
         const u = byUser.get(key);
         u.total++; if (s.correct) u.correct++;

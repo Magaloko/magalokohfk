@@ -106,7 +106,8 @@ async function loadFullState() {
 async function appendScore(rec) {
   try {
     await db.from("bot_scores").insert({
-      uid: rec.uid ? Number(rec.uid) : null, name: rec.name || null, type: rec.type || null,
+      // ANONYMISIERT (DSGVO): keine Telegram-Klarnamen speichern — nur die pseudonyme uid.
+      uid: rec.uid ? Number(rec.uid) : null, name: null, type: rec.type || null,
       item_id: rec.itemId || rec.drillId || null, correct: typeof rec.correct === "boolean" ? rec.correct : null,
       score: rec.score ?? null, total: rec.total ?? null, marke: rec.marke || null,
       topics: rec.topics || null, ts: rec.ts || new Date().toISOString()
