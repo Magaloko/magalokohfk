@@ -1,7 +1,8 @@
 import { requireAdmin } from "@/lib/auth-helpers";
 import { db } from "@/lib/supabase-server";
-import { getAllProgress, uidFromKey, levelInfo } from "@/lib/progress";
+import { getAllProgress, uidFromKey, levelInfo, type Progress } from "@/lib/progress";
 import { getCockpitData } from "@/lib/cockpit";
+import { PATHS } from "@/lib/paths";
 import { PageShell } from "@/components/_primitives/page-shell";
 import { Pill } from "@/components/_primitives/card";
 import { EmptyState } from "@/components/_primitives/empty-state";
@@ -11,8 +12,12 @@ export const dynamic = "force-dynamic";
 type Member = {
   key: string; name: string; role: string; areas: string;
   level: number; xp: number; streak: number; sessions: number; badges: number;
-  ansCorrect: number; ansTotal: number;
+  ansCorrect: number; ansTotal: number; pathsDone: number;
 };
+
+const PATHS_TOTAL = PATHS.length;
+const donePaths = (p?: Progress | null) =>
+  PATHS.filter((path) => (p?.stats.paths?.[path.id]?.length || 0) >= path.steps.length).length;
 
 export default async function MitarbeiterPage() {
   await requireAdmin();
@@ -51,12 +56,12 @@ export default async function MitarbeiterPage() {
       role: u?.role || "mitarbeiter",
       areas: areasLabel(u?.modules, u?.role),
       level: p ? levelInfo(p.xp).level : 1, xp: p?.xp || 0, streak: p?.streak || 0, sessions: p?.sessions_count || 0, badges: p?.badges.length || 0,
-      ansCorrect: sc?.c || 0, ansTotal: sc?.t || 0,
+      ansCorrect: sc?.c || 0, ansTotal: sc?.t || 0, pathsDone: donePaths(p),
     });
   }
   for (const p of webProg) members.push({
     key: p.user_key, name: p.user_key === "web:admin" ? "Web-Admin" : "Web-Login", role: p.user_key === "web:admin" ? "admin" : "mitarbeiter",
-    areas: "—", level: levelInfo(p.xp).level, xp: p.xp, streak: p.streak, sessions: p.sessions_count, badges: p.badges.length, ansCorrect: 0, ansTotal: 0,
+    areas: "—", level: levelInfo(p.xp).level, xp: p.xp, streak: p.streak, sessions: p.sessions_count, badges: p.badges.length, ansCorrect: 0, ansTotal: 0, pathsDone: donePaths(p),
   });
   members.sort((a, b) => b.xp - a.xp || b.ansTotal - a.ansTotal);
 
@@ -75,6 +80,7 @@ export default async function MitarbeiterPage() {
                 <th className="px-4 py-3 text-right font-semibold">XP</th>
                 <th className="px-4 py-3 text-right font-semibold">🔥</th>
                 <th className="px-4 py-3 text-right font-semibold">Trainings</th>
+                <th className="px-4 py-3 text-right font-semibold" title="Lernpfade abgeschlossen">🧭 Pfade</th>
                 <th className="px-4 py-3 text-right font-semibold">🏅</th>
                 <th className="px-4 py-3 text-right font-semibold">Antwort-Quote</th>
               </tr></thead>
@@ -89,6 +95,7 @@ export default async function MitarbeiterPage() {
                       <td className="px-4 py-3 text-right font-mono">{m.xp}</td>
                       <td className="px-4 py-3 text-right">{m.streak || "—"}</td>
                       <td className="px-4 py-3 text-right font-mono">{m.sessions}</td>
+                      <td className="px-4 py-3 text-right"><span className={m.pathsDone >= PATHS_TOTAL ? "font-bold text-green" : m.pathsDone ? "text-accent" : "text-muted-2"}>{m.pathsDone}/{PATHS_TOTAL}</span></td>
                       <td className="px-4 py-3 text-right">{m.badges || "—"}</td>
                       <td className="px-4 py-3 text-right">{pct == null ? <span className="text-muted-2">—</span> : <Pill tone={pct >= 80 ? "green" : pct >= 60 ? "amber" : "red"}>{m.ansCorrect}/{m.ansTotal} · {pct}%</Pill>}</td>
                     </tr>
@@ -104,7 +111,7 @@ export default async function MitarbeiterPage() {
                   <li key={m.key} className="p-4">
                     <div className="flex items-center justify-between"><span className="font-semibold">{m.name}</span><Pill tone={m.role === "admin" ? "accent" : "muted"}>{m.role}</Pill></div>
                     <div className="mt-1 flex flex-wrap gap-3 text-xs text-muted-2">
-                      <span>L{m.level} · {m.xp} XP</span><span>🔥 {m.streak}</span><span>{m.sessions} Trainings</span><span>🏅 {m.badges}</span>
+                      <span>L{m.level} · {m.xp} XP</span><span>🔥 {m.streak}</span><span>{m.sessions} Trainings</span><span>🧭 {m.pathsDone}/{PATHS_TOTAL}</span><span>🏅 {m.badges}</span>
                       {pct != null && <span>{pct}% ({m.ansCorrect}/{m.ansTotal})</span>}
                     </div>
                   </li>
