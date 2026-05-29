@@ -1,22 +1,40 @@
 import { requireArea } from "@/lib/auth-helpers";
-import { getAkademieData, type Szenario } from "@/lib/akademie";
+import { getAkademieData } from "@/lib/akademie";
 import { PageShell } from "@/components/_primitives/page-shell";
-import { DataTable, type Column } from "@/components/_primitives/data-table";
-import { Pill } from "@/components/_primitives/card";
+import { Card, CardGrid, Pill } from "@/components/_primitives/card";
+import { EmptyState } from "@/components/_primitives/empty-state";
+import { SzenarioLauncher } from "@/components/akademie/szenario-launcher";
 
 export const dynamic = "force-dynamic";
 
 export default async function SzenarienPage() {
   await requireArea("szenarien");
-  const { szenarien } = await getAkademieData();
-  const cols: Column<Szenario>[] = [
-    { key: "n", label: "Szenario", render: (r) => <span className="font-medium">{r.name}</span> },
-    { key: "schw", label: "Niveau", render: (r) => (r.schwierigkeit ? <Pill tone="amber">{r.schwierigkeit}</Pill> : <span className="text-muted-2">—</span>) },
-    { key: "steps", label: "Schritte", align: "right", hideOnMobile: true, render: (r) => <span className="font-mono text-muted">{(r.steps || []).length}</span> },
-  ];
+  const { szenarien, personas } = await getAkademieData();
+  if (!szenarien.length) return <PageShell title="Trainings-Szenarien"><EmptyState title="Noch keine Szenarien" /></PageShell>;
+  const personaName = (id?: string) => personas.find((p) => p.id === id)?.name;
+
   return (
     <PageShell title="Trainings-Szenarien" subtitle={`${szenarien.length} mehrstufige Übungen`}>
-      <DataTable columns={cols} rows={szenarien} getKey={(r, i) => r.id || String(i)} empty={{ title: "Noch keine Szenarien" }} />
+      <CardGrid>
+        {szenarien.map((s, i) => {
+          const steps = (s.steps || []).length;
+          const pName = personaName(s.personaId);
+          return (
+            <Card key={s.id || i}>
+              <div className="flex items-start justify-between gap-2">
+                <h3 className="font-bold">{s.name || "Szenario"}</h3>
+                {s.schwierigkeit && <Pill tone="amber">{s.schwierigkeit}</Pill>}
+              </div>
+              {pName && <p className="mt-1 text-xs text-muted-2">👤 {pName}</p>}
+              {s.situation && <p className="mt-2 line-clamp-3 text-sm text-muted">{s.situation}</p>}
+              <div className="mt-3 flex gap-3 text-xs text-muted-2">
+                <span>🛠 {steps} {steps === 1 ? "Schritt" : "Schritte"}</span>
+              </div>
+              <SzenarioLauncher sc={s} personaName={pName} />
+            </Card>
+          );
+        })}
+      </CardGrid>
     </PageShell>
   );
 }
