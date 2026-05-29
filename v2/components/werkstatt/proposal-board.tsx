@@ -5,17 +5,17 @@ import { useRouter } from "next/navigation";
 import { Icon } from "@/components/icon";
 import { cn } from "@/lib/cn";
 import { Modal } from "@/components/cockpit/task-editor";
-import { TYPE_LABEL, STATUS_LABEL, TYPE_OPTIONS, voteScore, isReady, type Proposal, type ProposalType } from "@/lib/werkstatt-meta";
+import { TYPE_LABEL, STATUS_LABEL, TYPE_OPTIONS, type PublicProposal, type ProposalType, type ProposalStatus } from "@/lib/werkstatt-meta";
 
 const sel = "w-full rounded-lg border border-line bg-surface-2 px-3 py-2 text-sm text-ink outline-none focus:border-accent";
 
-export function ProposalBoard({ initial, prefill }: { initial: Proposal[]; prefill?: { type?: ProposalType; title?: string; content?: string } }) {
+export function ProposalBoard({ initial, prefill }: { initial: PublicProposal[]; prefill?: { type?: ProposalType; title?: string; content?: string } }) {
   const router = useRouter();
   const [open, setOpen] = useState(false);
   return (
     <div className="flex flex-col gap-4">
       <div className="flex items-center justify-between">
-        <p className="text-sm text-muted-2">{initial.length} Vorschlag{initial.length === 1 ? "" : "läge"} · ab {3} 👍 netto bereit zur Freigabe</p>
+        <p className="text-sm text-muted-2">{initial.length} {initial.length === 1 ? "Vorschlag" : "Vorschläge"} · ab {3} 👍 netto bereit zur Freigabe</p>
         <button onClick={() => setOpen(true)} className="rounded-lg bg-accent px-4 py-2 text-sm font-semibold text-bg hover:opacity-90">+ Neuer Vorschlag</button>
       </div>
 
@@ -30,9 +30,7 @@ export function ProposalBoard({ initial, prefill }: { initial: Proposal[]; prefi
   );
 }
 
-function Card({ p }: { p: Proposal }) {
-  const score = voteScore(p);
-  const ready = isReady(p);
+function Card({ p }: { p: PublicProposal }) {
   return (
     <Link href={`/werkstatt/vorschlag/${p.id}`} className="group flex flex-col rounded-xl border border-line bg-surface p-4 shadow-sm transition hover:border-accent">
       <div className="mb-1 flex items-center gap-2">
@@ -42,16 +40,16 @@ function Card({ p }: { p: Proposal }) {
       <h3 className="font-bold leading-snug group-hover:text-accent">{p.title}</h3>
       <p className="mt-1 line-clamp-2 text-sm text-muted">{p.content}</p>
       <div className="mt-3 flex items-center gap-3 text-xs text-muted-2">
-        <span className="inline-flex items-center gap-1"><Icon name="check" className="h-3.5 w-3.5" />{score >= 0 ? "+" : ""}{score}</span>
-        <span className="inline-flex items-center gap-1"><Icon name="chat" className="h-3.5 w-3.5" />{p.comments.length}</span>
+        <span className="inline-flex items-center gap-1"><Icon name="check" className="h-3.5 w-3.5" />{p.score >= 0 ? "+" : ""}{p.score}</span>
+        <span className="inline-flex items-center gap-1"><Icon name="chat" className="h-3.5 w-3.5" />{p.commentsCount}</span>
         {typeof p.ai_review?.score === "number" && <span className="inline-flex items-center gap-1"><Icon name="sparkles" className="h-3.5 w-3.5" />{p.ai_review.score}/100</span>}
-        {ready && <span className="ml-auto rounded-full bg-amber/15 px-2 py-0.5 font-semibold text-amber">bereit zur Freigabe</span>}
+        {p.ready && <span className="ml-auto rounded-full bg-amber/15 px-2 py-0.5 font-semibold text-amber">bereit zur Freigabe</span>}
       </div>
     </Link>
   );
 }
 
-export function StatusBadge({ p }: { p: Proposal }) {
+export function StatusBadge({ p }: { p: { status: ProposalStatus } }) {
   const tone = p.status === "merged" || p.status === "approved" || p.status === "adapted" ? "bg-green/15 text-green"
     : p.status === "rejected" ? "bg-red/15 text-red" : "bg-accent/15 text-accent";
   return <span className={cn("rounded-full px-2 py-0.5 text-[10px] font-semibold", tone)}>{STATUS_LABEL[p.status]}</span>;

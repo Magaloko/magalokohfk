@@ -12,8 +12,9 @@ const STARTERS = [
 ];
 const errText = (e?: string) =>
   e === "no_key" ? "KI ist nicht konfiguriert (BOT_AI_KEY fehlt)."
-    : e === "ai_unreachable" ? "KI nicht erreichbar – bitte erneut versuchen."
-      : "Aktion fehlgeschlagen.";
+    : e === "rate_limited" ? "Zu viele Anfragen – bitte kurz warten."
+      : e === "ai_unreachable" ? "KI nicht erreichbar – bitte erneut versuchen."
+        : "Aktion fehlgeschlagen.";
 
 export function CockpilotChat({ configured }: { configured: boolean }) {
   const [msgs, setMsgs] = useState<Msg[]>([]);

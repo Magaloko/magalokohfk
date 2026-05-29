@@ -24,3 +24,11 @@ export const READY_THRESHOLD = 3;
 
 export const voteScore = (p: Pick<Proposal, "votes">) => Object.values(p.votes || {}).reduce((a, b) => a + (Number(b) || 0), 0);
 export const isReady = (p: Proposal) => p.status === "discussion" && voteScore(p) >= READY_THRESHOLD;
+
+// Client-sichere Ansicht — KEINE rohen Schlüssel (Telegram-IDs) an den Browser.
+export type PublicComment = { id: string; body: string; at: string; mine: boolean };
+export type PublicProposal = {
+  id: string; type: ProposalType; title: string; content: string; status: ProposalStatus;
+  ai_review: AiReview; score: number; myVote: number; ready: boolean; decided: boolean;
+  comments: PublicComment[]; commentsCount: number; createdAt: string;
+};

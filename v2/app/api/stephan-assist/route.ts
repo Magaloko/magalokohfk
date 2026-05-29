@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getSession } from "@/lib/session";
+import { rateLimit } from "@/lib/rate-limit";
 import { isAdmin } from "@/lib/auth-helpers";
 import { callAiChat, stephanSystem, type ChatMsg } from "@/lib/ai";
 import { buildStephanContext } from "@/lib/stephan-context";
@@ -12,6 +13,7 @@ export async function POST(req: NextRequest) {
   const sess = await getSession();
   if (!sess) return NextResponse.json({ error: "unauthorized" }, { status: 401 });
   if (!isAdmin(sess)) return NextResponse.json({ error: "forbidden" }, { status: 403 });
+  if (!rateLimit(`ai:${sess.email}`, 30, 60000)) return NextResponse.json({ error: "rate_limited" }, { status: 429 });
 
   let body: { message?: unknown };
   try { body = await req.json(); } catch { return NextResponse.json({ error: "bad_request" }, { status: 400 }); }

@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getSession } from "@/lib/session";
+import { rateLimit } from "@/lib/rate-limit";
 import { allowedAreas } from "@/lib/auth-helpers";
 import { callAiChat, customerSystem, coachSystem, parseCoach, type ChatMsg } from "@/lib/ai";
 import type { Rollenspiel } from "@/lib/akademie";
@@ -50,6 +51,7 @@ export async function POST(req: NextRequest) {
   const sess = await getSession();
   if (!sess) return NextResponse.json({ error: "unauthorized" }, { status: 401 });
   if (!allowedAreas(sess).includes("rollenspiele")) return NextResponse.json({ error: "forbidden" }, { status: 403 });
+  if (!rateLimit(`ai:${sess.email}`, 40, 60000)) return NextResponse.json({ error: "rate_limited" }, { status: 429 });
 
   let body: { mode?: string; rp?: unknown; messages?: unknown };
   try { body = await req.json(); } catch { return NextResponse.json({ error: "bad_request" }, { status: 400 }); }

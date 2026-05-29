@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getSession } from "@/lib/session";
-import { addComment } from "@/lib/proposals";
+import { addComment, toPublic } from "@/lib/proposals";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -17,5 +17,5 @@ export async function POST(req: NextRequest) {
 
   const p = await addComment(id, sess.email, "Mitarbeiter", text);
   if (!p) return NextResponse.json({ error: "not_found" }, { status: 404 });
-  return NextResponse.json({ ok: true, proposal: p });
+  return NextResponse.json({ ok: true, proposal: toPublic(p, sess.email) });
 }

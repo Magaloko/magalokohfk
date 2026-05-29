@@ -1,8 +1,19 @@
 import { db } from "./supabase-server";
 import { genId } from "./cockpit-write";
-import type { Proposal, ProposalType, ProposalStatus, AiReview, Comment } from "./werkstatt-meta";
+import { voteScore, isReady, type Proposal, type ProposalType, type ProposalStatus, type AiReview, type Comment, type PublicProposal } from "./werkstatt-meta";
 
 export * from "./werkstatt-meta";
+
+// Wandelt einen Vorschlag in eine client-sichere Ansicht (ohne rohe user_keys/Telegram-IDs).
+export function toPublic(p: Proposal, viewer: string): PublicProposal {
+  return {
+    id: p.id, type: p.type, title: p.title, content: p.content, status: p.status,
+    ai_review: p.ai_review, score: voteScore(p), myVote: Number(p.votes?.[viewer]) || 0,
+    ready: isReady(p), decided: p.status !== "discussion",
+    comments: p.comments.map((c) => ({ id: c.id, body: c.body, at: c.at, mine: c.user_key === viewer })),
+    commentsCount: p.comments.length, createdAt: p.created_at,
+  };
+}
 
 function norm(row: Record<string, unknown>): Proposal {
   return {

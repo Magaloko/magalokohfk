@@ -21,7 +21,7 @@ v2/
     (app)/
       layout.tsx             requireUser → MagShell
       heute/page.tsx         Admin-Dashboard
-      cockpit/page.tsx       (Platzhalter, folgt)
+      cockpit/page.tsx       Cockpit-Hub (Übersicht + tasks/hebel/kpis/entscheidungen/stephan/audit)
       akademie/
         layout.tsx           AkademieTabs (Bereichs-Gating)
         {drills,marken,einwaende,personas,szenarien,rollenspiele,angebote,mitarbeiter}/page.tsx

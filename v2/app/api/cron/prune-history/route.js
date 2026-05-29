@@ -9,7 +9,10 @@ const KEEP = 50;
 const CRON_SECRET = process.env.CRON_SECRET || "";
 
 export async function GET(req) {
-  if (CRON_SECRET && req.headers.get("authorization") !== `Bearer ${CRON_SECRET}`) {
+  // Fail-closed: nur mit gültigem CRON_SECRET ODER von Vercel-Cron (x-vercel-cron).
+  const bySecret = CRON_SECRET && req.headers.get("authorization") === `Bearer ${CRON_SECRET}`;
+  const byVercel = !!req.headers.get("x-vercel-cron");
+  if (!bySecret && !byVercel) {
     return new Response("unauthorized", { status: 401 });
   }
   try {

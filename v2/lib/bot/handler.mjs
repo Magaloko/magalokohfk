@@ -278,9 +278,8 @@ function renderQuizMsg(q, qi, total, streak = 0) {
 // === Commands: Menu / Start ===
 function setUserMenuButton(chatId, userId) {
   let btn;
-  if (isAdmin(userId)) btn = { type: "web_app", text: "🚀 Cockpit", web_app: { url: WEBAPP_URL } };
-  else if (hasModule(userId, "produkt")) btn = { type: "web_app", text: "🔍 Produkt", web_app: { url: WEBAPP_URL + "#produkt-lookup" } };
-  else btn = { type: "web_app", text: "🎓 Akademie", web_app: { url: WEBAPP_URL + "#akademie" } };
+  if (isAdmin(userId)) btn = { type: "web_app", text: "🚀 Cockpit", web_app: { url: WEBAPP_URL + "/heute" } };
+  else btn = { type: "web_app", text: "🎓 Akademie", web_app: { url: WEBAPP_URL + "/akademie" } };
   tgApi("setChatMenuButton", { chat_id: chatId, menu_button: btn }).catch(() => {});
 }
 async function sendMenu(chatId, userId) {
@@ -297,7 +296,7 @@ async function sendMenu(chatId, userId) {
   btns.push({ text: "📚 Lehren", callback_data: "menu|lern" });
   btns.push({ text: "🧠 Copilot", callback_data: "menu|copilot" });
   const rows = []; for (let i = 0; i < btns.length; i += 3) rows.push(btns.slice(i, i + 3));
-  if (isAdmin(userId)) { rows.push([{ text: "📱 Cockpit", web_app: { url: WEBAPP_URL + "#dashboard" } }, { text: "👔 Stephan", web_app: { url: WEBAPP_URL + "#stephan-decisions" } }]); rows.push([{ text: "⚙️ Admin", callback_data: "admin|panel" }]); }
+  if (isAdmin(userId)) { rows.push([{ text: "📱 Cockpit", web_app: { url: WEBAPP_URL + "/heute" } }, { text: "👔 Stephan", web_app: { url: WEBAPP_URL + "/cockpit/stephan" } }]); rows.push([{ text: "⚙️ Admin", callback_data: "admin|panel" }]); }
   return tgApi("sendMessage", { chat_id: chatId, text: "<b>🎯 MAGALOKO</b> — Was möchtest du tun?", parse_mode: "HTML", reply_markup: { inline_keyboard: rows } });
 }
 async function cmdStart(chatId, userId) {
@@ -819,13 +818,13 @@ async function handleUpdate(u) {
     if (cmd === "/persona") return cmdPersona(chatId, arg);
     if (cmd === "/rollenspiel" || cmd === "/rollenspiele") return cmdRollenspiel(chatId);
     if (cmd === "/score" || cmd === "/punkte") return cmdScore(chatId, userId, tgUserName(msg.from));
-    if (cmd === "/lern" || cmd === "/learn" || cmd === "/korrektur") return cmdLern(chatId, arg, msg.from);
+    if (cmd === "/lern" || cmd === "/learn" || cmd === "/korrektur") { if (!isAdmin(userId)) return send(chatId, "🔒 Korrekturen können nur Admins eintragen."); return cmdLern(chatId, arg, msg.from); }
     if (cmd === "/quiz") return cmdQuiz(chatId, userId, arg);
     if (cmd === "/tagesaufgabe" || cmd === "/ta") return cmdTagesaufgabe(chatId, userId);
     if (cmd === "/check") return cmdCheck(chatId, userId, msg.from);
     if (cmd === "/fortschritt" || cmd === "/fp") return cmdFortschritt(chatId, userId, tgUserName(msg.from));
     return send(chatId, "Unbekannter Befehl. /start für die Hilfe.");
-  } catch (e) { console.error("[cmd]", cmd, e.message); return send(chatId, "Fehler: " + esc(e.message)); }
+  } catch (e) { console.error("[cmd]", cmd, e.message); return send(chatId, "⚠️ Ein Fehler ist aufgetreten. Bitte versuch es erneut."); }
 }
 
 // === Export für die Next.js-Route (v2/app/api/tg-webhook/route.js) ===

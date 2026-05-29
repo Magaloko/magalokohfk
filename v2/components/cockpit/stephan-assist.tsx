@@ -5,7 +5,8 @@ import { Icon } from "@/components/icon";
 const sel = "w-full rounded-lg border border-line bg-surface-2 px-3 py-2 text-sm text-ink outline-none focus:border-accent";
 const errText = (e?: string) =>
   e === "no_key" || e === "ai_unavailable" ? "KI ist nicht konfiguriert (BOT_AI_KEY fehlt)."
-    : e === "ai_unreachable" ? "KI nicht erreichbar – bitte erneut versuchen."
+    : e === "rate_limited" ? "Zu viele Anfragen – bitte kurz warten."
+      : e === "ai_unreachable" ? "KI nicht erreichbar – bitte erneut versuchen."
       : e === "empty" ? "Bitte zuerst eine Nachricht einfügen."
         : e === "forbidden" || e === "unauthorized" ? "Keine Berechtigung."
           : "Aktion fehlgeschlagen.";

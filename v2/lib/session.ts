@@ -17,6 +17,8 @@ function hashToken(token: string) {
 
 // Liest die Session aus dem Cookie (Server-Component-/Route-tauglich).
 export async function getSession(): Promise<Session | null> {
+  // Fail-closed: ohne starkes SESSION_SECRET keine gültigen Sessions (sonst unsichere Hashes).
+  if (!SESSION_SECRET || SESSION_SECRET.length < 16) { console.error("[session] SESSION_SECRET fehlt/zu kurz — Zugriff verweigert"); return null; }
   const token = (await cookies()).get("magaloko_session")?.value;
   if (!token) return null;
   const { data, error } = await db().from("sessions").select("*").eq("token_hash", hashToken(token)).maybeSingle();

@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getSession } from "@/lib/session";
+import { rateLimit } from "@/lib/rate-limit";
 import { callAiChat, type ChatMsg } from "@/lib/ai";
 import { buildCopilotKB, copilotSystemPrompt } from "@/lib/copilot-kb";
 
@@ -23,6 +24,7 @@ function sanitizeMsgs(input: unknown): ChatMsg[] {
 export async function POST(req: NextRequest) {
   const sess = await getSession();
   if (!sess) return NextResponse.json({ error: "unauthorized" }, { status: 401 });
+  if (!rateLimit(`ai:${sess.email}`, 30, 60000)) return NextResponse.json({ error: "rate_limited" }, { status: 429 });
 
   let body: { messages?: unknown };
   try { body = await req.json(); } catch { return NextResponse.json({ error: "bad_request" }, { status: 400 }); }

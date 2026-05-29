@@ -12,8 +12,9 @@ export async function GET() {
 }
 
 export async function POST(req) {
-  // Telegram-Secret-Token prüfen (gegen Fremd-POSTs)
-  if (SECRET && req.headers.get("x-telegram-bot-api-secret-token") !== SECRET) {
+  // Telegram-Secret-Token prüfen (fail-closed: ohne gesetztes Secret KEIN Zugriff)
+  if (!SECRET) { console.error("[tg-webhook] TG_WEBHOOK_SECRET nicht gesetzt — Webhook abgelehnt"); return new Response("not configured", { status: 503 }); }
+  if (req.headers.get("x-telegram-bot-api-secret-token") !== SECRET) {
     return new Response("unauthorized", { status: 401 });
   }
   let update;

@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getSession } from "@/lib/session";
 import { isAdmin } from "@/lib/auth-helpers";
-import { getProposal, decideProposal, type ProposalStatus } from "@/lib/proposals";
+import { getProposal, decideProposal, toPublic, type ProposalStatus } from "@/lib/proposals";
 import { createItem } from "@/lib/cockpit-write";
 
 export const runtime = "nodejs";
@@ -35,5 +35,5 @@ export async function POST(req: NextRequest) {
   const finalStatus: ProposalStatus = merged ? "merged" : decision;
   const updated = await decideProposal(id, finalStatus, sess.email);
   if (!updated) return NextResponse.json({ error: "save_failed" }, { status: 500 });
-  return NextResponse.json({ ok: true, proposal: updated, merged });
+  return NextResponse.json({ ok: true, proposal: toPublic(updated, sess.email), merged });
 }
