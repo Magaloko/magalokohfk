@@ -13,6 +13,22 @@ export function isAdmin(sess: Session | null): boolean {
   return !!(sess && sess.tgRole === "admin");
 }
 
+// Super-Admin = darf Einstellungen/User-Verwaltung. Standard: Telegram-ID 544821565 (per Env überschreibbar).
+const SUPER_ADMIN_IDS = (process.env.SUPER_ADMIN_IDS || "544821565")
+  .split(",").map((s) => Number(s.trim())).filter(Number.isInteger);
+export function isSuperAdmin(sess: Session | null): boolean {
+  if (!sess) return false;
+  // Telegram-Identität in SUPER_ADMIN_IDS …
+  if (sess.tgUserId != null && SUPER_ADMIN_IDS.includes(Number(sess.tgUserId))) return true;
+  // … oder der Eigentümer per Admin-Passwort (web:admin). Reguläre Admins/Codes zählen NICHT.
+  return sess.email === "web:admin";
+}
+export async function requireSuperAdmin(): Promise<Session> {
+  const sess = await requireUser();
+  if (!isSuperAdmin(sess)) redirect("/heute");
+  return sess;
+}
+
 // Erlaubte Akademie-Bereiche der Session (Admin = alle).
 export function allowedAreas(sess: Session | null): AkademieArea[] {
   if (!sess) return [];

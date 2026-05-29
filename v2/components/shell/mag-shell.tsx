@@ -4,19 +4,20 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { cn } from "@/lib/cn";
 
-type Hub = { href: string; label: string; icon: string; adminOnly?: boolean };
+type Hub = { href: string; label: string; icon: string; adminOnly?: boolean; superOnly?: boolean };
 const HUBS: Hub[] = [
   { href: "/heute", label: "Heute", icon: "🏠", adminOnly: true },
   { href: "/kalender", label: "Kalender", icon: "📅", adminOnly: true },
   { href: "/akademie", label: "Akademie", icon: "🎓" },
   { href: "/cockpit", label: "Cockpit", icon: "📊", adminOnly: true },
+  { href: "/einstellungen", label: "Einstellungen", icon: "⚙️", superOnly: true },
 ];
 
-export function MagShell({ role, children }: { role: string; children: ReactNode }) {
+export function MagShell({ role, superAdmin = false, children }: { role: string; superAdmin?: boolean; children: ReactNode }) {
   const pathname = usePathname();
   const [open, setOpen] = useState(false);
   const isAdmin = role === "admin";
-  const hubs = HUBS.filter((h) => !h.adminOnly || isAdmin);
+  const hubs = HUBS.filter((h) => (h.superOnly ? superAdmin : !h.adminOnly || isAdmin));
   const active = (href: string) => pathname === href || pathname.startsWith(href + "/");
 
   const Nav = (

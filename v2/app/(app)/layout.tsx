@@ -1,5 +1,5 @@
 import Script from "next/script";
-import { requireUser } from "@/lib/auth-helpers";
+import { requireUser, isSuperAdmin } from "@/lib/auth-helpers";
 import { MagShell } from "@/components/shell/mag-shell";
 import { TgReauth } from "@/components/shell/tg-reauth";
 
@@ -11,7 +11,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
     <>
       <Script src="https://telegram.org/js/telegram-web-app.js" strategy="afterInteractive" />
       <TgReauth sessionTgUserId={sess.tgUserId} />
-      <MagShell role={sess.tgRole}>{children}</MagShell>
+      <MagShell role={sess.tgRole} superAdmin={isSuperAdmin(sess)}>{children}</MagShell>
     </>
   );
 }
