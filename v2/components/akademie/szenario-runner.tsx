@@ -1,5 +1,5 @@
 "use client";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { cn } from "@/lib/cn";
 import { Confetti } from "./confetti";
 import { ResultRewards } from "./result-rewards";
@@ -13,7 +13,7 @@ function tgHaptic(kind: "success" | "error") {
 }
 
 export function SzenarioRunner({ sc, personaName, onClose }: { sc: Szenario; personaName?: string; onClose: () => void }) {
-  // Nur valide Schritte (≥2 Optionen, gültiger correctIdx).
+  // Nur valide Schritte (≥2 Optionen, gültiger correctIdx). Reihenfolge bleibt (Story).
   const steps = useMemo<Step[]>(() => {
     return (sc.steps || [])
       .map((s) => ({
@@ -30,10 +30,37 @@ export function SzenarioRunner({ sc, personaName, onClose }: { sc: Szenario; per
   const [best, setBest] = useState(0);
   const [answered, setAnswered] = useState<number | null>(null);
 
-  if (!steps.length) return <Modal onClose={onClose}><p className="text-center text-muted">Dieses Szenario hat noch keine spielbaren Schritte.</p><Done onClose={onClose} /></Modal>;
-
   const total = steps.length;
-  const done = idx >= total;
+  const done = total > 0 && idx >= total;
+  const step = steps[idx];
+
+  const choose = (i: number) => {
+    if (answered !== null || !step) return;
+    setAnswered(i);
+    const correct = i === step.correctIdx;
+    tgHaptic(correct ? "success" : "error");
+    if (correct) { setScore((s) => s + 1); setStreak((s) => { const ns = s + 1; setBest((b) => Math.max(b, ns)); return ns; }); }
+    else setStreak(0);
+  };
+  const next = () => { setAnswered(null); setIdx((i) => i + 1); };
+  const restart = () => { setIdx(0); setScore(0); setStreak(0); setBest(0); setAnswered(null); };
+
+  // Tastatur: 1–9 / A–Z antworten, Enter/Leertaste = weiter, Escape = schließen.
+  useEffect(() => {
+    function onKey(e: KeyboardEvent) {
+      if (e.key === "Escape") { onClose(); return; }
+      if (done || !step) return;
+      if (answered === null) {
+        const num = parseInt(e.key, 10);
+        if (Number.isInteger(num) && num >= 1 && num <= step.options.length) { e.preventDefault(); choose(num - 1); return; }
+        if (e.key.length === 1) { const l = e.key.toLowerCase().charCodeAt(0) - 97; if (l >= 0 && l < step.options.length) { e.preventDefault(); choose(l); } }
+      } else if (e.key === "Enter" || e.key === " ") { e.preventDefault(); next(); }
+    }
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [answered, idx, done, step, onClose]);
+
+  if (!steps.length) return <Modal onClose={onClose}><p className="text-center text-muted">Dieses Szenario hat noch keine spielbaren Schritte.</p><Done onClose={onClose} /></Modal>;
 
   if (done) {
     const pct = Math.round((score / total) * 100);
@@ -49,7 +76,7 @@ export function SzenarioRunner({ sc, personaName, onClose }: { sc: Szenario; per
           <p className="mt-4 text-sm text-muted">{msg}</p>
           <ResultRewards type="szenario" score={score} total={total} />
           <div className="mt-5 flex justify-center gap-2">
-            <button onClick={() => { setIdx(0); setScore(0); setStreak(0); setBest(0); setAnswered(null); }} className="rounded-lg bg-accent px-4 py-2 font-semibold text-bg"><Icon name="repeat" className="h-4 w-4 inline-block mr-1" />Nochmal</button>
+            <button onClick={restart} className="rounded-lg bg-accent px-4 py-2 font-semibold text-bg"><Icon name="repeat" className="h-4 w-4 inline-block mr-1" />Nochmal</button>
             <button onClick={onClose} className="rounded-lg bg-surface-2 px-4 py-2 font-semibold"><Icon name="check" className="h-4 w-4 inline-block mr-1" />Fertig</button>
           </div>
         </div>
@@ -57,16 +84,6 @@ export function SzenarioRunner({ sc, personaName, onClose }: { sc: Szenario; per
     );
   }
 
-  const step = steps[idx];
-  const choose = (i: number) => {
-    if (answered !== null) return;
-    setAnswered(i);
-    const correct = i === step.correctIdx;
-    tgHaptic(correct ? "success" : "error");
-    if (correct) { setScore((s) => s + 1); setStreak((s) => { const ns = s + 1; setBest((b) => Math.max(b, ns)); return ns; }); }
-    else setStreak(0);
-  };
-  const next = () => { setAnswered(null); setIdx((i) => i + 1); };
   const progress = (idx / total) * 100;
 
   return (
@@ -124,7 +141,7 @@ function Modal({ children, onClose }: { children: React.ReactNode; onClose: () =
   return (
     <div className="fixed inset-0 z-50 grid place-items-center p-4" role="dialog" aria-modal="true">
       <div className="absolute inset-0 bg-black/60" onClick={onClose} />
-      <div className="relative w-full max-w-lg rounded-2xl border border-line bg-surface p-5 shadow-2xl">{children}</div>
+      <div className="relative max-h-[90vh] w-full max-w-lg overflow-y-auto rounded-2xl border border-line bg-surface p-5 shadow-2xl">{children}</div>
     </div>
   );
 }

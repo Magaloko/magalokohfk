@@ -223,7 +223,7 @@ function Modal({ children, onClose, wide }: { children: React.ReactNode; onClose
   return (
     <div className="fixed inset-0 z-50 grid place-items-center p-4" role="dialog" aria-modal="true">
       <div className="absolute inset-0 bg-black/60" onClick={onClose} />
-      <div className={cn("relative w-full rounded-2xl border border-line bg-surface p-5 shadow-2xl", wide ? "max-w-xl" : "max-w-lg")}>{children}</div>
+      <div className={cn("relative max-h-[90vh] w-full overflow-y-auto rounded-2xl border border-line bg-surface p-5 shadow-2xl", wide ? "max-w-xl" : "max-w-lg")}>{children}</div>
     </div>
   );
 }
