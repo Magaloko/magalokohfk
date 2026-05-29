@@ -921,23 +921,7 @@ const WORKSPACE_DEFAULTS = {
       "saisonplan","verhandlungen","capture","triggers","jobs","knowledge","glossary","systems",
       "orders-intake","marktanalyse","akademie","lernsystem","stephan-kalender","stephan-decisions","team-notizen",
       "produkt-lookup","kunden-lookup","abc-uebersicht","lieferant-check","kunden-detail","ma-validation",
-      "strategie-pitch"
-    ]
-  },
-  crmKunde: {
-    label: "CRM-Kunde · Platform/Website",
-    color: "#2f5f96",
-    enabledModules: [
-      "dashboard","today","calendar","jobs","capture","knowledge","risks","decisions","pitches","glossary","briefing","meeting"
-    ]
-  },
-  zentrale: {
-    label: "Mago Zentrale",
-    color: "#267274",
-    isMeta: true,
-    enabledModules: [
-      "dashboard","today","calendar","jobs","capture","time","monthly","honorar",
-      "career","portfolio","mentors","learnings","energy","graph","recap","usage","audit"
+      "strategie-pitch","produktwissen"
     ]
   }
 };
@@ -1015,7 +999,7 @@ function applyWorkspaceLayer(s) {
 }
 
 function getActiveWorkspace() {
-  return state.workspaces?.[state.currentWorkspace] || null;
+  return state.workspaces?.hfk || null;
 }
 
 function getWorkspace(id) {
@@ -1023,60 +1007,182 @@ function getWorkspace(id) {
 }
 
 function switchWorkspace(newId) {
-  if (!state.workspaces?.[newId]) return false;
-  if (state.currentWorkspace === newId) return true;
-  // Aktuelle Top-Level-Daten in aktuelle Workspace-Daten persistieren (durch shared-ref bereits identisch, aber sicher ist sicher)
-  const oldWs = state.workspaces[state.currentWorkspace];
-  if (oldWs) {
-    for (const key of WORKSPACE_SCOPED_KEYS) {
-      oldWs.data[key] = state[key];
-    }
-  }
-  // Neues Workspace laden
-  state.currentWorkspace = newId;
-  const newWs = state.workspaces[newId];
-  for (const key of WORKSPACE_SCOPED_KEYS) {
-    state[key] = newWs.data[key];
-  }
-  saveState();
-  applyWorkspaceUI();
-  render();
-  return true;
+  return false; // single-workspace mode, switching disabled
 }
 
 function applyWorkspaceUI() {
-  const ws = getActiveWorkspace();
+  const ws = state.workspaces?.hfk;
   if (!ws) return;
-  // Accent-Farbe pro Workspace
-  document.documentElement.style.setProperty("--accent", ws.color || "#e6b450");
-  // Workspace-Chip in Topbar
-  const chip = byId("workspace-chip");
-  if (chip) {
-    chip.textContent = ws.label;
-    chip.style.background = ws.color;
-    chip.hidden = false;
-  }
-  // Modul-Sichtbarkeit (Sidebar + Bottom-Nav)
   const allowed = new Set(ws.enabledModules || []);
-  ["settings","home"].forEach((v) => allowed.add(v));
+  allowed.add("settings");
   document.querySelectorAll(".sidebar .nav-item[data-view]").forEach((item) => {
     item.hidden = !allowed.has(item.dataset.view);
   });
   document.querySelectorAll(".bottom-nav-item[data-view]").forEach((item) => {
     item.hidden = !allowed.has(item.dataset.view);
   });
-  // Falls aktive View nicht erlaubt → auf dashboard fallback
-  if (currentView && !allowed.has(currentView) && currentView !== "settings" && currentView !== "home") {
+  if (currentView && !allowed.has(currentView) && currentView !== "settings") {
     setView("dashboard");
   }
 }
 
 let state = applyWorkspaceLayer(loadState());
 let currentView = "dashboard";
+// saveTimer/saveBusy früh deklarieren damit bootstrap-IIFEs saveState() aufrufen können (TDZ-Schutz)
+let saveTimer = null;
+let saveBusy = false;
+let _bootSyncDone = false;
 
-// === Bootstrap: neue Knowledge-Cards einmalig hinzufügen ===
-(function bootstrapStrategyKnowledge() {
-  const newCards = [
+// === Telegram Mini App Integration ===
+(function initTelegramWebApp() {
+  const twa = window.Telegram?.WebApp;
+  if (!twa) return; // nicht in Telegram geöffnet
+  // expand() sofort — Vollbild ohne Verzögerung
+  twa.expand();
+  // ready() erst nach erstem Render → Telegram entfernt Loading-Overlay erst wenn UI da
+  // Verhindert den "weißen Flash" zwischen Telegram-Ladescreen und App
+  requestAnimationFrame(() => requestAnimationFrame(() => twa.ready()));
+  // BiometricManager initialisieren (für Stephan-View-Schutz)
+  if (twa.BiometricManager && !twa.BiometricManager.isInited) {
+    twa.BiometricManager.init(() => {});
+  }
+  // Telegram-Theme-Farben übernehmen
+  const tp = twa.themeParams || {};
+  if (tp.bg_color) document.documentElement.style.setProperty("--tg-bg", tp.bg_color);
+  if (tp.text_color) document.documentElement.style.setProperty("--tg-text", tp.text_color);
+  if (tp.hint_color) document.documentElement.style.setProperty("--tg-hint", tp.hint_color);
+  if (tp.button_color) document.documentElement.style.setProperty("--tg-btn", tp.button_color);
+  if (tp.button_text_color) document.documentElement.style.setProperty("--tg-btn-text", tp.button_text_color);
+  // Set Telegram header and background to match app's dark theme
+  try {
+    if (twa.setHeaderColor) twa.setHeaderColor("#1a1a2e");
+    if (twa.setBackgroundColor) twa.setBackgroundColor("#1a1a2e");
+  } catch {}
+  // Navigation history for BackButton
+  const _tgViewHistory = [];
+  twa.BackButton.onClick(() => {
+    if (_tgViewHistory.length > 1) {
+      _tgViewHistory.pop(); // remove current
+      const prev = _tgViewHistory.pop(); // get previous (setView will re-add)
+      setView(prev);
+    } else {
+      twa.close();
+    }
+  });
+  // expose for setView
+  window._tgViewHistory = _tgViewHistory;
+  // Viewport change handler: adjust bottom padding when keyboard opens
+  twa.onEvent("viewportChanged", ({ isStateStable }) => {
+    if (!isStateStable) return;
+    const mainEl = document.querySelector(".main");
+    if (!mainEl) return;
+    const viewportHeight = twa.viewportStableHeight || window.innerHeight;
+    const windowHeight = window.innerHeight;
+    const keyboardHeight = Math.max(0, windowHeight - viewportHeight);
+    mainEl.style.paddingBottom = keyboardHeight > 50
+      ? `${keyboardHeight + 16}px`
+      : "";
+  });
+  // Auto-Auth: initData an Server schicken wenn noch nicht eingeloggt.
+  // WICHTIG: Promise exponieren, damit der Boot-Render erst NACH geklärter Rolle läuft
+  // (verhindert dass ein Mitarbeiter kurz ungefilterten localStorage-State sieht).
+  const initData = twa.initData;
+  if (initData) {
+    window._tgAuthPromise = fetch("/api/tg-auth", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ initData })
+    }).then(async (r) => {
+      if (r.ok) {
+        // Rolle + Module vom Server übernehmen (autoritativ, HMAC-verifiziert)
+        try {
+          const info = await r.json();
+          if (info && info.role) {
+            window.tmaRole = info.role;
+            window.tmaModules = Array.isArray(info.modules) ? info.modules : ["akademie"];
+            applyTmaRoleLock(); // sofort sperren + ggf. umleiten
+          }
+        } catch {}
+      }
+      return window.tmaRole || null;
+    }).catch(() => null);
+  }
+  // CloudStorage: letzten View/Workspace wiederherstellen
+  // try/catch: CloudStorage.getItems() wirft WebAppMethodUnsupported im Browser (nicht in Telegram)
+  try {
+    const cs = twa.CloudStorage;
+    if (cs) {
+      cs.getItems(["lastView","lastWorkspace"], (err, vals) => {
+        if (err || !vals) return;
+        if (vals.lastWorkspace && window._workspaceSwitchFn) {
+          try { window._workspaceSwitchFn(vals.lastWorkspace); } catch {}
+        }
+        if (vals.lastView) {
+          try { setView(vals.lastView); } catch {}
+        }
+      });
+    }
+  } catch {}
+  // Deep link: startParam from bot inline buttons (e.g. ?startapp=akademie)
+  const startParam = twa.initDataUnsafe?.start_param;
+  if (startParam && startParam.length < 50) {
+    // Delay to let boot sync complete first
+    setTimeout(() => { try { setView(startParam); } catch {} }, 300);
+  }
+})();
+
+// CloudStorage: View-Wechsel speichern (aufgerufen aus setView)
+function tgSaveLastView(view) {
+  try {
+    const cs = window.Telegram?.WebApp?.CloudStorage;
+    if (!cs) return;
+    cs.setItem("lastView", view, () => {});
+  } catch {}
+}
+
+function tgHaptic(type = "light") {
+  try {
+    const hf = window.Telegram?.WebApp?.HapticFeedback;
+    if (!hf) return;
+    if (type === "light" || type === "medium" || type === "heavy" || type === "rigid" || type === "soft") {
+      hf.impactOccurred(type);
+    } else if (type === "success" || type === "warning" || type === "error") {
+      hf.notificationOccurred(type);
+    } else if (type === "selection") {
+      hf.selectionChanged();
+    }
+  } catch {}
+}
+
+function tgAlert(message, callback) {
+  const twa = window.Telegram?.WebApp;
+  if (twa?.showAlert) {
+    tgHaptic("warning");
+    twa.showAlert(message, callback || (() => {}));
+  } else {
+    alert(message);
+    if (callback) callback();
+  }
+}
+
+function tgConfirm(message, callback) {
+  const twa = window.Telegram?.WebApp;
+  if (twa?.showConfirm) {
+    tgHaptic("warning");
+    twa.showConfirm(message, callback);
+  } else {
+    const result = confirm(message);
+    callback(result);
+  }
+}
+
+// === Post-Sync Bootstraps: werden nach jedem syncFromServer erneut geprüft ===
+// Damit Server-State-Überschreiben beim Boot die Bootstrap-Items nicht verliert.
+function runPostSyncBootstraps(doSave = true) {
+  let changed = false;
+
+  // Bootstrap 1: 8 Kimi-Strategie Knowledge-Cards
+  const kStratCards = [
     { id: "k-strat-01", topic: "Conversion Baby-Handel AT", summary: "0,8–0,99 % — niedrigste Rate im E-Commerce. Fashion 2,44 %, Heimtier 3,28 %. 1,0→1,3 % = +30 % Online-Umsatz ohne Mehr-Traffic.", source: "Kimi-Strategie-Analyse 2026", confidence: "hoch", tags: ["Shop", "Conversion", "Strategie"] },
     { id: "k-strat-02", topic: "Wettbewerb BabyOne", summary: "100+ Filialen D-A-CH, massive Omnichannel-Investitionen (Click&Collect, Video-Beratung, App). HFK-Vorteil: Agilität + echte Expertise + lokale Bindung.", source: "Kimi-Strategie-Analyse 2026", confidence: "hoch", tags: ["Wettbewerb", "Strategie"] },
     { id: "k-strat-03", topic: "ROI Mago-Kooperation", summary: "Fixum €4k/Monat = €48k/Jahr. Conversion 1,0→1,3 % bei €200k Online-Umsatz = +€60k Umsatz, +€18k Rohertrag (30 % Marge). ROI bereits durch Conversion allein erreicht.", source: "Kimi-Strategie-Analyse 2026", confidence: "hoch", tags: ["Honorar", "Strategie"] },
@@ -1086,17 +1192,15 @@ let currentView = "dashboard";
     { id: "k-strat-07", topic: "SeBo Automatisierungs-Potenzial", summary: "50–100 Mails/Tag, 6 Mitarbeiter. N8N löst 30–40 % der Tickets automatisch = 15–40 Mails weniger täglich. Erste-Antwort-Zeit -80 %.", source: "Kimi-Strategie-Analyse 2026", confidence: "hoch", tags: ["SeBo", "Support"] },
     { id: "k-strat-08", topic: "Hybrid-Vergütung Empfehlung", summary: "Fixum €3.500–4.500/Monat + 5 % des messbaren Online-Umsatzwachstums (quartalsweise) + €1.500–3.000 Jahresbonus. Freelancer-Retainer: €4k–5k/60h.", source: "Kimi-Strategie-Analyse 2026", confidence: "hoch", tags: ["Honorar", "Strategie"] }
   ];
-  const existingIds = new Set((state.knowledgeCards || []).map((c) => c.id));
-  const toAdd = newCards.filter((c) => !existingIds.has(c.id));
-  if (toAdd.length) {
-    state.knowledgeCards = [...(state.knowledgeCards || []), ...toAdd];
-    saveState();
+  const existingCardIds = new Set((state.knowledgeCards || []).map((c) => c.id));
+  const cardsToAdd = kStratCards.filter((c) => !existingCardIds.has(c.id));
+  if (cardsToAdd.length) {
+    state.knowledgeCards = [...(state.knowledgeCards || []), ...cardsToAdd];
+    changed = true;
   }
-})();
 
-// === Bootstrap: Stephan-Decision "Kooperationsmodell HFK" einmalig hinzufügen ===
-(function bootstrapKoopDecision() {
-  const seed = {
+  // Bootstrap 2: Stephan-Decision "Kooperationsmodell HFK"
+  const koopSeed = {
     id: "sd-koop-2026",
     titel: "Kooperationsmodell HFK finalisieren",
     frage: "Welches Vergütungsmodell und welchen Einstieg schlägt Mago vor? Wie reagiert Stephan auf den 30-Tage-Test-Vorschlag?",
@@ -1109,15 +1213,18 @@ let currentView = "dashboard";
     ergebnis: ""
   };
   const decisions = state.stephanDecisions || [];
-  if (!decisions.some((d) => d.id === seed.id)) {
-    decisions.push(seed);
+  if (!decisions.some((d) => d.id === koopSeed.id)) {
+    decisions.push(koopSeed);
     state.stephanDecisions = decisions;
-    if (state.workspaces?.hfk?.data) {
-      state.workspaces.hfk.data.stephanDecisions = decisions;
-    }
-    saveState();
+    if (state.workspaces?.hfk?.data) state.workspaces.hfk.data.stephanDecisions = decisions;
+    changed = true;
   }
-})();
+
+  if (changed && doSave) saveState();
+}
+
+// Initial run (bei Boot aus localStorage)
+runPostSyncBootstraps(true);
 
 function mergeWithSeed(parsed) {
   const base = structuredClone(seedData);
@@ -1210,13 +1317,22 @@ async function syncFromServer(force = false) {
     const remoteUpdated = Number(remote.updatedAt || 0);
     // Server-Disk-Stand merken (Basis für nächsten konfliktfreien Push)
     lastServerRevision = remoteUpdated;
+    // HARTE ROLLEN-SPERRE: Mitarbeiter bekommen NUR die (server-gefilterten) Remote-Daten.
+    // Keine Seed-Injektion von Nicht-Akademie-Inhalten (z.B. Strategie-Knowledge-Cards),
+    // keine Bootstraps, kein Save — sonst landen Business-Seeds im lokalen state/localStorage.
+    const isEmployee = window.tmaRole === "mitarbeiter";
     if (force || remoteUpdated > localUpdated) {
-      state = applyWorkspaceLayer(mergeWithSeed(remote));
+      state = isEmployee ? applyWorkspaceLayer(remote) : applyWorkspaceLayer(mergeWithSeed(remote));
+      if (!isEmployee) {
+        // Sicherstellen dass Bootstrap-Items nicht durch älteren Server-Stand verloren gehen
+        runPostSyncBootstraps(false); // kein saveState hier — wird unten via missingInRemote oder pushToServer getriggert
+      }
       // Audit-Finding R4: localStorage kann in Private-Mode oder bei Quota werfen
       try { localStorage.setItem(STORAGE_KEY, JSON.stringify(state)); } catch (e) { console.warn("[localStorage]", e.message); }
       applyWorkspaceUI();
       render();
     }
+    if (isEmployee) return; // Mitarbeiter: keine Seed-Ergänzung / kein Push
     // Stelle sicher, dass neue Seed-Felder im Server landen — auch wenn remote älter ist
     const seedKeys = ["brands", "customerSegments", "reactivationCampaigns", "crossSellPairs", "bundleIdeas", "sortimentRules", "vipArticles", "promises", "stephanProfile", "stephanMoods", "levers", "weeklyKpis", "anomalies", "aiPromptLibrary"];
     const missingInRemote = seedKeys.some((k) => !remote[k]);
@@ -1226,8 +1342,6 @@ async function syncFromServer(force = false) {
   }
 }
 
-let saveTimer = null;
-let saveBusy = false;
 // Optimistic-Concurrency (Audit-Finding #4): letzte bekannte Server-Revision
 let lastServerRevision = Number((typeof state !== "undefined" && state.updatedAt) || 0);
 
@@ -1264,6 +1378,12 @@ function hasPendingSave() {
 const MAGALOKO_CLIENT_ID = Math.random().toString(36).slice(2, 10);
 
 async function pushToServer() {
+  // Boot-Guard: erst nach initialem Server-Sync pushen, sonst überschreibt staler
+  // localStorage-Stand den echten Server-State (Race-Condition beim Start)
+  if (!_bootSyncDone) {
+    saveTimer = setTimeout(pushToServer, 300);
+    return;
+  }
   if (saveBusy) {
     saveTimer = setTimeout(pushToServer, 500);
     return;
@@ -1406,9 +1526,85 @@ function statusPill(value, extraClass = "") {
   return `<span class="pill ${className} ${extraSafe}">${escapeHtml(String(value || ""))}</span>`;
 }
 
+// === HARTE ROLLEN-SPERRE (Telegram Mini App) ===
+// Mitarbeiter sehen NUR die zu ihren Modulen gehörenden Views. Admins sehen alles.
+// Die Daten sind zusätzlich server-seitig gefiltert (defense in depth).
+const TMA_MODULE_VIEWS = {
+  akademie: ["akademie"],
+  // Produkt-Modul = Artikel-/Lieferanten-/Bestandsdaten OHNE Kunden-PII.
+  // kunden-lookup/kunden-detail bewusst NICHT enthalten (PII, server-seitig 403).
+  produkt: ["produkt-lookup", "abc-uebersicht", "lieferant-check"],
+  ai: ["aitools"]
+};
+
+function tmaAllowedViews() {
+  // Kein Telegram-Mitarbeiter-Kontext → keine Einschränkung (Admin/Browser)
+  if (window.tmaRole !== "mitarbeiter") return null;
+  const mods = window.tmaModules || ["akademie"];
+  const allowed = new Set();
+  for (const m of mods) (TMA_MODULE_VIEWS[m] || []).forEach((v) => allowed.add(v));
+  allowed.add("akademie"); // immer mindestens Akademie
+  return allowed;
+}
+
+function tmaIsViewAllowed(view) {
+  const allowed = tmaAllowedViews();
+  if (!allowed) return true; // keine Sperre aktiv
+  return allowed.has(view);
+}
+
+// Wendet die Sperre an: versteckt verbotene Nav-Einträge + leitet von verbotener View weg.
+function applyTmaRoleLock() {
+  const allowed = tmaAllowedViews();
+  if (!allowed) return; // Admin/Browser: nichts tun
+  // Nav-Einträge ausblenden die nicht erlaubt sind
+  document.querySelectorAll(".sidebar .nav-item[data-view], .bottom-nav-item[data-view]").forEach((el) => {
+    const v = el.dataset.view;
+    el.style.display = allowed.has(v) ? "" : "none";
+  });
+  // Workspace-Wechsel + Home für Mitarbeiter sperren (nur Akademie-Kontext)
+  document.querySelectorAll("[data-workspace-switch], #btn-home, .workspace-switcher").forEach((el) => {
+    el.style.display = "none";
+  });
+  // Falls aktuell auf verbotener View → auf Akademie umleiten
+  if (!allowed.has(currentView)) {
+    const target = allowed.has("akademie") ? "akademie" : [...allowed][0];
+    if (target) setView(target);
+  }
+}
+
 function setView(view) {
   if (!byId(view)) view = "dashboard";
+  // HARTE ROLLEN-SPERRE: Mitarbeiter dürfen verbotene Views nicht öffnen
+  if (!tmaIsViewAllowed(view)) {
+    const allowed = tmaAllowedViews();
+    const target = allowed.has("akademie") ? "akademie" : [...allowed][0];
+    try { tgHaptic("error"); } catch {}
+    if (view !== target) {
+      try { tgAlert("🔒 Dieser Bereich ist für deine Rolle nicht freigeschaltet."); } catch {}
+      return setView(target);
+    }
+    return; // schon auf erlaubter Ziel-View
+  }
+  // Telegram BiometricManager: Stephan-Views absichern
+  const PROTECTED_VIEWS = ["stephan-kalender", "stephan-decisions"];
+  if (PROTECTED_VIEWS.includes(view)) {
+    const bm = window.Telegram?.WebApp?.BiometricManager;
+    if (bm && bm.isInited && bm.isBiometricAvailable && !window._tgBiometricUnlocked) {
+      bm.authenticate({ reason: "Stephan-Daten sind vertraulich" }, (ok) => {
+        if (ok) { window._tgBiometricUnlocked = true; setView(view); }
+        // bei Fehlschlag: zurück zur letzten View (nichts tun)
+      });
+      return;
+    }
+  }
+  // Biometric-Lock nach 5min zurücksetzen
+  if (!PROTECTED_VIEWS.includes(view)) {
+    clearTimeout(window._tgBiometricTimer);
+    window._tgBiometricTimer = setTimeout(() => { window._tgBiometricUnlocked = false; }, 5 * 60 * 1000);
+  }
   currentView = view;
+  tgSaveLastView(view);
   // Nutzungs-Tracking (Buch Kap. 32)
   if (!state.viewUsage) state.viewUsage = {};
   if (!state.viewUsage[view]) state.viewUsage[view] = { count: 0, lastOpened: null, firstOpened: new Date().toISOString() };
@@ -1417,6 +1613,8 @@ function setView(view) {
   saveState();
   document.querySelectorAll(".view").forEach((el) => el.classList.toggle("active", el.id === view));
   document.querySelectorAll(".nav-item").forEach((el) => el.classList.toggle("active", el.dataset.view === view));
+  // Auto-expand collapsed group that contains this view
+  if (typeof window._expandNavGroupForView === "function") window._expandNavGroupForView(view);
   byId("view-title").textContent = {
     dashboard: "Start",
     levers: "Hebel-Cockpit",
@@ -1469,7 +1667,6 @@ function setView(view) {
     today: "Heute (Playbook)",
     calendar: "Kalender",
     settings: "Einstellungen",
-    home: "Projekt wählen",
     "orders-intake": "Bestellung aufnehmen",
     marktanalyse: "Marktanalyse HFK 2026",
     akademie: "Verkaufs-Akademie",
@@ -1483,14 +1680,55 @@ function setView(view) {
     "lieferant-check": "Lieferanten-Bestand-Check",
     "kunden-detail": "Kunden-Detail",
     "ma-validation": "Marktanalyse-Validierung",
-    "strategie-pitch": "Strategie-Pitch HFK"
+    "strategie-pitch": "Strategie-Pitch HFK",
+    produktwissen: "Produktwissen-Pflege"
   }[view];
   if (location.hash !== `#${view}`) {
     history.replaceState(null, "", `#${view}`);
   }
+  // Track history for Telegram BackButton
+  if (window._tgViewHistory) {
+    window._tgViewHistory.push(view);
+    if (window._tgViewHistory.length > 20) window._tgViewHistory.shift();
+  }
   document.querySelectorAll(".bottom-nav-item[data-view]").forEach((b) => {
     b.classList.toggle("active", b.dataset.view === view);
   });
+  // Telegram BackButton: nur anzeigen wenn nicht auf Dashboard-View
+  if (window.Telegram?.WebApp?.BackButton) {
+    const homeViews = ["dashboard"];
+    if (homeViews.includes(view)) {
+      window.Telegram.WebApp.BackButton.hide();
+    } else {
+      window.Telegram.WebApp.BackButton.show();
+    }
+  }
+  // Telegram MainButton (BottomButton) — kontextsensitiv pro View
+  (function updateTgMainButton(v) {
+    const btn = window.Telegram?.WebApp?.MainButton;
+    if (!btn) return;
+    // Alten Handler entfernen
+    if (window._tgMainBtnCb) { try { btn.offClick(window._tgMainBtnCb); } catch {} window._tgMainBtnCb = null; }
+    const configs = {
+      akademie:           { text: "▶  Drill starten",          cb: () => { const t = document.querySelector('[data-ak-tab="drills"]'); if (t) t.click(); else document.querySelector(".ak-drill-start, [data-action='drill-start']")?.click(); } },
+      "produkt-lookup":   { text: "🔍  Suche fokussieren",     cb: () => document.querySelector("#pl-search,#produkt-search-input,[data-id='pl-search']")?.focus() },
+      "kunden-lookup":    { text: "🔍  Suche fokussieren",     cb: () => document.querySelector("#kl-search,#kunden-search-input,[data-id='kl-search']")?.focus() },
+      capture:            { text: "+  Neue Notiz",              cb: () => document.querySelector("[data-action='capture-add'],[data-capture-add],#capture-add-btn,.capture-add")?.click() },
+      jobs:               { text: "+  Aufgabe hinzufügen",      cb: () => document.querySelector("[data-action='task-add'],#task-add-btn,.task-add-btn")?.click() },
+      "stephan-decisions":{ text: "+  Entscheidung anlegen",   cb: () => document.querySelector("[data-action='decision-add'],#decision-add-btn,.decision-add")?.click() },
+      today:              { text: "✅  Playbook starten",       cb: () => document.querySelector(".playbook-start,.pb-start-btn,[data-action='playbook-start']")?.click() },
+      "abc-uebersicht":   { text: "📊  ABC neu berechnen",     cb: () => document.querySelector("[data-action='abc-recalc'],#abc-recalc-btn")?.click() },
+    };
+    const cfg = configs[v];
+    if (cfg) {
+      btn.setText(cfg.text);
+      window._tgMainBtnCb = cfg.cb;
+      btn.onClick(cfg.cb);
+      btn.show();
+    } else {
+      btn.hide();
+    }
+  })(view);
   render();
   if (view === "daily") autoTriggerDailyIfMissing();
   if (view === "audit") loadAudit().then(renderAudit);
@@ -1883,6 +2121,13 @@ function escapeHtml(value) {
   return String(value ?? "").replace(/[&<>"']/g, (ch) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[ch]));
 }
 
+// Audit-Finding H4: State-IDs landen in data-*-Attributen. State ist aus Backup/JSON
+// restaurierbar — eine manipulierte ID könnte sonst Attribut-Injection auslösen.
+// Erlaubt nur das Zeichen-Set aus uid() + JTL-Keys; alles andere fällt weg.
+function safeDataId(value) {
+  return String(value ?? "").replace(/[^A-Za-z0-9_:.\-]/g, "").slice(0, 64);
+}
+
 // Audit-Finding R4: Externe URLs (website-Felder aus State) — nur http(s) erlaubt.
 // Verhindert javascript:/data:-Ausführung wenn jemand via Backup eine manipulierte URL einspielt.
 function safeExternalUrl(value) {
@@ -2160,7 +2405,7 @@ function renderSystems(filter = document.querySelector("#system-filter .active")
 
   byId("system-grid").innerHTML = items.map((system) => `
     <article class="system-card">
-      <div class="item-line"><h3>${escapeHtml(system.name)}</h3><span>${statusPill(system.healthStatus)} <button class="icon-button edit" data-edit="system:${system.id}" title="Bearbeiten" aria-label="Bearbeiten">✎</button></span></div>
+      <div class="item-line"><h3>${escapeHtml(system.name)}</h3><span>${statusPill(system.healthStatus)} <button class="icon-button edit" data-edit="system:${safeDataId(system.id)}" title="Bearbeiten" aria-label="Bearbeiten">✎</button></span></div>
       <p>${escapeHtml(String(system.purpose || ""))}</p>
       <div class="system-meta">
         <span class="muted">Kategorie: ${escapeHtml(String(system.category || ""))}</span>
@@ -2212,9 +2457,9 @@ function renderAccess() {
             <td>${escapeHtml(item.accessType)}</td>
             <td>${escapeHtml(item.neededFor)}<br><span class="muted">${escapeHtml(item.notes || "")}</span></td>
             <td>${escapeHtml(item.owner || "-")}</td>
-            <td><select data-access-status="${item.id}">${["angefragt", "vorhanden", "geprüft", "blockiert"].map((status) => `<option ${item.status === status ? "selected" : ""}>${status}</option>`).join("")}</select></td>
+            <td><select data-access-status="${safeDataId(item.id)}">${["angefragt", "vorhanden", "geprüft", "blockiert"].map((status) => `<option ${item.status === status ? "selected" : ""}>${status}</option>`).join("")}</select></td>
             <td>${statusPill(item.priority)}</td>
-            <td><button class="icon-button edit" data-edit="access:${item.id}" title="Bearbeiten" aria-label="Bearbeiten">✎</button><button class="icon-button" data-access-delete="${item.id}" title="Zugang löschen" aria-label="Zugang löschen">×</button></td>
+            <td><button class="icon-button edit" data-edit="access:${safeDataId(item.id)}" title="Bearbeiten" aria-label="Bearbeiten">✎</button><button class="icon-button" data-access-delete="${safeDataId(item.id)}" title="Zugang löschen" aria-label="Zugang löschen">×</button></td>
           </tr>`;
         }).join("")}
       </tbody>
@@ -2261,11 +2506,11 @@ function renderKanban() {
     return `<section class="kanban-column">
       <h3>${column}<span class="muted">${tasks.length}</span></h3>
       ${tasks.map((task) => `<article class="kanban-card">
-        <div class="item-line"><strong>${escapeHtml(task.title)}</strong><span><button class="icon-button edit" data-edit="task:${task.id}" title="Bearbeiten" aria-label="Bearbeiten">✎</button><button class="icon-button" data-task-delete="${task.id}" title="Aufgabe löschen" aria-label="Aufgabe löschen">×</button></span></div>
+        <div class="item-line"><strong>${escapeHtml(task.title)}</strong><span><button class="icon-button edit" data-edit="task:${safeDataId(task.id)}" title="Bearbeiten" aria-label="Bearbeiten">✎</button><button class="icon-button" data-task-delete="${safeDataId(task.id)}" title="Aufgabe löschen" aria-label="Aufgabe löschen">×</button></span></div>
         <span class="muted">${escapeHtml(task.area)} · Wirkung ${escapeHtml(task.impact)} · Aufwand ${escapeHtml(task.effort)}</span>
         ${task.notes ? `<span class="muted">${escapeHtml(task.notes)}</span>` : ""}
         <div class="item-line">${statusPill(task.priority)}<span class="muted">${task.dueDate || "ohne Datum"}</span></div>
-        <select data-task-status="${task.id}">
+        <select data-task-status="${safeDataId(task.id)}">
           ${columns.map((status) => `<option ${task.status === status ? "selected" : ""}>${status}</option>`).join("")}
         </select>
       </article>`).join("")}
@@ -2601,7 +2846,7 @@ function renderMoodLog() {
           <span class="muted">${new Date(m.date).toLocaleDateString("de-DE", { day: "2-digit", month: "2-digit", year: "2-digit" })}</span>
           ${m.note ? `<p>${escapeHtml(m.note)}</p>` : ""}
         </div>
-        <button class="icon-button" data-mood-delete="${m.id}" title="Eintrag löschen">×</button>
+        <button class="icon-button" data-mood-delete="${safeDataId(m.id)}" title="Eintrag löschen">×</button>
       </div>`).join("")
     : '<p class="muted">Noch keine Mood-Einträge.</p>');
 
@@ -2639,14 +2884,14 @@ function renderPromises() {
         <strong>${escapeHtml(p.what)}</strong>
         <span class="topbar-actions">
           <span class="pill ${p.status === "eingelöst" ? "bereit" : p.status === "verfehlt" ? "kritisch" : overdue ? "kritisch" : p.status === "in Arbeit" ? "angefragt" : "mittel"}">${escapeHtml(p.status)}</span>
-          <button class="icon-button edit" data-edit="promise:${p.id}" title="Bearbeiten">✎</button>
-          <button class="icon-button" data-promise-delete="${p.id}" title="Löschen">×</button>
+          <button class="icon-button edit" data-edit="promise:${safeDataId(p.id)}" title="Bearbeiten">✎</button>
+          <button class="icon-button" data-promise-delete="${safeDataId(p.id)}" title="Löschen">×</button>
         </span>
       </div>
       <span class="muted">${escapeHtml(p.context || "—")} · zugesagt ${p.promisedAt || "?"} · fällig ${p.dueDate || "ohne Datum"}${overdue ? " · <strong>überfällig</strong>" : ""}</span>
       ${p.outcome ? `<span class="muted">Ergebnis: ${escapeHtml(p.outcome)}</span>` : ""}
       <label class="lever-quick-status muted">Status
-        <select data-promise-status="${p.id}">
+        <select data-promise-status="${safeDataId(p.id)}">
           ${["offen", "in Arbeit", "eingelöst", "verschoben", "verfehlt"].map((s) => `<option ${p.status === s ? "selected" : ""}>${s}</option>`).join("")}
         </select>
       </label>
@@ -2690,7 +2935,7 @@ function renderMeetings() {
   byId("meeting-list").innerHTML = state.meetings.length
     ? state.meetings.map((meeting) => `
       <article class="compact-item">
-        <div class="item-line"><strong>${escapeHtml(meeting.type)}</strong><span class="muted">${meeting.date || "ohne Datum"} <button class="icon-button edit" data-edit="meeting:${meeting.id}" title="Bearbeiten">✎</button><button class="icon-button" data-meeting-delete="${meeting.id}" title="Gespräch löschen" aria-label="Gespräch löschen">×</button></span></div>
+        <div class="item-line"><strong>${escapeHtml(meeting.type)}</strong><span class="muted">${meeting.date || "ohne Datum"} <button class="icon-button edit" data-edit="meeting:${safeDataId(meeting.id)}" title="Bearbeiten">✎</button><button class="icon-button" data-meeting-delete="${safeDataId(meeting.id)}" title="Gespräch löschen" aria-label="Gespräch löschen">×</button></span></div>
         <span class="muted">${escapeHtml(meeting.goal || "")}</span>
         <details>
           <summary>Agenda</summary>
@@ -2724,7 +2969,7 @@ function renderBriefingHistory() {
     ? state.briefings.map((b) => {
         const date = b.createdAt ? new Date(b.createdAt).toLocaleString("de-DE") : "";
         return `<article class="compact-item">
-          <div class="item-line"><strong>${escapeHtml(b.title || "Ohne Titel")}</strong><span class="muted">${date} <button class="icon-button" data-briefing-load="${b.id}" title="Ins Formular laden">↻</button> <button class="icon-button" data-briefing-delete="${b.id}" title="Briefing löschen">×</button></span></div>
+          <div class="item-line"><strong>${escapeHtml(b.title || "Ohne Titel")}</strong><span class="muted">${date} <button class="icon-button" data-briefing-load="${safeDataId(b.id)}" title="Ins Formular laden">↻</button> <button class="icon-button" data-briefing-delete="${safeDataId(b.id)}" title="Briefing löschen">×</button></span></div>
           <span class="muted">${escapeHtml((b.recommendation || "").slice(0, 160))}${(b.recommendation || "").length > 160 ? "…" : ""}</span>
         </article>`;
       }).join("")
@@ -2794,7 +3039,7 @@ function renderJobs() {
 function renderKnowledge() {
   byId("knowledge-grid").innerHTML = state.knowledgeCards.map((card) => `
     <article class="knowledge-card">
-      <div class="item-line"><h3>${escapeHtml(card.topic)}</h3><span>${statusPill(card.confidence)} <button class="icon-button edit" data-edit="knowledge:${card.id}" title="Bearbeiten">✎</button><button class="icon-button" data-knowledge-delete="${card.id}" title="Löschen">×</button></span></div>
+      <div class="item-line"><h3>${escapeHtml(card.topic)}</h3><span>${statusPill(card.confidence)} <button class="icon-button edit" data-edit="knowledge:${safeDataId(card.id)}" title="Bearbeiten">✎</button><button class="icon-button" data-knowledge-delete="${safeDataId(card.id)}" title="Löschen">×</button></span></div>
       <p>${escapeHtml(card.summary)}</p>
       <span class="muted">${escapeHtml(card.source)} · ${(card.tags || []).map(escapeHtml).join(", ")}</span>
     </article>
@@ -3049,8 +3294,8 @@ function renderAnomalies() {
           <td>${(w.sessions || 0).toLocaleString("de-DE")}</td>
           <td>${(w.returnRatePct || 0).toFixed(1)}%</td>
           <td>
-            <button class="icon-button edit" data-edit="week-kpi:${w.id}" title="Bearbeiten">✎</button>
-            <button class="icon-button" data-week-delete="${w.id}" title="Löschen">×</button>
+            <button class="icon-button edit" data-edit="week-kpi:${safeDataId(w.id)}" title="Bearbeiten">✎</button>
+            <button class="icon-button" data-week-delete="${safeDataId(w.id)}" title="Löschen">×</button>
           </td>
         </tr>`).join("")}
       </tbody>
@@ -3092,8 +3337,8 @@ function renderAnomalies() {
           <strong>${escapeHtml(week?.weekLabel || a.weekStart)} · ${escapeHtml(spec?.label || a.metric)}</strong>
           <span class="topbar-actions">
             <span class="pill ${statusClass}">${escapeHtml(a.status)}</span>
-            <button class="icon-button edit" data-edit="anomaly:${a.id}" title="Bearbeiten">✎</button>
-            <button class="icon-button" data-anomaly-delete="${a.id}" title="Löschen">×</button>
+            <button class="icon-button edit" data-edit="anomaly:${safeDataId(a.id)}" title="Bearbeiten">✎</button>
+            <button class="icon-button" data-anomaly-delete="${safeDataId(a.id)}" title="Löschen">×</button>
           </span>
         </div>
         ${a.hypothesis ? `<details><summary>Hypothesen & Quellen</summary><p><strong>Hypothesen:</strong><br>${escapeHtml(a.hypothesis).replace(/\n/g, "<br>")}</p>${a.dataSourcesChecked ? `<p class="muted"><strong>Zu prüfen:</strong> ${escapeHtml(a.dataSourcesChecked)}</p>` : ""}${a.conclusion ? `<p><strong>Befund:</strong> ${escapeHtml(a.conclusion)}</p>` : ""}</details>` : ""}
@@ -3195,8 +3440,8 @@ function renderLevers() {
             <strong>${injectJargonHints(escapeHtml(l.title))}</strong>
             <span class="topbar-actions">
               <span class="pill ${(l.status || "").toLowerCase().replace(/\s+/g, "-")}">${escapeHtml(l.status || "—")}</span>
-              <button class="icon-button edit" data-edit="lever:${l.id}" title="Bearbeiten">✎</button>
-              <button class="icon-button" data-lever-delete="${l.id}" title="Löschen">×</button>
+              <button class="icon-button edit" data-edit="lever:${safeDataId(l.id)}" title="Bearbeiten">✎</button>
+              <button class="icon-button" data-lever-delete="${safeDataId(l.id)}" title="Löschen">×</button>
             </span>
           </div>
           <div class="lever-meta">
@@ -3216,7 +3461,7 @@ function renderLevers() {
           </div>
           ${l.dataBasis ? `<details><summary>Grundlage & Notiz</summary><p><strong>Annahme:</strong> ${escapeHtml(l.dataBasis)}</p>${l.notes ? `<p class="muted">${escapeHtml(l.notes)}</p>` : ""}</details>` : ""}
           <label class="lever-quick-status muted">Status ändern
-            <select data-lever-status="${l.id}">
+            <select data-lever-status="${safeDataId(l.id)}">
               ${["Idee", "Geprüft", "In Arbeit", "Live", "Verworfen"].map((s) => `<option ${l.status === s ? "selected" : ""}>${s}</option>`).join("")}
             </select>
           </label>
@@ -4163,8 +4408,8 @@ function renderVendors() {
         <strong>${escapeHtml(v.name)}</strong>
         <span class="topbar-actions">
           <span class="pill ${v.status === "aktiv" ? "bereit" : v.status === "fehlt" ? "kritisch" : v.status === "geplant" ? "angefragt" : "mittel"}">${escapeHtml(v.status)}</span>
-          <button class="icon-button edit" data-edit="vendor:${v.id}" title="Bearbeiten">✎</button>
-          <button class="icon-button" data-vendor-delete="${v.id}" title="Löschen">×</button>
+          <button class="icon-button edit" data-edit="vendor:${safeDataId(v.id)}" title="Bearbeiten">✎</button>
+          <button class="icon-button" data-vendor-delete="${safeDataId(v.id)}" title="Löschen">×</button>
         </span>
       </div>
       <span class="muted">${escapeHtml(v.category)} · ${escapeHtml(v.role || "—")}</span>
@@ -4210,9 +4455,9 @@ function renderPitches() {
         <strong>${escapeHtml(p.title)}</strong>
         <span class="topbar-actions">
           <span class="pill ${p.status === "Angenommen" ? "bereit" : p.status === "Verworfen" ? "niedrig" : p.status === "Versendet" ? "angefragt" : "mittel"}">${escapeHtml(p.status || "Entwurf")}</span>
-          <button class="icon-button" data-pitch-copy="${p.id}" title="Als Markdown kopieren">📋</button>
-          <button class="icon-button edit" data-edit="pitch:${p.id}" title="Bearbeiten">✎</button>
-          <button class="icon-button" data-pitch-delete="${p.id}" title="Löschen">×</button>
+          <button class="icon-button" data-pitch-copy="${safeDataId(p.id)}" title="Als Markdown kopieren">📋</button>
+          <button class="icon-button edit" data-edit="pitch:${safeDataId(p.id)}" title="Bearbeiten">✎</button>
+          <button class="icon-button" data-pitch-delete="${safeDataId(p.id)}" title="Löschen">×</button>
         </span>
       </div>
       <span class="muted">${p.createdAt || "—"} · An: ${escapeHtml(p.audience || "—")}</span>
@@ -4298,8 +4543,8 @@ function renderBeforeAfter() {
         <strong>${escapeHtml(x.title)}</strong>
         <span class="topbar-actions">
           <span class="pill bereit">${formatEur(x.impactEur)}/Jahr</span>
-          <button class="icon-button edit" data-edit="beforeafter:${x.id}" title="Bearbeiten">✎</button>
-          <button class="icon-button" data-ba-delete="${x.id}" title="Löschen">×</button>
+          <button class="icon-button edit" data-edit="beforeafter:${safeDataId(x.id)}" title="Bearbeiten">✎</button>
+          <button class="icon-button" data-ba-delete="${safeDataId(x.id)}" title="Löschen">×</button>
         </span>
       </div>
       <span class="muted">${x.date || "—"} · ${escapeHtml(x.area || "—")}</span>
@@ -4366,8 +4611,8 @@ function renderLearnings() {
           <span class="stars">${stars}</span>
           <span class="pill entscheidung">${escapeHtml(l.sourceType)}</span>
           <span class="pill ${statusClass}">${escapeHtml(l.status)}</span>
-          <button class="icon-button edit" data-edit="learning:${l.id}">✎</button>
-          <button class="icon-button" data-learning-delete="${l.id}">×</button>
+          <button class="icon-button edit" data-edit="learning:${safeDataId(l.id)}">✎</button>
+          <button class="icon-button" data-learning-delete="${safeDataId(l.id)}">×</button>
         </span>
       </div>
       <span class="muted">${escapeHtml(l.author || "—")} · ${l.startDate || "—"}${l.finishDate ? " bis " + l.finishDate : ""}</span>
@@ -4460,8 +4705,8 @@ function renderEnergy() {
         <span class="topbar-actions">
           <span class="pill ${e.energyLevel >= 4 ? "bereit" : e.energyLevel >= 3 ? "mittel" : "kritisch"}">E ${e.energyLevel}/5</span>
           <span class="pill ${e.focusQuality >= 4 ? "bereit" : e.focusQuality >= 3 ? "mittel" : "kritisch"}">F ${e.focusQuality}/5</span>
-          <button class="icon-button edit" data-edit="energyentry:${e.id}">✎</button>
-          <button class="icon-button" data-energy-delete="${e.id}">×</button>
+          <button class="icon-button edit" data-edit="energyentry:${safeDataId(e.id)}">✎</button>
+          <button class="icon-button" data-energy-delete="${safeDataId(e.id)}">×</button>
         </span>
       </div>
       <span class="muted">${e.date} · ${e.duration || 0} min${e.notes ? " · " + escapeHtml(e.notes) : ""}</span>
@@ -4758,8 +5003,8 @@ function renderCareer() {
         <strong>🚀 ${escapeHtml(g.title)}</strong>
         <span class="topbar-actions">
           <span class="pill ${statusClass}">${escapeHtml(g.status)}</span>
-          <button class="icon-button edit" data-edit="careergoal:${g.id}">✎</button>
-          <button class="icon-button" data-careergoal-delete="${g.id}">×</button>
+          <button class="icon-button edit" data-edit="careergoal:${safeDataId(g.id)}">✎</button>
+          <button class="icon-button" data-careergoal-delete="${safeDataId(g.id)}">×</button>
         </span>
       </div>
       <span class="muted">Deadline: ${g.deadline || "—"}</span>
@@ -4782,8 +5027,8 @@ function renderCareer() {
         <span class="topbar-actions">
           <span class="pill ${relevanceClass}">${escapeHtml(s.relevance)}</span>
           ${gap > 0 ? `<span class="pill mittel">Gap ${gap}</span>` : '<span class="pill bereit">✓</span>'}
-          <button class="icon-button edit" data-edit="careerskill:${s.id}">✎</button>
-          <button class="icon-button" data-careerskill-delete="${s.id}">×</button>
+          <button class="icon-button edit" data-edit="careerskill:${safeDataId(s.id)}">✎</button>
+          <button class="icon-button" data-careerskill-delete="${safeDataId(s.id)}">×</button>
         </span>
       </div>
       <div class="skill-level-bars">
@@ -4890,8 +5135,8 @@ function renderPortfolio() {
         <span class="topbar-actions">
           ${c.anonymized ? '<span class="pill bereit">anonymisiert</span>' : '<span class="pill kritisch">▲ noch nicht anonymisiert</span>'}
           <span class="pill ${statusClass}">${escapeHtml(c.status)}</span>
-          <button class="icon-button edit" data-edit="portfoliocase:${c.id}">✎</button>
-          <button class="icon-button" data-portfolio-delete="${c.id}">×</button>
+          <button class="icon-button edit" data-edit="portfoliocase:${safeDataId(c.id)}">✎</button>
+          <button class="icon-button" data-portfolio-delete="${safeDataId(c.id)}">×</button>
         </span>
       </div>
       <span class="muted">Kategorie: ${escapeHtml(c.category)}</span>
@@ -4987,8 +5232,8 @@ function renderMentors() {
         <span class="topbar-actions">
           <span class="pill entscheidung">${escapeHtml(m.domain)}</span>
           <span class="pill ${statusClass}">${escapeHtml(m.integrationStatus)}</span>
-          <button class="icon-button edit" data-edit="mentor:${m.id}">✎</button>
-          <button class="icon-button" data-mentor-delete="${m.id}">×</button>
+          <button class="icon-button edit" data-edit="mentor:${safeDataId(m.id)}">✎</button>
+          <button class="icon-button" data-mentor-delete="${safeDataId(m.id)}">×</button>
         </span>
       </div>
       <span class="muted">${escapeHtml(m.role)} · Quelle: ${escapeHtml(m.source || "—")}</span>
@@ -5052,17 +5297,17 @@ function renderCapture() {
         <span class="topbar-actions">
           <span class="pill ${c.source === "mail" ? "entscheidung" : c.source === "voice" ? "angefragt" : "mittel"}">${escapeHtml(c.source)}</span>
           ${c.processed ? `<span class="pill bereit">${escapeHtml(c.parsedKind || "verarbeitet")}</span>` : ""}
-          <button class="icon-button" data-capture-delete="${c.id}">×</button>
+          <button class="icon-button" data-capture-delete="${safeDataId(c.id)}">×</button>
         </span>
       </div>
       <span class="muted">${escapeHtml(c.sender || "—")} · empfangen ${new Date(c.receivedAt).toLocaleString("de-DE")}</span>
       <p class="capture-text">${escapeHtml(c.text.slice(0, 600))}${c.text.length > 600 ? "…" : ""}</p>
       ${!c.processed ? `<div class="capture-actions">
-        <button class="button small primary" data-capture-parse="${c.id}">🤖 KI parsen</button>
-        <button class="button small" data-capture-to-task="${c.id}">→ Aufgabe</button>
-        <button class="button small" data-capture-to-promise="${c.id}">→ Versprechen</button>
-        <button class="button small" data-capture-to-note="${c.id}">→ Notiz</button>
-        <button class="button small ghost" data-capture-dismiss="${c.id}">verwerfen</button>
+        <button class="button small primary" data-capture-parse="${safeDataId(c.id)}">🤖 KI parsen</button>
+        <button class="button small" data-capture-to-task="${safeDataId(c.id)}">→ Aufgabe</button>
+        <button class="button small" data-capture-to-promise="${safeDataId(c.id)}">→ Versprechen</button>
+        <button class="button small" data-capture-to-note="${safeDataId(c.id)}">→ Notiz</button>
+        <button class="button small ghost" data-capture-dismiss="${safeDataId(c.id)}">verwerfen</button>
       </div>` : ""}
     </article>`).join("") : '<p class="muted">Inbox leer.</p>';
 
@@ -5232,8 +5477,8 @@ function renderTriggers() {
         <span class="topbar-actions">
           <span class="pill ${tone}">${result.fired ? "▲ würde feuern" : "✓ ok"}</span>
           <span class="pill ${t.priority === "kritisch" ? "kritisch" : t.priority === "hoch" ? "mittel" : "niedrig"}">${escapeHtml(t.priority)}</span>
-          <button class="icon-button edit" data-edit="trigger:${t.id}">✎</button>
-          <button class="icon-button" data-trigger-delete="${t.id}">×</button>
+          <button class="icon-button edit" data-edit="trigger:${safeDataId(t.id)}">✎</button>
+          <button class="icon-button" data-trigger-delete="${safeDataId(t.id)}">×</button>
         </span>
       </div>
       <span class="muted">${escapeHtml(t.source)} · ${escapeHtml(t.metric)} ${t.direction === "above" ? "≥" : "≤"} ${t.thresholdPct} · Stand: <strong>${result.actual}</strong></span>
@@ -5287,8 +5532,8 @@ function renderHypotheses() {
         <span class="topbar-actions">
           ${accuracyBadge}
           <span class="pill ${statusClass}">${escapeHtml(h.status)}</span>
-          <button class="icon-button edit" data-edit="hypothesis:${h.id}">✎</button>
-          <button class="icon-button" data-hypothesis-delete="${h.id}">×</button>
+          <button class="icon-button edit" data-edit="hypothesis:${safeDataId(h.id)}">✎</button>
+          <button class="icon-button" data-hypothesis-delete="${safeDataId(h.id)}">×</button>
         </span>
       </div>
       <div class="hypothesis-prediction">
@@ -5327,8 +5572,8 @@ function renderPreMortems() {
         <span class="topbar-actions">
           <span class="pill ${probTone}">Wahrscheinlichkeit ${escapeHtml(pm.probability)}</span>
           <span class="pill ${statusClass}">${escapeHtml(pm.status)}</span>
-          <button class="icon-button edit" data-edit="premortem:${pm.id}">✎</button>
-          <button class="icon-button" data-premortem-delete="${pm.id}">×</button>
+          <button class="icon-button edit" data-edit="premortem:${safeDataId(pm.id)}">✎</button>
+          <button class="icon-button" data-premortem-delete="${safeDataId(pm.id)}">×</button>
         </span>
       </div>
       <span class="muted">${pm.scenarioDate || "—"}${pm.linkedLeverId ? " · Hebel " + escapeHtml(pm.linkedLeverId) : ""}</span>
@@ -5387,8 +5632,8 @@ function renderWirkungen() {
         <span class="topbar-actions">
           ${w.impactEur ? `<span class="pill bereit">${formatEur(w.impactEur)}</span>` : ""}
           <span class="pill entscheidung">${escapeHtml(w.impactType)}</span>
-          <button class="icon-button edit" data-edit="wirkung:${w.id}">✎</button>
-          <button class="icon-button" data-wirkung-delete="${w.id}">×</button>
+          <button class="icon-button edit" data-edit="wirkung:${safeDataId(w.id)}">✎</button>
+          <button class="icon-button" data-wirkung-delete="${safeDataId(w.id)}">×</button>
         </span>
       </div>
       <span class="muted">${w.date || "—"} · ${escapeHtml(w.quartal)} · ${escapeHtml(w.category)}${w.verifiedBy ? " · verifiziert durch " + escapeHtml(w.verifiedBy) : ""}</span>
@@ -5457,8 +5702,8 @@ function renderSaisonplan() {
         <span class="topbar-actions">
           ${isOverdue ? '<span class="pill kritisch">▲ Überfällig</span>' : ""}
           <span class="pill ${statusClass}">${escapeHtml(i.status)}</span>
-          <button class="icon-button edit" data-edit="saisonitem:${i.id}">✎</button>
-          <button class="icon-button" data-saison-delete="${i.id}">×</button>
+          <button class="icon-button edit" data-edit="saisonitem:${safeDataId(i.id)}">✎</button>
+          <button class="icon-button" data-saison-delete="${safeDataId(i.id)}">×</button>
         </span>
       </div>
       <span class="muted">${escapeHtml(i.season)} · Ziel: ${escapeHtml(i.targetMonth)} · Lieferzeit ${i.leadTimeDays}T · bestellen bis <strong>${i.orderByDate || "—"}</strong></span>
@@ -5527,8 +5772,8 @@ function renderVerhandlungen() {
         <strong>⚖ ${escapeHtml(v.supplierName)}: ${escapeHtml(v.topic)}</strong>
         <span class="topbar-actions">
           <span class="pill ${statusClass}">${escapeHtml(v.status)}</span>
-          <button class="icon-button edit" data-edit="verhandlung:${v.id}">✎</button>
-          <button class="icon-button" data-verhandlung-delete="${v.id}">×</button>
+          <button class="icon-button edit" data-edit="verhandlung:${safeDataId(v.id)}">✎</button>
+          <button class="icon-button" data-verhandlung-delete="${safeDataId(v.id)}">×</button>
         </span>
       </div>
       <span class="muted">Termin: ${v.scheduledDate || "—"}</span>
@@ -5594,8 +5839,8 @@ function renderCompetitors() {
           <span class="pill ${c.threat === "kritisch" || c.threat === "hoch" ? "kritisch" : c.threat === "mittel" ? "mittel" : "niedrig"}">${escapeHtml(c.threat || "niedrig")}</span>
           <span class="pill entscheidung">${escapeHtml(c.priceLevel || "—")}</span>
           ${stale ? `<span class="pill kritisch">▲ ${lastDays}T alt</span>` : ""}
-          <button class="icon-button edit" data-edit="competitor:${c.id}" title="Bearbeiten">✎</button>
-          <button class="icon-button" data-competitor-delete="${c.id}" title="Löschen">×</button>
+          <button class="icon-button edit" data-edit="competitor:${safeDataId(c.id)}" title="Bearbeiten">✎</button>
+          <button class="icon-button" data-competitor-delete="${safeDataId(c.id)}" title="Löschen">×</button>
         </span>
       </div>
       <span class="muted">${escapeHtml(c.category || "—")} · zuletzt geprüft: ${c.lastObserved || "—"}</span>
@@ -5648,8 +5893,8 @@ function renderGlossary() {
           <strong>${escapeHtml(g.term)}</strong>
           <span class="topbar-actions">
             <span class="pill entscheidung">${escapeHtml(g.category)}</span>
-            <button class="icon-button edit" data-edit="glossaryEntry:${g.id}" title="Bearbeiten">✎</button>
-            <button class="icon-button" data-glossary-delete="${g.id}" title="Löschen">×</button>
+            <button class="icon-button edit" data-edit="glossaryEntry:${safeDataId(g.id)}" title="Bearbeiten">✎</button>
+            <button class="icon-button" data-glossary-delete="${safeDataId(g.id)}" title="Löschen">×</button>
           </span>
         </div>
         ${g.synonyms ? `<span class="muted">Auch: ${escapeHtml(g.synonyms)}</span>` : ""}
@@ -5748,8 +5993,8 @@ function renderRisks() {
           <strong>${escapeHtml(r.title)}</strong>
           <span class="topbar-actions">
             <span class="pill ${r.status === "eingetreten" ? "kritisch" : r.status === "in Arbeit" ? "angefragt" : r.status === "gemindert" ? "bereit" : "mittel"}">${escapeHtml(r.status)}</span>
-            <button class="icon-button edit" data-edit="risk:${r.id}" title="Bearbeiten">✎</button>
-            <button class="icon-button" data-risk-delete="${r.id}" title="Löschen">×</button>
+            <button class="icon-button edit" data-edit="risk:${safeDataId(r.id)}" title="Bearbeiten">✎</button>
+            <button class="icon-button" data-risk-delete="${safeDataId(r.id)}" title="Löschen">×</button>
           </span>
         </div>
         <div class="risk-meta">
@@ -5813,15 +6058,15 @@ function renderDecisions() {
           ${reviewDueNow ? `<span class="pill kritisch">▲ Review fällig</span>` : ""}
           ${d.outcome ? `<span class="pill bereit">✓ Reviewed</span>` : ""}
           <span class="pill ${d.impact === "hoch" ? "kritisch" : d.impact === "mittel" ? "mittel" : "niedrig"}">${escapeHtml(d.impact)}</span>
-          <button class="icon-button edit" data-edit="decision:${d.id}" title="Bearbeiten">✎</button>
-          <button class="icon-button" data-decision-delete="${d.id}" title="Löschen">×</button>
+          <button class="icon-button edit" data-edit="decision:${safeDataId(d.id)}" title="Bearbeiten">✎</button>
+          <button class="icon-button" data-decision-delete="${safeDataId(d.id)}" title="Löschen">×</button>
         </span>
       </div>
       <span class="muted">${d.date || "—"} · ${escapeHtml(d.who || "—")} · Review am ${d.reviewAt || "—"}</span>
       ${d.context ? `<p><strong>Kontext:</strong> ${escapeHtml(d.context)}</p>` : ""}
       ${d.why ? `<p><strong>Warum:</strong> ${escapeHtml(d.why)}</p>` : ""}
       ${d.alternatives ? `<p class="muted"><strong>Alternativen:</strong> ${escapeHtml(d.alternatives)}</p>` : ""}
-      ${d.outcome ? `<div class="decision-outcome"><strong>Ergebnis (${d.outcomeAt || "—"}):</strong> ${escapeHtml(d.outcome)}</div>` : reviewDueNow ? `<button class="button small" data-decision-review="${d.id}" type="button">▶ Ergebnis erfassen</button>` : ""}
+      ${d.outcome ? `<div class="decision-outcome"><strong>Ergebnis (${d.outcomeAt || "—"}):</strong> ${escapeHtml(d.outcome)}</div>` : reviewDueNow ? `<button class="button small" data-decision-review="${safeDataId(d.id)}" type="button">▶ Ergebnis erfassen</button>` : ""}
     </article>`;
   }).join("") : '<p class="muted">Keine Entscheidungen erfasst.</p>';
 
@@ -6357,8 +6602,8 @@ function renderTime() {
         <span class="topbar-actions">
           <span class="pill entscheidung">${escapeHtml(e.area)}</span>
           <span class="pill bereit">${formatMinutes(e.minutes)}</span>
-          <button class="icon-button edit" data-edit="time-entry:${e.id}" title="Bearbeiten">✎</button>
-          <button class="icon-button" data-time-delete="${e.id}" title="Löschen">×</button>
+          <button class="icon-button edit" data-edit="time-entry:${safeDataId(e.id)}" title="Bearbeiten">✎</button>
+          <button class="icon-button" data-time-delete="${safeDataId(e.id)}" title="Löschen">×</button>
         </span>
       </div>
       <span class="muted">${e.date}${e.notes ? " · " + escapeHtml(e.notes) : ""}</span>
@@ -6389,8 +6634,8 @@ function renderTeam() {
       <div class="item-line">
         <strong>${escapeHtml(p.name)}</strong>
         <span class="topbar-actions">
-          <button class="icon-button edit" data-edit="person:${p.id}" title="Bearbeiten">✎</button>
-          <button class="icon-button" data-person-delete="${p.id}" title="Löschen">×</button>
+          <button class="icon-button edit" data-edit="person:${safeDataId(p.id)}" title="Bearbeiten">✎</button>
+          <button class="icon-button" data-person-delete="${safeDataId(p.id)}" title="Löschen">×</button>
         </span>
       </div>
       <span class="muted">${escapeHtml(p.role || "—")}</span>
@@ -6571,7 +6816,7 @@ function renderHonorar() {
         <strong>${escapeHtml(inv.invoiceNr || "Rechnung")}</strong>
         <span class="topbar-actions">
           <span class="pill ${inv.status === "bezahlt" ? "bereit" : inv.status === "überfällig" ? "kritisch" : "mittel"}">${escapeHtml(inv.status || "offen")}</span>
-          <button class="icon-button" data-invoice-delete="${inv.id}" title="Löschen">×</button>
+          <button class="icon-button" data-invoice-delete="${safeDataId(inv.id)}" title="Löschen">×</button>
         </span>
       </div>
       <span class="muted">${inv.date || "—"} · ${inv.days || 0} Tage · ${formatEur(inv.amount)}${inv.paidAt ? " · bezahlt am " + inv.paidAt : ""}</span>
@@ -6694,8 +6939,8 @@ function renderBrands() {
           <strong>${escapeHtml(b.name)}</strong>
           <span class="topbar-actions">
             <span class="pill ${b.status === "ausbauen" ? "bereit" : b.status === "halten" ? "entscheidung" : b.status === "reduzieren" ? "kritisch" : "mittel"}">${escapeHtml(b.status)}</span>
-            <button class="icon-button edit" data-edit="brand:${b.id}" title="Bearbeiten">✎</button>
-            <button class="icon-button" data-brand-delete="${b.id}" title="Löschen">×</button>
+            <button class="icon-button edit" data-edit="brand:${safeDataId(b.id)}" title="Bearbeiten">✎</button>
+            <button class="icon-button" data-brand-delete="${safeDataId(b.id)}" title="Löschen">×</button>
           </span>
         </div>
         <div class="brand-metrics">
@@ -6747,8 +6992,8 @@ function renderChampions() {
         <strong>${escapeHtml(c.name)}</strong>
         <span class="topbar-actions">
           <span class="pill ${c.status === "läuft" ? "angefragt" : c.status === "ausgewertet" ? "bereit" : c.status === "abgebrochen" ? "kritisch" : "mittel"}">${escapeHtml(c.status)}</span>
-          <button class="icon-button edit" data-edit="campaign:${c.id}" title="Bearbeiten">✎</button>
-          <button class="icon-button" data-campaign-delete="${c.id}" title="Löschen">×</button>
+          <button class="icon-button edit" data-edit="campaign:${safeDataId(c.id)}" title="Bearbeiten">✎</button>
+          <button class="icon-button" data-campaign-delete="${safeDataId(c.id)}" title="Löschen">×</button>
         </span>
       </div>
       <span class="muted">Start ${c.startDate || "—"} · ${escapeHtml(c.channel || "—")} · Angebot: ${escapeHtml(c.offer || "—")}</span>
@@ -6786,8 +7031,8 @@ function renderCrossSell() {
         <strong>${escapeHtml(p.productA)} + ${escapeHtml(p.productB)}</strong>
         <span class="topbar-actions">
           <span class="pill ${statusClass}">${escapeHtml(p.status)}</span>
-          <button class="icon-button edit" data-edit="crosspair:${p.id}" title="Bearbeiten">✎</button>
-          <button class="icon-button" data-crosspair-delete="${p.id}" title="Löschen">×</button>
+          <button class="icon-button edit" data-edit="crosspair:${safeDataId(p.id)}" title="Bearbeiten">✎</button>
+          <button class="icon-button" data-crosspair-delete="${safeDataId(p.id)}" title="Löschen">×</button>
         </span>
       </div>
       <span class="muted"><strong>${p.coOccurrences.toLocaleString("de-DE")}×</strong> gemeinsam gekauft · ${escapeHtml(p.action || "—")}</span>
@@ -6802,8 +7047,8 @@ function renderCrossSell() {
         <strong>${escapeHtml(b.name)}</strong>
         <span class="topbar-actions">
           <span class="pill ${statusClass}">${escapeHtml(b.status)}</span>
-          <button class="icon-button edit" data-edit="bundle:${b.id}" title="Bearbeiten">✎</button>
-          <button class="icon-button" data-bundle-delete="${b.id}" title="Löschen">×</button>
+          <button class="icon-button edit" data-edit="bundle:${safeDataId(b.id)}" title="Bearbeiten">✎</button>
+          <button class="icon-button" data-bundle-delete="${safeDataId(b.id)}" title="Löschen">×</button>
         </span>
       </div>
       <span class="muted">${escapeHtml(b.products || "")}</span>
@@ -6876,8 +7121,8 @@ function renderSortiment() {
           <span class="topbar-actions">
             <span class="pill ${r.priority === "hoch" ? "kritisch" : r.priority === "mittel" ? "mittel" : "niedrig"}">${escapeHtml(r.priority)}</span>
             <span class="pill ${statusClass}">${escapeHtml(r.status)}</span>
-            <button class="icon-button edit" data-edit="sortimentrule:${r.id}" title="Bearbeiten">✎</button>
-            <button class="icon-button" data-sortimentrule-delete="${r.id}" title="Löschen">×</button>
+            <button class="icon-button edit" data-edit="sortimentrule:${safeDataId(r.id)}" title="Bearbeiten">✎</button>
+            <button class="icon-button" data-sortimentrule-delete="${safeDataId(r.id)}" title="Löschen">×</button>
           </span>
         </div>
         <span class="muted">Betrifft <strong>${(r.articleCount || 0).toLocaleString("de-DE")}</strong> Artikel${r.notes ? " · " + escapeHtml(r.notes) : ""}</span>
@@ -6945,8 +7190,8 @@ function renderVip() {
         <strong>${escapeHtml(v.name)}</strong>
         <span class="topbar-actions">
           <span class="pill ${v.status === "kritisch" ? "kritisch" : v.status === "warnung" ? "mittel" : "bereit"}">${escapeHtml(v.status)}</span>
-          <button class="icon-button edit" data-edit="vip:${v.id}" title="Bearbeiten">✎</button>
-          <button class="icon-button" data-vip-delete="${v.id}" title="Löschen">×</button>
+          <button class="icon-button edit" data-edit="vip:${safeDataId(v.id)}" title="Bearbeiten">✎</button>
+          <button class="icon-button" data-vip-delete="${safeDataId(v.id)}" title="Löschen">×</button>
         </span>
       </div>
       <span class="muted">${escapeHtml(v.sku)} · ${escapeHtml(v.supplier || "—")} · Lieferzeit ${v.leadTimeDays || 0} Tage · ${formatEur(v.revenueYear)} / Jahr</span>
@@ -7131,8 +7376,8 @@ function renderMessenModul() {
           <span class="pill ${scoreOk ? "bereit" : "kritisch"}">Score ${a.messeScore || 0}/10${scoreOk ? " ✓" : " ✗"}</span>
           <span class="pill ${marginOk ? "bereit" : "kritisch"}">DB ${margin}%${marginOk ? " ✓" : " ✗"}</span>
           <span class="pill ${statusClass}">${escapeHtml(a.status)}</span>
-          <button class="icon-button edit" data-edit="messenartikel:${a.id}">✎</button>
-          <button class="icon-button" data-messen-delete="${a.id}">×</button>
+          <button class="icon-button edit" data-edit="messenartikel:${safeDataId(a.id)}">✎</button>
+          <button class="icon-button" data-messen-delete="${safeDataId(a.id)}">×</button>
         </span>
       </div>
       <span class="muted">${escapeHtml(a.supplier || "—")} · EK ${formatEur(a.ekPrice)} / VK ${formatEur(a.vkPrice)} · LYSS Vorjahr ${a.lyssTotalVk || 0} Stk · Messe ${a.messeDate || "—"}</span>
@@ -7319,7 +7564,7 @@ function renderSaisonModul() {
         <span class="topbar-actions">
           <span class="pill ${trend.cls === "good" ? "bereit" : trend.cls === "warn" ? "mittel" : trend.cls === "bad" ? "kritisch" : "entscheidung"}">${trend.sym} ${trend.text} ${delta >= 0 ? "+" : ""}${delta}%</span>
           ${isMarkdownKandidat ? '<span class="pill kritisch">⚠ Markdown-Kandidat</span>' : ""}
-          <button class="icon-button" data-saisontrack-edit="${t.id}">✎</button>
+          <button class="icon-button" data-saisontrack-edit="${safeDataId(t.id)}">✎</button>
         </span>
       </div>
       <div class="saison-vk-row">
@@ -7365,7 +7610,7 @@ function renderSaisonModul() {
       <div class="item-line">
         <strong>📞 Lorna · W${f.week}/${f.year}</strong>
         <span class="muted">${f.dateGiven || "—"}</span>
-        <button class="icon-button edit" data-edit="lornafeedback:${f.id}">✎</button>
+        <button class="icon-button edit" data-edit="lornafeedback:${safeDataId(f.id)}">✎</button>
       </div>
       ${f.trendUpdate ? `<div class="feedback-row"><strong>Trend:</strong> ${escapeHtml(f.trendUpdate)}</div>` : ""}
       ${f.supplierUpdate ? `<div class="feedback-row"><strong>Supplier:</strong> ${escapeHtml(f.supplierUpdate)}</div>` : ""}
@@ -7480,8 +7725,8 @@ function renderPurchase() {
         <div><span>${stockTxt}</span><p>Reichweite</p></div>
       </div>
       <div class="product-actions">
-        <button class="button primary small" data-purchase-detail="${p.id}" type="button">Bestellmatrix</button>
-        <button class="button small" data-purchase-ai="${p.id}" type="button">🤖 KI-Analyse</button>
+        <button class="button primary small" data-purchase-detail="${safeDataId(p.id)}" type="button">Bestellmatrix</button>
+        <button class="button small" data-purchase-ai="${safeDataId(p.id)}" type="button">🤖 KI-Analyse</button>
       </div>
     </article>`;
   }).join("") : '<p class="muted">Keine Produkte passend zum Filter.</p>';
@@ -7938,7 +8183,7 @@ function renderAiLibrary() {
         <strong>${escapeHtml(entry.title)}</strong>
         <span class="topbar-actions">
           <span class="pill entscheidung">${escapeHtml(entry.category)}</span>
-          <button class="icon-button" data-library-delete="${entry.id}" title="Löschen">×</button>
+          <button class="icon-button" data-library-delete="${safeDataId(entry.id)}" title="Löschen">×</button>
         </span>
       </div>
       <span class="muted">${new Date(entry.savedAt).toLocaleString("de-DE")}</span>
@@ -8010,8 +8255,8 @@ function renderAssistant() {
             <strong>${escapeHtml(q.question)}</strong>
             <span class="topbar-actions">
               <span class="pill ${confidenceClass(q.confidence)}">${confidenceLabel(q.confidence)}</span>
-              <button class="icon-button edit" data-edit="question:${q.id}" title="Bearbeiten">✎</button>
-              <button class="icon-button" data-question-delete="${q.id}" title="Löschen">×</button>
+              <button class="icon-button edit" data-edit="question:${safeDataId(q.id)}" title="Bearbeiten">✎</button>
+              <button class="icon-button" data-question-delete="${safeDataId(q.id)}" title="Löschen">×</button>
             </span>
           </div>
           <span class="muted">${escapeHtml(q.topic || "—")}</span>
@@ -8210,7 +8455,7 @@ function renderToday() {
   list.innerHTML = steps.map((step) => {
     const st = status[step.id] || (step.id === nowId ? "now" : "pending");
     const stClass = st === "done" ? "status-done" : st === "skipped" ? "status-skipped" : st === "now" ? "status-now" : "";
-    return `<li class="playbook-step ${stClass}" data-step="${step.id}">
+    return `<li class="playbook-step ${stClass}" data-step="${safeDataId(step.id)}">
       <div class="playbook-time"><span class="playbook-icon">${step.icon}</span>${step.time}</div>
       <div class="playbook-text">
         <h4>${escapeHtml(step.title)}</h4>
@@ -8408,8 +8653,8 @@ function renderCalendarDay() {
       </div>
       <div>
         ${e.editable
-          ? `<button type="button" data-edit="event:${e.id}" title="Bearbeiten">✎</button>
-             <button type="button" class="event-delete" data-delete-event="${e.id}" title="Löschen">🗑</button>`
+          ? `<button type="button" data-edit="event:${safeDataId(e.id)}" title="Bearbeiten">✎</button>
+             <button type="button" class="event-delete" data-delete-event="${safeDataId(e.id)}" title="Löschen">🗑</button>`
           : `<button type="button" data-jump-event="${e.view}" title="Im Modul öffnen">→</button>`}
       </div>
     </div>`).join("");
@@ -8746,7 +8991,7 @@ async function loadManufacturerDropdown() {
     const data = await r.json();
     const opts = ['<option value="0">Alle Hersteller</option>'];
     for (const m of data.rows) {
-      if (!m.name || m.name === " ") continue;
+      if (!m.name || !String(m.name).trim()) continue;
       opts.push(`<option value="${m.k}">${escapeHtml(m.name)}</option>`);
     }
     sel.innerHTML = opts.join("");
@@ -8816,7 +9061,7 @@ function renderProduktResults(rows) {
     const soldLine = r.soldQty
       ? `<div class="pl-sold">📊 <strong>${r.soldQty}</strong> Stück verkauft · Lifetime <strong>${escMoney(r.soldRevenue)}</strong></div>`
       : "";
-    return `<div class="pl-item ${stockClass}" data-art-id="${r.k}">
+    return `<div class="pl-item ${stockClass}" data-art-id="${safeDataId(r.k)}">
       <div>
         <div class="pl-name">${abcBadge}${escapeHtml(r.name || r.a)}</div>
         <div class="pl-meta">
@@ -8880,7 +9125,7 @@ function renderKundenResults(rows) {
     const addr = [c.str, c.plz + " " + c.ort].filter(Boolean).join(" · ");
     const isVip = c.vip === true;
     const hasStats = c.orderCount !== undefined;
-    return `<div class="kl-card ${isVip ? "is-vip" : ""}" data-kkunde="${c.kKunde}">
+    return `<div class="kl-card ${isVip ? "is-vip" : ""}" data-kkunde="${safeDataId(c.kKunde)}">
       <div class="kl-item">
         <div class="kl-avatar ${isVip ? "vip" : ""}">${isVip ? "👑" : escapeHtml(initials.toUpperCase() || "?")}</div>
         <div>
@@ -8901,8 +9146,8 @@ function renderKundenResults(rows) {
         <div class="kl-actions">
           ${c.mail ? `<a href="mailto:${encodeURIComponent(c.mail)}" onclick="event.stopPropagation()">Mail</a>` : ""}
           ${(c.tel || c.mob) ? `<a href="tel:${encodeURIComponent((c.tel || c.mob).replace(/\s/g,''))}" onclick="event.stopPropagation()">Tel</a>` : ""}
-          <button type="button" class="kl-show-orders" data-kkunde="${c.kKunde}">📦 Bestellungen</button>
-          <button type="button" class="kl-show-detail" data-kkunde="${c.kKunde}">👤 Detail</button>
+          <button type="button" class="kl-show-orders" data-kkunde="${safeDataId(c.kKunde)}">📦 Bestellungen</button>
+          <button type="button" class="kl-show-detail" data-kkunde="${safeDataId(c.kKunde)}">👤 Detail</button>
         </div>
       </div>
       <div class="kl-orders" id="kl-orders-${c.kKunde}" hidden></div>
@@ -9016,15 +9261,15 @@ function renderTeamNotizen() {
   }
   const farbe = { Stephan: "var(--accent)", Markus: "var(--blue)", Lorna: "var(--teal)", Beate: "var(--green)", Team: "var(--muted-2)" };
   const sorted = [...filtered].sort((a, b) => (b.createdAt || "").localeCompare(a.createdAt || ""));
-  list.innerHTML = sorted.map((n) => `<div class="tn-card ${n.erledigt ? "done" : ""}" data-tn-id="${n.id}">
+  list.innerHTML = sorted.map((n) => `<div class="tn-card ${n.erledigt ? "done" : ""}" data-tn-id="${safeDataId(n.id)}">
     <span class="tn-an-badge" style="background:${farbe[n.an] || "var(--muted-2)"}">${escapeHtml(n.an)}</span>
     <div class="tn-body">
       <div class="tn-text">${escapeHtml(n.text)}</div>
       <div class="tn-meta">${escapeHtml((n.createdAt || "").replace("T", " ").slice(0, 16))}${n.von ? " · von " + escapeHtml(n.von) : ""}</div>
     </div>
     <div class="tn-actions">
-      <button type="button" class="tn-done" data-tn-done="${n.id}" title="${n.erledigt ? "Wieder öffnen" : "Erledigt"}">${n.erledigt ? "↺" : "✓"}</button>
-      <button type="button" class="tn-del" data-tn-del="${n.id}" title="Löschen">×</button>
+      <button type="button" class="tn-done" data-tn-done="${safeDataId(n.id)}" title="${n.erledigt ? "Wieder öffnen" : "Erledigt"}">${n.erledigt ? "↺" : "✓"}</button>
+      <button type="button" class="tn-del" data-tn-del="${safeDataId(n.id)}" title="Löschen">×</button>
     </div>
   </div>`).join("");
   list.querySelectorAll("[data-tn-done]").forEach((b) => b.addEventListener("click", () => {
@@ -9095,7 +9340,7 @@ function renderStephanKalender() {
 
 function slotHtml(s) {
   const typeKey = (s.type || "Termin").toLowerCase().replace("ü","ue");
-  return `<div class="sk-slot type-${typeKey}" data-slot-id="${s.id}">
+  return `<div class="sk-slot type-${typeKey}" data-slot-id="${safeDataId(s.id)}">
     <span class="sk-slot-time">${escapeHtml(s.time || "—")}</span>
     <div class="sk-slot-content">
       <h4>${escapeHtml(s.title || "(ohne Titel)")}</h4>
@@ -9131,7 +9376,7 @@ function decisionCardHtml(d) {
   const today = todayIso();
   const overdue = d.frist && d.frist < today && d.status !== "entschieden" && d.status !== "verworfen";
   const fristClass = overdue ? "is-overdue" : "";
-  return `<div class="sd-decision-card ${fristClass}" data-decision-id="${d.id}">
+  return `<div class="sd-decision-card ${fristClass}" data-decision-id="${safeDataId(d.id)}">
     <div class="sd-decision-title">${escapeHtml(d.titel || "(ohne Titel)")}</div>
     <div class="sd-decision-meta">
       ${d.frist ? `<span class="${overdue ? "frist-warn" : ""}">⏰ ${escapeHtml(d.frist)}</span>` : ""}
@@ -9139,6 +9384,306 @@ function decisionCardHtml(d) {
     </div>
     ${d.empfehlung ? `<div class="sd-decision-empfehlung"><strong>Empfehlung:</strong> ${escapeHtml(d.empfehlung.slice(0, 80))}${d.empfehlung.length > 80 ? "…" : ""}</div>` : ""}
   </div>`;
+}
+
+// === App-seitiges Quiz-System ===
+function shuffleArr(arr) {
+  const a = [...arr];
+  for (let i = a.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [a[i], a[j]] = [a[j], a[i]];
+  }
+  return a;
+}
+const QUIZ_LETTERS = ["A", "B", "C", "D"];
+
+// === Game-Feel-Helpers (gemeinsam für alle Akademie-Trainer) ===
+function akReducedMotion() {
+  try { return window.matchMedia?.("(prefers-reduced-motion: reduce)").matches === true; } catch { return false; }
+}
+
+// Konfetti-Belohnung: leichte DOM-Partikel, selbst-aufräumend, ohne Abhängigkeiten.
+function akCelebrate(intensity = 1) {
+  if (akReducedMotion()) return;
+  const layer = document.createElement("div");
+  layer.className = "ak-confetti";
+  const colors = ["#22c55e", "#4f8ef7", "#f59e0b", "#ef4444", "#a855f7", "#ec4899"];
+  const n = Math.max(12, Math.round(46 * intensity));
+  for (let i = 0; i < n; i++) {
+    const p = document.createElement("span");
+    p.className = "ak-confetti-piece";
+    p.style.left = (Math.random() * 100) + "%";
+    p.style.background = colors[i % colors.length];
+    p.style.animationDelay = (Math.random() * 0.25) + "s";
+    p.style.animationDuration = (1.5 + Math.random() * 1.3) + "s";
+    p.style.setProperty("--rot", (Math.random() * 720 - 360) + "deg");
+    p.style.setProperty("--dx", (Math.random() * 160 - 80) + "px");
+    layer.appendChild(p);
+  }
+  document.body.appendChild(layer);
+  setTimeout(() => layer.remove(), 3400);
+}
+
+// Kurzer Pop-Effekt auf einem Element (Score/Streak-Update)
+function akBump(el) {
+  if (!el || akReducedMotion()) return;
+  el.classList.remove("ak-bump");
+  void el.offsetWidth; // Reflow erzwingen → Animation neu starten
+  el.classList.add("ak-bump");
+}
+
+function generateEinwandQuizQs(n = 5) {
+  const pool = (state.salesObjections || []).filter(e => e.antwort && e.antwort.trim().length >= 8);
+  if (pool.length < 4) return [];
+  const questions = [];
+  let attempts = 0;
+  while (questions.length < n && attempts < n * 8) {
+    attempts++;
+    const target = pool[Math.floor(Math.random() * pool.length)];
+    const wrong3 = shuffleArr(pool.filter(e => e !== target)).slice(0, 3);
+    if (wrong3.length < 3) break;
+    const opts = shuffleArr([
+      { text: target.antwort.slice(0, 120), correct: true, feedback: `✓ Richtige Strategie für „${escapeHtml(target.kategorie || "diesen Einwand")}"` },
+      ...wrong3.map(e => ({ text: e.antwort.slice(0, 120), correct: false, feedback: "✗ Das passt zu einem anderen Einwand-Typ." }))
+    ]);
+    questions.push({
+      type: "einwand", label: "💬 Einwand-Training",
+      frage: `Kunde sagt:\n„${escapeHtml(target.einwand)}"\n\nWelche Antwort ist am besten?`,
+      opts,
+      muster: target.beweis ? `💡 ${escapeHtml(target.beweis.slice(0, 150))}` : ""
+    });
+  }
+  return questions.slice(0, n);
+}
+
+// Ein Verkaufsargument einer Marke als String (akzeptiert string | {argument|text}).
+function markeArg(m) {
+  const arr = (m.verkaufsargumente || m.usps || []);
+  for (const a of arr) {
+    const t = (typeof a === "string" ? a : (a.argument || a.text || "")).trim();
+    if (t.length >= 8) return t;
+  }
+  return "";
+}
+
+function generateMarkenQuizQs(n = 5) {
+  const marken = state.akademieMarken || [];
+  const landPool = marken.filter(m => m.herkunft?.land);
+  const allLaender = [...new Set(landPool.map(m => m.herkunft.land))];
+  const argPool = marken.filter(m => markeArg(m));
+  // Marken, die eine Frage erzeugen können: Land (mit ≥4 Ländern) ODER Verkaufsargument (mit ≥4 Arg-Marken).
+  const canLand = (m) => m.herkunft?.land && allLaender.length >= 4;
+  const canArg = (m) => markeArg(m) && argPool.length >= 4;
+  const pool = marken.filter(m => canLand(m) || canArg(m));
+  if (pool.length < 4) return [];
+  const questions = [];
+  const used = new Set();
+  let attempts = 0;
+  while (questions.length < n && attempts < n * 8) {
+    attempts++;
+    const avail = pool.filter(m => !used.has(m.name));
+    if (!avail.length) break;
+    const target = avail[Math.floor(Math.random() * avail.length)];
+    used.add(target.name);
+    // Land-Frage bevorzugen wenn möglich, sonst Verkaufsargument-Frage.
+    if (canLand(target)) {
+      const wrongLaender = shuffleArr(allLaender.filter(l => l !== target.herkunft.land)).slice(0, 3);
+      if (wrongLaender.length < 3) continue;
+      const opts = shuffleArr([
+        { text: target.herkunft.land, correct: true, feedback: `✓ ${escapeHtml(target.name)} kommt aus ${escapeHtml(target.herkunft.land)}${target.herkunft.gruendung ? ` (gegr. ${escapeHtml(String(target.herkunft.gruendung))})` : ""}` },
+        ...wrongLaender.map(l => ({ text: l, correct: false, feedback: `✗ ${escapeHtml(target.name)} kommt aus ${escapeHtml(target.herkunft.land)}.` }))
+      ]);
+      questions.push({
+        type: "marken", label: "🏷 Marken-Quiz",
+        frage: `Aus welchem Land kommt die Marke <strong>${escapeHtml(target.name)}</strong>?`,
+        opts,
+        muster: target.philosophie ? `„${escapeHtml(target.philosophie.slice(0, 100))}"` : ""
+      });
+    } else {
+      const correctArg = markeArg(target);
+      const wrongArgs = shuffleArr(argPool.filter(m => m.name !== target.name).map(markeArg).filter(a => a && a !== correctArg));
+      const uniqWrong = [...new Set(wrongArgs)].slice(0, 3);
+      if (uniqWrong.length < 3) continue;
+      const opts = shuffleArr([
+        { text: correctArg.slice(0, 120), correct: true, feedback: `✓ Starkes Argument für ${escapeHtml(target.name)}.` },
+        ...uniqWrong.map(a => ({ text: a.slice(0, 120), correct: false, feedback: "✗ Das gehört zu einer anderen Marke." }))
+      ]);
+      questions.push({
+        type: "marken", label: "🏷 Marken-Quiz",
+        frage: `Welches Verkaufsargument passt zur Marke <strong>${escapeHtml(target.name)}</strong>?`,
+        opts,
+        muster: target.philosophie ? `„${escapeHtml(target.philosophie.slice(0, 100))}"` : ""
+      });
+    }
+  }
+  return questions.slice(0, n);
+}
+
+function generateDrillQuizQs(n = 5) {
+  const pool = (state.akademieDrills || []).filter(d =>
+    (d.optionen || []).length >= 2 && d.optionen.some(o => o.ist_richtig === true || (o.punkte || 0) > 0)
+  );
+  const questions = [];
+  const used = new Set();
+  let attempts = 0;
+  while (questions.length < n && attempts < n * 8) {
+    attempts++;
+    const avail = pool.filter(d => !used.has(d.id));
+    if (!avail.length) break;
+    const drill = avail[Math.floor(Math.random() * avail.length)];
+    used.add(drill.id);
+    const opts = shuffleArr(drill.optionen.map(o => ({
+      text: (o.text || "").slice(0, 120),
+      correct: o.ist_richtig === true || (o.punkte || 0) > 0,
+      feedback: o.feedback || ""
+    })));
+    if (!opts.some(o => o.correct)) continue;
+    questions.push({
+      type: "drill", label: `⚡ Drill — ${escapeHtml(drill.marke || "allgemein")}`,
+      frage: escapeHtml(drill.frage || ""),
+      opts,
+      muster: drill.musterantwort ? `📝 ${escapeHtml(drill.musterantwort)}` : ""
+    });
+  }
+  return questions.slice(0, n);
+}
+
+function generateMixedQuizQs(n = 5) {
+  const allQs = [
+    ...generateDrillQuizQs(Math.ceil(n * 0.5)),
+    ...generateEinwandQuizQs(Math.ceil(n * 0.35)),
+    ...generateMarkenQuizQs(Math.ceil(n * 0.3))
+  ];
+  return shuffleArr(allQs).slice(0, n);
+}
+
+// Quiz-State und interaktiver Runner (nutzt ak-scenario-runner Modal)
+let appQuizState = null;
+
+function startInteractiveQuiz(questions, title = "Quiz") {
+  if (!questions.length) {
+    tgAlert("Keine Quiz-Fragen verfügbar.\n\nStelle sicher dass Drills, Einwände und Marken geladen sind.");
+    return;
+  }
+  tgHaptic("impact");
+  akRunnerState = null; // Szenario-Runner-State leeren
+  appQuizState = { questions, idx: 0, score: 0, streak: 0, best: 0, title };
+  byId("ak-runner-title").textContent = title;
+  renderInteractiveQuizStep();
+  byId("ak-scenario-runner").showModal();
+}
+
+function renderInteractiveQuizStep() {
+  if (!appQuizState) return;
+  const { questions, idx, title } = appQuizState;
+  const q = questions[idx];
+  const total = questions.length;
+  const back = byId("ak-runner-back");
+  const next = byId("ak-runner-next");
+  const body = byId("ak-runner-body");
+  byId("ak-runner-title").textContent = `${title} · ${idx + 1}/${total}`;
+  back.hidden = true;
+  next.hidden = true;
+  const progress = (idx / total) * 100;
+  const streak = appQuizState.streak || 0;
+  body.innerHTML = `
+    <div class="ak-runner-progress"><div class="ak-runner-progress-bar" style="width:${progress}%"></div></div>
+    <div class="ak-hud">
+      <span class="ak-hud-item" id="ak-hud-score">✓ ${appQuizState.score}/${total}</span>
+      <span class="ak-hud-item ak-hud-streak ${streak >= 3 ? "hot" : ""}" id="ak-hud-streak">🔥 ${streak}</span>
+    </div>
+    <div class="ak-quiz-type-badge">${q.label || ""}</div>
+    <div class="ak-quiz-frage">${q.frage}</div>
+    <div class="ak-quiz-options" id="ak-quiz-opts">
+      ${q.opts.map((o, i) => `
+        <button type="button" class="ak-quiz-opt" data-opt="${i}">
+          <span class="ak-quiz-letter">${QUIZ_LETTERS[i]}</span>
+          <span class="ak-quiz-text">${escapeHtml(o.text)}</span>
+        </button>`).join("")}
+    </div>
+    <div id="ak-quiz-feedback"></div>`;
+  let answered = false;
+  body.querySelectorAll(".ak-quiz-opt").forEach((btn, i) => {
+    btn.addEventListener("click", () => {
+      if (answered) return;
+      answered = true;
+      const correct = q.opts[i].correct === true;
+      try { window.Telegram?.WebApp?.HapticFeedback?.notificationOccurred(correct ? "success" : "error"); } catch {}
+      if (correct) {
+        appQuizState.score++;
+        appQuizState.streak = (appQuizState.streak || 0) + 1;
+        appQuizState.best = Math.max(appQuizState.best || 0, appQuizState.streak);
+      } else {
+        appQuizState.streak = 0;
+      }
+      // HUD aktualisieren + Pop
+      const hScore = byId("ak-hud-score"), hStreak = byId("ak-hud-streak");
+      if (hScore) { hScore.textContent = `✓ ${appQuizState.score}/${total}`; akBump(hScore); }
+      if (hStreak) {
+        hStreak.textContent = `🔥 ${appQuizState.streak}`;
+        hStreak.classList.toggle("hot", appQuizState.streak >= 3);
+        akBump(hStreak);
+      }
+      // Konfetti ab Streak 3 (kleiner Burst, alle 3 Treffer)
+      if (correct && appQuizState.streak >= 3 && appQuizState.streak % 3 === 0) akCelebrate(0.5);
+      body.querySelectorAll(".ak-quiz-opt").forEach((b, j) => {
+        b.style.pointerEvents = "none";
+        if (q.opts[j].correct) b.classList.add("correct");
+        else if (j === i && !correct) b.classList.add("wrong");
+      });
+      const fb = q.opts[i].feedback || (correct ? "Richtig!" : "Leider falsch.");
+      byId("ak-quiz-feedback").innerHTML = `
+        <div class="ak-runner-feedback ${correct ? "correct" : "wrong"}">${correct ? "✅" : "❌"} ${escapeHtml(fb)}</div>
+        ${q.muster ? `<div class="ak-quiz-muster">${q.muster}</div>` : ""}`;
+      next.hidden = false;
+      next.textContent = idx === total - 1 ? "Ergebnis →" : "Nächste Frage →";
+      next.onclick = () => {
+        appQuizState.idx++;
+        if (appQuizState.idx >= total) renderInteractiveQuizResult();
+        else renderInteractiveQuizStep();
+      };
+    });
+  });
+}
+
+function renderInteractiveQuizResult() {
+  const { questions, score, title } = appQuizState;
+  const total = questions.length;
+  const pct = Math.round((score / total) * 100);
+  const emoji = pct >= 80 ? "🏆" : pct >= 60 ? "🎯" : pct >= 40 ? "💪" : "📚";
+  const best = appQuizState.best || 0;
+  const msg = pct >= 80 ? "Ausgezeichnet — du bist voll im Flow!" : pct >= 60 ? "Gut! Wiederhol die Fehler-Themen." : "Weiter üben — du wirst besser!";
+  if (pct >= 80) { tgHaptic("success"); akCelebrate(pct === 100 ? 1.4 : 1); }
+  const body = byId("ak-runner-body");
+  byId("ak-runner-title").textContent = "Ergebnis";
+  byId("ak-runner-back").hidden = true;
+  byId("ak-runner-next").hidden = true;
+  body.innerHTML = `
+    <div class="ak-quiz-result">
+      <div class="ak-quiz-result-emoji">${emoji}</div>
+      <div class="ak-quiz-result-score">${score}<span style="font-size:20px;opacity:.6">/${total}</span></div>
+      <div class="ak-quiz-result-pct">${pct}% richtig</div>
+      <div class="ak-quiz-result-bar"><div class="ak-quiz-result-bar-fill" style="width:${pct}%"></div></div>
+      ${best >= 2 ? `<div class="ak-quiz-result-streak">🔥 Beste Serie: ${best} in Folge</div>` : ""}
+      <div class="ak-quiz-result-msg">${escapeHtml(msg)}</div>
+    </div>
+    <div class="ak-quiz-result-actions">
+      <button type="button" class="button primary" id="ak-quiz-retry">🔄 Nochmal</button>
+      <button type="button" class="button" id="ak-quiz-close">✓ Fertig</button>
+    </div>`;
+  byId("ak-quiz-retry")?.addEventListener("click", () => {
+    tgHaptic("impact");
+    appQuizState.idx = 0;
+    appQuizState.score = 0;
+    appQuizState.streak = 0;
+    appQuizState.best = 0;
+    renderInteractiveQuizStep();
+  });
+  byId("ak-quiz-close")?.addEventListener("click", () => {
+    tgHaptic("selection");
+    byId("ak-scenario-runner").close();
+    appQuizState = null;
+  });
 }
 
 // === Verkaufs-Akademie ===
@@ -9178,7 +9723,7 @@ function renderAkRoleplays() {
     return;
   }
   const diffClass = (s) => s === "leicht" ? "anfaenger" : s === "mittel" ? "fortgeschritten" : "profi";
-  list.innerHTML = filtered.map((r) => `<div class="ak-rp-card" data-rp-id="${r.id}">
+  list.innerHTML = filtered.map((r) => `<div class="ak-rp-card" data-rp-id="${safeDataId(r.id)}">
     <div class="ak-rp-head">
       <h3>${escapeHtml(r.titel || "")}</h3>
       <span class="ak-scenario-difficulty ${diffClass(r.schwierigkeit)}">${escapeHtml(r.schwierigkeit || "")}</span>
@@ -9191,7 +9736,7 @@ function renderAkRoleplays() {
     </div>
     <p style="font-size:12px;color:var(--ink-soft);margin:0;">${escapeHtml((r.setting || "").slice(0, 140))}</p>
     <div class="ak-rp-actions">
-      <button type="button" class="button small primary ak-rp-start" data-rp-id="${r.id}">▶ Rollenspiel starten</button>
+      <button type="button" class="button small primary ak-rp-start" data-rp-id="${safeDataId(r.id)}">▶ Rollenspiel starten</button>
     </div>
   </div>`).join("");
   list.querySelectorAll(".ak-rp-start").forEach((b) => b.addEventListener("click", () => startAkRoleplay(b.dataset.rpId)));
@@ -9214,6 +9759,7 @@ function renderAkRpPhase() {
   const body = byId("ak-rp-body");
   const back = byId("ak-rp-back");
   const next = byId("ak-rp-next");
+  if (phase === "live") { renderAkRpLive(); return; }
   back.hidden = false;
   next.textContent = "Weiter →";
 
@@ -9227,14 +9773,23 @@ function renderAkRpPhase() {
         <div class="ak-rp-briefing-row"><strong>🏷 Marke/Produkt:</strong> ${escapeHtml(rp.produkt || rp.marke || "")}</div>
         <div class="ak-rp-briefing-row"><strong>🎯 Ziel-AOV:</strong> €${rp.ziel_aov || "—"} · max ${rp.gesamtpunkte_max || "?"} Punkte</div>
         <p class="muted" style="margin-top:10px;">Du spielst den/die VerkäuferIn. Lies die Schritte, übe sie laut oder im Kopf, meistere die Einwände — und bewerte dich am Ende ehrlich selbst.</p>
+      </div>
+      <div class="ak-rp-mode-pick">
+        ${aiConfigured()
+          ? `<button type="button" class="button primary" id="ak-rp-live-start">🎙 Live mit KI üben</button>
+             <p class="muted" style="font-size:12px;margin:8px 0 0;">Die KI spielt <strong>${escapeHtml((rp.persona || "die Kundin").split("(")[0].trim())}</strong>. Du tippst, was du sagst — am Ende bewertet dich ein KI-Coach. Oder „Los geht's" für den geführten Modus.</p>`
+          : `<p class="muted" style="font-size:12px;">💡 Tipp: Mit eingerichtetem KI-Key (⚙ KI) kannst du das Gespräch <strong>live</strong> führen — die KI spielt dann den Kunden.</p>`}
       </div>`;
     next.textContent = "Los geht's →";
+    byId("ak-rp-live-start")?.addEventListener("click", startAkRpLive);
     return;
   }
 
   if (phase === "ablauf") {
     const steps = rp.ablauf || [];
+    if (!steps.length) { akRpState.phase = "einwaende"; renderAkRpPhase(); return; }
     const step = steps[akRpState.stepIdx];
+    if (!step) { akRpState.phase = "einwaende"; renderAkRpPhase(); return; }
     const progress = ((akRpState.stepIdx) / steps.length) * 100;
     body.innerHTML = `
       <div class="ak-runner-progress"><div class="ak-runner-progress-bar" style="width:${progress}%"></div></div>
@@ -9287,6 +9842,7 @@ function renderAkRpPhase() {
       const ki = Number(row.dataset.krit);
       row.querySelectorAll(".ak-rp-pt").forEach((btn) => {
         btn.addEventListener("click", () => {
+          tgHaptic("selection");
           akRpState.scores[ki] = Number(btn.dataset.pt);
           row.querySelectorAll(".ak-rp-pt").forEach((b) => b.classList.remove("sel"));
           btn.classList.add("sel");
@@ -9302,6 +9858,7 @@ function renderAkRpPhase() {
     const got = krit.reduce((s, k, i) => s + (akRpState.scores[i] || 0), 0);
     const max = rp.gesamtpunkte_max || krit.reduce((s, k) => s + (k.punkte_max || 0), 0);
     const pct = max ? Math.round((got / max) * 100) : 0;
+    if (pct >= 80) { tgHaptic("success"); akCelebrate(pct === 100 ? 1.4 : 1); }
     const erf = rp.erfolgskriterien || [];
     body.innerHTML = `
       <div class="ak-runner-result">
@@ -9309,6 +9866,7 @@ function renderAkRpPhase() {
         <div class="ak-runner-score">${got} / ${max}</div>
         <div style="font-size:18px;color:var(--muted);">${pct}%</div>
         <p style="margin-top:12px;">${pct>=80?"🌟 Hervorragend! Du beherrschst dieses Szenario.":pct>=60?"👍 Solide. Schwächste Kriterien nochmal üben.":"📚 Mehr Übung nötig — geh die Marken-Bibel + Einwände durch und wiederhole."}</p>
+        ${akRpState.aiFeedback ? `<div class="ak-rp-coach"><div class="ak-rp-coach-head">🎓 KI-Coach</div><p>${escapeHtml(akRpState.aiFeedback.gesamt || "")}</p>${(akRpState.aiFeedback.perKrit || []).length ? `<ul>${akRpState.aiFeedback.perKrit.map((c) => `<li><strong>${escapeHtml(c.name || "")}</strong> (${c.punkte}/${c.max}): ${escapeHtml(c.kommentar || "")}</li>`).join("")}</ul>` : ""}</div>` : ""}
         ${erf.length?`<div style="text-align:left;margin-top:16px;"><strong>Erfolgskriterien dieses Szenarios:</strong><ul style="font-size:13px;">${erf.map((e)=>`<li>${escapeHtml(e)}</li>`).join("")}</ul></div>`:""}
         <div style="margin-top:12px;"><input type="text" id="ak-rp-staffname" placeholder="Dein Name (für Tracking)" style="padding:8px 12px;border:1px solid var(--line);border-radius:6px;min-height:40px;width:100%;font-size:16px;" /></div>
       </div>`;
@@ -9321,6 +9879,7 @@ function renderAkRpPhase() {
 function akRpAdvance() {
   if (!akRpState) return;
   const { rp, phase } = akRpState;
+  if (phase === "live") return; // Live-Modus steuert sich selbst (Senden/Auswerten)
   if (phase === "intro") { akRpState.phase = "ablauf"; akRpState.stepIdx = 0; }
   else if (phase === "ablauf") {
     if (akRpState.stepIdx < (rp.ablauf||[]).length - 1) akRpState.stepIdx++;
@@ -9338,6 +9897,7 @@ function akRpAdvance() {
 function akRpBack() {
   if (!akRpState) return;
   const { phase } = akRpState;
+  if (phase === "live") return; // Live-Modus hat eigene Steuerung
   if (phase === "ablauf") {
     if (akRpState.stepIdx > 0) akRpState.stepIdx--;
     else akRpState.phase = "intro";
@@ -9370,6 +9930,151 @@ function akRpSaveResult() {
   renderAkStaff();
 }
 
+// === Rollenspiel: Live-Modus (KI spielt die Persona) ===
+function akRpCustomerSystem(rp) {
+  const einw = (rp.einwaende || []).map((e, i) => `${i + 1}. „${e.einwand || ""}"`).join("\n");
+  return [
+    "Du spielst eine Kundin/einen Kunden in einem Verkaufs-Rollenspiel für ein Babyfachgeschäft (HFK – Herr und Frau Klein).",
+    "Bleib IMMER in der Kundenrolle. Antworte auf Deutsch, natürlich und menschlich, kurz (1–3 Sätze). Kein Erzähltext, keine Regie-Anweisungen — nur direkte wörtliche Rede.",
+    "",
+    `DEINE ROLLE (Persona): ${rp.persona || "interessierte Kundin"}`,
+    `SITUATION: ${rp.setting || ""}`,
+    rp.produkt ? `PRODUKTE im Fokus: ${rp.produkt}` : "",
+    "",
+    "Bring diese Einwände im Lauf des Gesprächs natürlich und nach und nach ein (nicht alle auf einmal, nur wenn es passt):",
+    einw || "(keine speziellen Einwände)",
+    "",
+    "Geht der/die VerkäuferIn überzeugend auf einen Einwand ein, akzeptierst du und das Gespräch entwickelt sich weiter. Bei schwachen Antworten bleibst du skeptisch.",
+    "Beende das Gespräch NICHT von dir aus und gib KEINE Bewertung ab. Reagiere nur als Kunde auf die letzte Aussage des/der VerkäuferIn."
+  ].filter(Boolean).join("\n");
+}
+
+async function startAkRpLive() {
+  if (!akRpState) return;
+  akRpState.phase = "live";
+  akRpState.messages = [{ role: "user", content: "(Die Szene beginnt. Sag als Kunde den ersten Satz — kurz, natürlich, passend zur Situation.)" }];
+  akRpState.turns = 0;
+  akRpState.sending = true;
+  akRpState.aiFeedback = null;
+  renderAkRpLive();
+  try {
+    const opening = await callAiChat(akRpCustomerSystem(akRpState.rp), akRpState.messages, 0.85);
+    akRpState.messages.push({ role: "assistant", content: opening });
+  } catch (e) {
+    akRpState.messages.push({ role: "assistant", content: "(KI nicht erreichbar — bitte KI-Key prüfen (⚙ KI). Du kannst trotzdem tippen und später auswerten.)" });
+  }
+  akRpState.sending = false;
+  renderAkRpLive();
+}
+
+function renderAkRpLive() {
+  if (!akRpState) return;
+  const body = byId("ak-rp-body");
+  const back = byId("ak-rp-back");
+  const next = byId("ak-rp-next");
+  if (back) back.hidden = true;
+  if (next) next.hidden = true;
+  const msgs = (akRpState.messages || []).slice(1); // erste (versteckte) Seed-Anweisung überspringen
+  const bubbles = msgs.map((m) => {
+    const seller = m.role === "user";
+    return `<div class="ak-rp-msg ${seller ? "seller" : "customer"}">
+      <span class="ak-rp-msg-who">${seller ? "Du" : "👤 Kunde"}</span>
+      <div class="ak-rp-msg-text">${escapeHtml(m.content)}</div>
+    </div>`;
+  }).join("");
+  const typing = akRpState.sending ? `<div class="ak-rp-msg customer"><span class="ak-rp-msg-who">👤 Kunde</span><div class="ak-rp-msg-text ak-rp-typing"><span></span><span></span><span></span></div></div>` : "";
+  body.innerHTML = `
+    <div class="ak-rp-live-hint muted">🎙 Live-Gespräch — du bist der/die VerkäuferIn. Antworte natürlich, wie im Laden.</div>
+    <div class="ak-rp-chat" id="ak-rp-chat">${bubbles}${typing}</div>
+    <div class="ak-rp-input-row">
+      <textarea id="ak-rp-input" rows="2" placeholder="Deine Antwort als VerkäuferIn…" ${akRpState.sending ? "disabled" : ""}></textarea>
+      <button type="button" class="button primary" id="ak-rp-send" ${akRpState.sending ? "disabled" : ""} aria-label="Senden">➤</button>
+    </div>
+    <div class="ak-rp-live-actions">
+      <span class="muted" style="font-size:12px;">${akRpState.turns || 0} Wechsel</span>
+      <button type="button" class="button" id="ak-rp-evaluate" ${akRpState.sending ? "disabled" : ""}>🏁 Gespräch auswerten</button>
+    </div>`;
+  const chat = byId("ak-rp-chat");
+  if (chat) chat.scrollTop = chat.scrollHeight;
+  const input = byId("ak-rp-input");
+  byId("ak-rp-send")?.addEventListener("click", akRpLiveSend);
+  byId("ak-rp-evaluate")?.addEventListener("click", akRpLiveEnd);
+  input?.addEventListener("keydown", (e) => {
+    if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); akRpLiveSend(); }
+  });
+  if (input && !akRpState.sending) input.focus();
+}
+
+async function akRpLiveSend() {
+  if (!akRpState || akRpState.sending) return;
+  const input = byId("ak-rp-input");
+  const text = (input?.value || "").trim();
+  if (!text) return;
+  akRpState.messages.push({ role: "user", content: text });
+  akRpState.sending = true;
+  tgHaptic("light");
+  renderAkRpLive();
+  try {
+    const reply = await callAiChat(akRpCustomerSystem(akRpState.rp), akRpState.messages, 0.85);
+    akRpState.messages.push({ role: "assistant", content: reply });
+    akRpState.turns = (akRpState.turns || 0) + 1;
+  } catch (e) {
+    akRpState.messages.pop(); // eigene Nachricht zurücknehmen, damit der Verlauf konsistent bleibt
+    akRpState.sending = false;
+    renderAkRpLive();
+    const inp = byId("ak-rp-input"); if (inp) inp.value = text; // Eingabe wiederherstellen
+    showToast("KI nicht erreichbar — nochmal senden?");
+    return;
+  }
+  akRpState.sending = false;
+  renderAkRpLive();
+}
+
+async function akRpLiveEnd() {
+  if (!akRpState || akRpState.sending) return;
+  const rp = akRpState.rp;
+  const dialog = (akRpState.messages || []).slice(1);
+  if (dialog.filter((m) => m.role === "user").length < 1) {
+    showToast("Sag erst ein paar Sätze, dann auswerten.");
+    return;
+  }
+  const body = byId("ak-rp-body");
+  body.innerHTML = `<div class="ak-runner-result"><h3>🎓 KI-Coach wertet aus…</h3><div class="ak-rp-typing" style="justify-content:center;margin-top:14px;"><span></span><span></span><span></span></div></div>`;
+  const krit = rp.bewertungskriterien || [];
+  const transcript = dialog.map((m) => `${m.role === "assistant" ? "KUNDE" : "VERKÄUFER"}: ${m.content}`).join("\n");
+  const coachSys = [
+    "Du bist ein erfahrener, fairer Verkaufstrainer im Babyfachhandel. Bewerte das folgende Verkaufsgespräch.",
+    `Im Transkript ist VERKÄUFER der/die zu bewertende Lernende; KUNDE ist die Trainings-Persona. Zieltechnik: ${rp.verkaufstechnik || "allgemein"}.`,
+    "Vergib pro Kriterium 0 bis max Punkte (ganzzahlig). Sei konkret und konstruktiv.",
+    "Antworte AUSSCHLIESSLICH als JSON ohne Markdown, exakt in diesem Format:",
+    '{"kriterien":[{"index":0,"punkte":2,"kommentar":"kurz"}],"gesamt":"2-3 Sätze Gesamtfeedback"}',
+    "Kriterien (index: Name (max) — Beschreibung):",
+    krit.map((k, i) => `${i}: ${k.kriterium || ""} (max ${k.punkte_max || 0}) — ${k.beschreibung || ""}`).join("\n")
+  ].join("\n");
+  try {
+    const raw = await callAiChat(coachSys, [{ role: "user", content: transcript }], 0.3);
+    let t = String(raw || "").trim().replace(/^```(?:json)?/i, "").replace(/```$/, "").trim();
+    const s = t.indexOf("{"), e = t.lastIndexOf("}");
+    if (s >= 0 && e > s) t = t.slice(s, e + 1);
+    const parsed = JSON.parse(t);
+    const arr = Array.isArray(parsed.kriterien) ? parsed.kriterien : [];
+    const perKrit = krit.map((k, i) => {
+      const c = arr.find((x) => Number(x.index) === i) || arr[i] || {};
+      const max = k.punkte_max || 0;
+      const punkte = Math.max(0, Math.min(max, Math.round(Number(c.punkte) || 0)));
+      akRpState.scores[i] = punkte;
+      return { name: k.kriterium || "", punkte, max, kommentar: c.kommentar || "" };
+    });
+    akRpState.aiFeedback = { gesamt: String(parsed.gesamt || ""), perKrit };
+    akRpState.phase = "result";
+    renderAkRpPhase();
+  } catch (err) {
+    showToast("Auto-Bewertung nicht möglich — bitte selbst bewerten.");
+    akRpState.phase = "bewertung";
+    renderAkRpPhase();
+  }
+}
+
 
 
 let akDrillMarkeFilter = "all";
@@ -9378,12 +10083,30 @@ function renderAkDrills() {
   const list = byId("ak-drills-list");
   if (!list) return;
   const drills = state.akademieDrills || [];
+  // Quiz-Schnellstart-Bar
+  const quizBar = byId("ak-drills-quiz-bar");
+  if (quizBar) {
+    quizBar.innerHTML = `<div class="ak-quiz-bar">
+      <button type="button" class="button primary small" id="btn-quiz-mixed">🎯 Quick-Quiz</button>
+      <button type="button" class="button small" id="btn-quiz-drills">⚡ Drill-Quiz</button>
+      <button type="button" class="button small" id="btn-quiz-daily">☀️ Tages-Challenge</button>
+    </div>`;
+    byId("btn-quiz-mixed")?.addEventListener("click", () => startInteractiveQuiz(generateMixedQuizQs(5), "🎯 Quick-Quiz"));
+    byId("btn-quiz-drills")?.addEventListener("click", () => startInteractiveQuiz(generateDrillQuizQs(5), "⚡ Drill-Quiz"));
+    byId("btn-quiz-daily")?.addEventListener("click", () => startInteractiveQuiz(generateMixedQuizQs(3), "☀️ Tages-Challenge"));
+  }
   // Marken-Filter-Dropdown befüllen
   const sel = byId("ak-drill-marke-filter");
-  if (sel && !sel.dataset.filled && drills.length) {
-    sel.dataset.filled = "1";
+  if (sel && drills.length) {
+    // Nur neu bauen wenn sich die Marken-Anzahl geändert hat (Update-safe)
     const marken = [...new Set(drills.map((d) => d.marke).filter(Boolean))].sort();
-    sel.innerHTML = '<option value="all">Alle Marken</option>' + marken.map((m) => `<option value="${escapeHtml(m)}">${escapeHtml(m)}</option>`).join("");
+    if (Number(sel.dataset.markeCount || 0) !== marken.length) {
+      sel.dataset.markeCount = marken.length;
+      const prev = sel.value;
+      sel.innerHTML = '<option value="all">Alle Marken</option>' + marken.map((m) => `<option value="${escapeHtml(m)}">${escapeHtml(m)}</option>`).join("");
+      // Selektion beibehalten wenn noch vorhanden
+      if (prev && marken.includes(prev)) sel.value = prev;
+    }
   }
   const filtered = akDrillMarkeFilter === "all" ? drills : drills.filter((d) => d.marke === akDrillMarkeFilter);
   const cnt = byId("ak-drill-count");
@@ -9392,14 +10115,14 @@ function renderAkDrills() {
     list.innerHTML = '<p class="muted">Noch keine Drills importiert. Sag „Lernsystem importieren".</p>';
     return;
   }
-  list.innerHTML = filtered.map((d) => `<div class="ak-drill-card" data-drill-id="${d.id}">
+  list.innerHTML = filtered.map((d) => `<div class="ak-drill-card" data-drill-id="${safeDataId(d.id)}">
     <div class="ak-drill-head">
       <span class="ak-drill-marke">${escapeHtml(d.marke || "allgemein")}</span>
       <span class="ak-scenario-difficulty ${(d.schwierigkeit||"").replace("leicht","anfaenger").replace("mittel","fortgeschritten").replace("schwer","profi")}">${escapeHtml(d.schwierigkeit || "")}</span>
     </div>
     <div class="ak-drill-frage">${escapeHtml(d.frage || "")}</div>
     <div class="ak-drill-tags">${(d.lerntyp||[]).map((l) => `<span>${escapeHtml(l)}</span>`).join("")} ${d.verkaufstechnik ? `<span class="tech">${escapeHtml(d.verkaufstechnik)}</span>` : ""}</div>
-    <button type="button" class="button small primary ak-drill-start" data-drill-id="${d.id}">▶ Drill starten</button>
+    <button type="button" class="button small primary ak-drill-start" data-drill-id="${safeDataId(d.id)}">▶ Drill starten</button>
   </div>`).join("");
   list.querySelectorAll(".ak-drill-start").forEach((b) => {
     b.addEventListener("click", () => startAkDrill(b.dataset.drillId));
@@ -9409,6 +10132,7 @@ function renderAkDrills() {
 function startAkDrill(drillId) {
   const d = (state.akademieDrills || []).find((x) => x.id === drillId);
   if (!d) return;
+  appQuizState = null; // Quiz-State leeren
   // Reuse scenario-runner modal as single-step quiz
   const runner = byId("ak-scenario-runner");
   byId("ak-runner-title").textContent = "Drill: " + (d.marke || "") + (d.produkt ? " · " + d.produkt : "");
@@ -9427,6 +10151,9 @@ function startAkDrill(drillId) {
       if (answered) return;
       answered = true;
       const correct = opts[i].ist_richtig === true || opts[i].punkte > 0;
+      // Telegram HapticFeedback — Erfolg/Fehler bei Drill-Antwort
+      try { window.Telegram?.WebApp?.HapticFeedback?.notificationOccurred(correct ? "success" : "error"); } catch {}
+      if (correct) akCelebrate(0.6);
       body.querySelectorAll(".ak-runner-option").forEach((o, j) => {
         if (opts[j].ist_richtig === true || opts[j].punkte > 0) o.classList.add("correct");
         if (j === i && !correct) o.classList.add("wrong");
@@ -9446,10 +10173,23 @@ function renderAkMarken() {
   const list = byId("ak-marken-list");
   if (!list) return;
   const marken = state.akademieMarken || [];
+  // ID-Backfill: ältere Marken haben keine id → einmalig vergeben, damit Edit/Delete greift.
+  let _bf = false;
+  marken.forEach((m) => { if (!m.id) { m.id = uid("akm"); _bf = true; } });
+  if (_bf) saveState();
   const cnt = byId("ak-marken-count");
   if (cnt) cnt.textContent = `${marken.length} Marken`;
+  // Marken-Quiz Button — sichtbar wenn genug Land- ODER Argument-Daten für Fragen da sind.
+  const quizBar = byId("ak-marken-quiz-bar");
+  const quizReady = marken.filter(m => m.herkunft?.land).length >= 4 || marken.filter(m => markeArg(m)).length >= 4;
+  if (quizBar && quizReady) {
+    quizBar.innerHTML = `<div class="ak-quiz-bar">
+      <button type="button" class="button primary small" id="btn-marken-quiz">🏷 Marken-Quiz (5 Fragen)</button>
+    </div>`;
+    byId("btn-marken-quiz")?.addEventListener("click", () => startInteractiveQuiz(generateMarkenQuizQs(5), "🏷 Marken-Quiz"));
+  }
   if (!marken.length) {
-    list.innerHTML = '<p class="muted">Noch keine Marken-Bibel importiert. Sag „Lernsystem importieren".</p>';
+    list.innerHTML = '<p class="muted">Noch keine Marken-Bibel. „+ Neue Marke" oben — oder sag „Lernsystem importieren".</p>';
     return;
   }
   list.innerHTML = marken.map((m) => {
@@ -9459,7 +10199,7 @@ function renderAkMarken() {
     return `<div class="ak-marke-card">
       <div class="ak-marke-head">
         <h3>${escapeHtml(m.name || "")}</h3>
-        <span class="ak-marke-herkunft">${escapeHtml([herk.land, herk.stadt, herk.gruendung].filter(Boolean).join(" · "))}</span>
+        <span class="ak-marke-head-right"><span class="ak-marke-herkunft">${escapeHtml([herk.land, herk.stadt, herk.gruendung].filter(Boolean).join(" · "))}</span><button type="button" class="icon-button edit" data-edit="akademieMarke:${safeDataId(m.id)}" title="Bearbeiten" aria-label="Bearbeiten">✎</button></span>
       </div>
       ${m.philosophie ? `<div class="ak-marke-philo">"${escapeHtml(m.philosophie)}"</div>` : ""}
       ${(m.kategorien||[]).length ? `<div class="ak-marke-kat">${m.kategorien.slice(0,6).map((k) => `<span>${escapeHtml(typeof k === "string" ? k : k.name || "")}</span>`).join("")}</div>` : ""}
@@ -9477,7 +10217,7 @@ function renderAkServices() {
     list.innerHTML = '<p class="muted">Noch keine Beratungsangebote. „+ Neues Beratungsangebot" oben.</p>';
     return;
   }
-  list.innerHTML = services.map((s) => `<div class="ak-service-card" data-edit="consultingService:${s.id}">
+  list.innerHTML = services.map((s) => `<div class="ak-service-card" data-edit="consultingService:${safeDataId(s.id)}">
     <h3>${escapeHtml(s.name)}</h3>
     <div class="ak-service-meta">
       <span>${escapeHtml(s.dauer || "—")}</span>
@@ -9497,7 +10237,7 @@ function renderAkPersonas() {
     list.innerHTML = '<p class="muted">Noch keine Personas.</p>';
     return;
   }
-  list.innerHTML = personas.map((p) => `<div class="ak-persona-card" data-edit="salesPersona:${p.id}">
+  list.innerHTML = personas.map((p) => `<div class="ak-persona-card" data-edit="salesPersona:${safeDataId(p.id)}">
     <div class="ak-persona-head">
       <div class="ak-persona-avatar">${escapeHtml(p.avatar || "👤")}</div>
       <div>
@@ -9519,6 +10259,14 @@ function renderAkObjections() {
   const list = byId("ak-objections-list");
   if (!list) return;
   const objs = state.salesObjections || [];
+  // Einwand-Quiz Button
+  const quizBar = byId("ak-objections-quiz-bar");
+  if (quizBar && objs.length >= 4) {
+    quizBar.innerHTML = `<div class="ak-quiz-bar">
+      <button type="button" class="button primary small" id="btn-einwand-quiz">💬 Einwand-Quiz (5 Fragen)</button>
+    </div>`;
+    byId("btn-einwand-quiz")?.addEventListener("click", () => startInteractiveQuiz(generateEinwandQuizQs(5), "💬 Einwand-Quiz"));
+  }
   const filtered = akObjectionFilter === "all" ? objs : objs.filter((o) => o.kategorie === akObjectionFilter);
   const countEl = byId("ak-objection-count");
   if (countEl) countEl.textContent = `${filtered.length} / ${objs.length}`;
@@ -9528,7 +10276,7 @@ function renderAkObjections() {
   }
   list.innerHTML = filtered.map((o) => {
     const catKey = (o.kategorie || "").toLowerCase().replace("ä", "ae").replace(/[^a-z]/g, "");
-    return `<div class="ak-objection-card cat-${catKey}" data-edit="salesObjection:${o.id}">
+    return `<div class="ak-objection-card cat-${catKey}" data-edit="salesObjection:${safeDataId(o.id)}">
       <div class="ak-objection-head">
         <div class="ak-objection-quote">"${escapeHtml(o.einwand)}"</div>
         <span class="ak-objection-cat-badge">${escapeHtml(o.kategorie || "—")}</span>
@@ -9550,7 +10298,7 @@ function renderAkScenarios() {
   list.innerHTML = scenarios.map((s) => {
     const persona = (state.salesPersonas || []).find((p) => p.id === s.personaId);
     const stepCount = (s.steps || []).length;
-    return `<div class="ak-scenario-card" data-scenario-id="${s.id}">
+    return `<div class="ak-scenario-card" data-scenario-id="${safeDataId(s.id)}">
       <div class="ak-scenario-head">
         <h3>${escapeHtml(s.name)}</h3>
         <span class="ak-scenario-difficulty ${s.schwierigkeit || "anfaenger"}">${escapeHtml(s.schwierigkeit || "anfänger")}</span>
@@ -9561,8 +10309,8 @@ function renderAkScenarios() {
       </div>
       <p style="font-size:13px;color:var(--ink-soft);margin:0;">${escapeHtml(s.situation || "")}</p>
       <div class="ak-scenario-actions">
-        <button type="button" class="button small" data-edit="trainingScenario:${s.id}" title="Szenario bearbeiten">✎ Bearbeiten</button>
-        <button type="button" class="button small primary ak-scenario-run" data-run-scenario="${s.id}" title="Szenario starten">▶ Starten</button>
+        <button type="button" class="button small" data-edit="trainingScenario:${safeDataId(s.id)}" title="Szenario bearbeiten">✎ Bearbeiten</button>
+        <button type="button" class="button small primary ak-scenario-run" data-run-scenario="${safeDataId(s.id)}" title="Szenario starten">▶ Starten</button>
       </div>
     </div>`;
   }).join("");
@@ -9578,7 +10326,8 @@ let akRunnerState = null;
 function startAkScenario(scenarioId) {
   const sc = (state.trainingScenarios || []).find((s) => s.id === scenarioId);
   if (!sc) return;
-  akRunnerState = { scenario: sc, stepIdx: 0, answers: [], score: 0 };
+  appQuizState = null; // Quiz-State leeren
+  akRunnerState = { scenario: sc, stepIdx: 0, answers: [], score: 0, streak: 0, best: 0 };
   byId("ak-runner-title").textContent = sc.name;
   renderAkRunnerStep();
   byId("ak-scenario-runner").showModal();
@@ -9594,10 +10343,13 @@ function renderAkRunnerStep() {
     const max = total;
     const got = akRunnerState.score;
     const pct = Math.round((got / max) * 100);
+    const best = akRunnerState.best || 0;
+    if (pct >= 80) { tgHaptic("success"); akCelebrate(pct === 100 ? 1.4 : 1); }
     body.innerHTML = `<div class="ak-runner-result">
       <h3>Ergebnis</h3>
       <div class="ak-runner-score">${got} / ${max}</div>
       <div style="font-size:18px;color:var(--muted);">${pct}%</div>
+      ${best >= 2 ? `<div class="ak-quiz-result-streak">🔥 Beste Serie: ${best} in Folge</div>` : ""}
       <p style="margin-top:16px;">${pct >= 80 ? "🌟 Hervorragend!" : pct >= 60 ? "👍 Solide. Schwerpunkte nochmal anschauen." : "📚 Vertiefe nochmal die Einwände & Personas und versuche es nochmal."}</p>
     </div>`;
     byId("ak-runner-next").textContent = "Fertig";
@@ -9609,8 +10361,13 @@ function renderAkRunnerStep() {
   const step = steps[stepIdx];
   const progress = ((stepIdx) / total) * 100;
   const persona = (state.salesPersonas || []).find((p) => p.id === scenario.personaId);
+  const sStreak = akRunnerState.streak || 0;
   body.innerHTML = `
     <div class="ak-runner-progress"><div class="ak-runner-progress-bar" style="width:${progress}%"></div></div>
+    <div class="ak-hud">
+      <span class="ak-hud-item" id="ak-hud-score">✓ ${akRunnerState.score}/${total}</span>
+      <span class="ak-hud-item ak-hud-streak ${sStreak >= 3 ? "hot" : ""}" id="ak-hud-streak">🔥 ${sStreak}</span>
+    </div>
     <div class="muted" style="font-size:11px;font-weight:800;letter-spacing:0.04em;text-transform:uppercase;">Schritt ${stepIdx+1} / ${total}${persona ? " · " + escapeHtml(persona.name) : ""}</div>
     <div class="ak-runner-prompt">${escapeHtml(step.prompt || "")}</div>
     <div class="ak-runner-options">
@@ -9630,7 +10387,23 @@ function renderAkRunnerStep() {
         o.style.pointerEvents = "none";
       });
       const correct = idx === step.correctIdx;
-      if (correct) akRunnerState.score++;
+      // Telegram HapticFeedback — Erfolg/Fehler bei Szenario-Antwort
+      try { window.Telegram?.WebApp?.HapticFeedback?.notificationOccurred(correct ? "success" : "error"); } catch {}
+      if (correct) {
+        akRunnerState.score++;
+        akRunnerState.streak = (akRunnerState.streak || 0) + 1;
+        akRunnerState.best = Math.max(akRunnerState.best || 0, akRunnerState.streak);
+      } else {
+        akRunnerState.streak = 0;
+      }
+      const hScore = byId("ak-hud-score"), hStreak = byId("ak-hud-streak");
+      if (hScore) { hScore.textContent = `✓ ${akRunnerState.score}/${total}`; akBump(hScore); }
+      if (hStreak) {
+        hStreak.textContent = `🔥 ${akRunnerState.streak}`;
+        hStreak.classList.toggle("hot", akRunnerState.streak >= 3);
+        akBump(hStreak);
+      }
+      if (correct && akRunnerState.streak >= 3 && akRunnerState.streak % 3 === 0) akCelebrate(0.5);
       const feedback = chosen?.feedback || (correct ? "Richtig." : "Falsch.");
       const host = byId("ak-runner-feedback-host");
       host.innerHTML = `<div class="ak-runner-feedback ${correct ? "correct" : "wrong"}">${correct ? "✓" : "✗"} ${escapeHtml(feedback)}</div>`;
@@ -9638,17 +10411,32 @@ function renderAkRunnerStep() {
   });
 }
 
-async function loadBotScores() {
+const BOT_USERNAME = "magaloko_bot";
+let _botScoresTs = 0;
+
+async function loadBotScores(force = false) {
   const host = byId("ak-bot-scores");
   if (!host) return;
+  // Max. 1× alle 30 Sekunden laden — verhindert Flood bei jedem render()
+  const now = Date.now();
+  if (!force && now - _botScoresTs < 30000) return;
+  _botScoresTs = now;
+
+  // Bot-CTA immer anzeigen (Deep-Link zum Telegram-Bot)
+  const twa = window.Telegram?.WebApp;
+  const botLink = twa
+    ? `<button type="button" class="button small" style="margin-bottom:10px;" onclick="(window.Telegram?.WebApp?.openTelegramLink || ((u)=>window.open(u,'_blank')))('https://t.me/${BOT_USERNAME}')">🤖 Drills im Telegram-Bot starten</button>`
+    : `<a href="https://t.me/${BOT_USERNAME}" target="_blank" class="button small" style="margin-bottom:10px;">🤖 Drills im Telegram-Bot starten</a>`;
+
   try {
     const r = await fetch("/api/bot/scores");
     const data = await r.json();
     if (!data.users || !data.users.length) {
-      host.innerHTML = '<p class="muted">Noch keine Bot-Aktivität. Mitarbeiter starten Drills via Telegram-Bot (/drill).</p>';
+      host.innerHTML = botLink + '<p class="muted">Noch keine Bot-Aktivität. Mitarbeiter starten Drills via /drill im Bot.</p>';
       return;
     }
-    host.innerHTML = `<div class="ak-bot-summary">🤖 <strong>${data.totalDrills}</strong> Bot-Drills von <strong>${data.totalUsers}</strong> Mitarbeitern</div>` +
+    host.innerHTML = botLink +
+      `<div class="ak-bot-summary">🤖 <strong>${data.totalDrills}</strong> Bot-Drills von <strong>${data.totalUsers}</strong> Mitarbeitern</div>` +
       data.users.map((u, i) => {
         const topMarken = Object.entries(u.byMarke || {}).sort((a,b)=>b[1].total-a[1].total).slice(0,4)
           .map(([m,s]) => `${escapeHtml(m)} ${s.correct}/${s.total}`).join(" · ");
@@ -9662,7 +10450,7 @@ async function loadBotScores() {
         </div>`;
       }).join("");
   } catch (e) {
-    host.innerHTML = `<p class="muted">Bot-Scores nicht ladbar (${escapeHtml(e.message)}). Läuft der Server?</p>`;
+    host.innerHTML = botLink + `<p class="muted">Bot-Scores nicht ladbar (${escapeHtml(e.message)}). Läuft der Server?</p>`;
   }
 }
 
@@ -10059,6 +10847,8 @@ function mdToHtml(md) {
   // URL-Sanitizer (Audit-Finding #12): nur http(s) + relativ erlauben, sonst neutralisieren
   const safeUrl = (u) => {
     const t = String(u || "").trim();
+    // protocol-relative URLs (//evil.com) blocken — sonst externe Navigation trotz "/"-Start
+    if (t.startsWith("//")) return "#blocked";
     if (/^https?:\/\//i.test(t) || t.startsWith("/") || t.startsWith("#") || t.startsWith("./")) return t;
     return "#blocked"; // blockt javascript:, data:, vbscript: etc.
   };
@@ -10233,7 +11023,7 @@ function renderOrdersIntake() {
     const itemsText = (o.items || []).map((it) => `${it.qty || 1}× ${escapeHtml(it.name || "")}`).join(" · ") || "—";
     const total = (o.items || []).reduce((s, it) => s + (Number(it.qty) || 0) * (Number(it.price) || 0), 0);
     const statusKey = (o.status || "Entwurf").toLowerCase().replace(/\s+/g, "-").replace("ü", "u");
-    return `<div class="order-card status-${statusKey}" data-order-id="${o.id}">
+    return `<div class="order-card status-${statusKey}" data-order-id="${safeDataId(o.id)}">
       <div>
         <div class="order-card-head">
           <span class="order-card-customer">${escapeHtml(o.customerName || "(unbekannt)")}</span>
@@ -10355,41 +11145,6 @@ function deleteOrderIntake() {
 }
 
 // === Home (Projekt-Picker) + Cross-Projekt-Feed ===
-function renderHome() {
-  const grid = byId("home-workspace-grid");
-  if (!grid) return;
-  const wsEntries = Object.entries(state.workspaces || {});
-  grid.innerHTML = wsEntries.map(([id, ws]) => {
-    const data = ws.data || {};
-    const tasksOpen = (data.tasks || []).filter((t) => t.status && t.status !== "Erledigt").length;
-    const promisesOpen = (data.promises || []).filter((p) => !p.kept && !p.broken).length;
-    const upcomingEvents = (data.calendarEvents || []).filter((e) => e.date && e.date >= todayIso()).length;
-    const isActive = id === state.currentWorkspace ? "active" : "";
-    return `<button type="button" class="workspace-card ${isActive}" data-ws-id="${id}" style="border-left-color:${safeCssColor(ws.color)}">
-      <div class="workspace-card-header">
-        <span class="workspace-card-dot" style="background:${safeCssColor(ws.color)}"></span>
-        <h3>${escapeHtml(ws.label)}</h3>
-      </div>
-      <div class="workspace-card-meta">${ws.isMeta ? "Übergreifend · Privat · Mago-Selbst" : ws.enabledModules.length + " Module"}</div>
-      <div class="workspace-card-stats">
-        <div class="workspace-card-stat"><span class="num">${tasksOpen}</span><span class="lab">Aufgaben offen</span></div>
-        <div class="workspace-card-stat"><span class="num">${promisesOpen}</span><span class="lab">Versprechen</span></div>
-        <div class="workspace-card-stat"><span class="num">${upcomingEvents}</span><span class="lab">Termine ab heute</span></div>
-      </div>
-      <span class="workspace-card-cta">→ ${isActive ? "Aktiv" : "Einsteigen"}</span>
-    </button>`;
-  }).join("");
-  grid.querySelectorAll("[data-ws-id]").forEach((card) => {
-    card.addEventListener("click", () => {
-      const id = card.dataset.wsId;
-      if (id !== state.currentWorkspace) {
-        switchWorkspace(id);
-      }
-      setView("dashboard");
-    });
-  });
-}
-
 function renderCrossProjectFeed() {
   // Nur in Zentrale-Workspace einblenden
   if (state.currentWorkspace !== "zentrale") return;
@@ -10468,9 +11223,83 @@ function renderCrossProjectFeed() {
   });
 }
 
+let _pwEditId = null;
+function renderProduktWissen() {
+  const host = byId("pw-body");
+  if (!host) return;
+  const list = Array.isArray(state.produktWissen) ? state.produktWissen : [];
+  const editing = _pwEditId ? list.find((e) => e.id === _pwEditId) : null;
+  const f = editing || {};
+  host.innerHTML = `
+    <p class="view-intro muted">Pflege hier Produktwissen (Alter, Material, Pflege, Verkaufsargumente). Es fließt automatisch in die <code>/produkt</code>-Antworten des Telegram-Bots ein.</p>
+    <section class="panel" style="margin-bottom:16px;">
+      <div class="panel-header"><h3>${editing ? "✏️ Eintrag bearbeiten" : "➕ Neuer Eintrag"}</h3></div>
+      <div class="pw-form" style="display:flex;flex-direction:column;gap:6px;">
+        <label>Titel / Produkt</label>
+        <input id="pw-titel" type="text" placeholder="z.B. Stokke Tripp Trapp" value="${escapeHtml(f.titel || "")}" />
+        <label>Marke</label>
+        <input id="pw-marke" type="text" placeholder="z.B. STOKKE" value="${escapeHtml(f.marke || "")}" />
+        <label>Schlagworte (Komma-getrennt)</label>
+        <input id="pw-tags" type="text" placeholder="hochstuhl, alter, material, pflege" value="${escapeHtml(Array.isArray(f.tags) ? f.tags.join(", ") : (f.tags || ""))}" />
+        <label>Produktwissen-Text</label>
+        <textarea id="pw-text" rows="5" placeholder="Ab welchem Alter, Material, Pflegehinweise, Verkaufsargumente …">${escapeHtml(f.text || "")}</textarea>
+        <div class="toolbar" style="margin-top:10px;">
+          <button class="button primary" id="pw-save" type="button">${editing ? "Änderungen speichern" : "Eintrag anlegen"}</button>
+          ${editing ? '<button class="button" id="pw-cancel" type="button">Abbrechen</button>' : ""}
+        </div>
+      </div>
+    </section>
+    <div class="toolbar"><span class="muted">${list.length} Einträge</span></div>
+    <div id="pw-list"></div>`;
+  const listEl = byId("pw-list");
+  if (!list.length) {
+    listEl.innerHTML = '<p class="muted">Noch keine Einträge. Lege oben den ersten an.</p>';
+  } else {
+    listEl.innerHTML = list.map((e) => `
+      <div class="panel pw-entry" style="margin-bottom:10px;">
+        <div class="panel-header" style="display:flex;justify-content:space-between;align-items:center;gap:8px;">
+          <h3 style="margin:0;">${escapeHtml(e.titel || "?")}${e.marke ? ` <span class="muted">· ${escapeHtml(e.marke)}</span>` : ""}</h3>
+          <span>
+            <button class="button small" data-pw-edit="${escapeHtml(e.id)}" type="button">✏️</button>
+            <button class="button small danger" data-pw-del="${escapeHtml(e.id)}" type="button">🗑️</button>
+          </span>
+        </div>
+        <p style="white-space:pre-wrap;">${escapeHtml(e.text || "")}</p>
+        ${(Array.isArray(e.tags) ? e.tags.length : e.tags) ? `<div class="muted" style="font-size:.8rem;">🏷️ ${escapeHtml(Array.isArray(e.tags) ? e.tags.join(", ") : e.tags)}</div>` : ""}
+      </div>`).join("");
+  }
+  byId("pw-save").addEventListener("click", () => {
+    const titel = byId("pw-titel").value.trim();
+    const text = byId("pw-text").value.trim();
+    if (!titel || !text) { tgAlert("Titel und Text sind Pflicht."); return; }
+    const marke = byId("pw-marke").value.trim();
+    const tags = byId("pw-tags").value.split(",").map((t) => t.trim()).filter(Boolean);
+    if (!Array.isArray(state.produktWissen)) state.produktWissen = [];
+    if (_pwEditId) {
+      const e = state.produktWissen.find((x) => x.id === _pwEditId);
+      if (e) { e.titel = titel; e.marke = marke; e.text = text; e.tags = tags; e.updatedAt = new Date().toISOString().slice(0, 10); }
+      _pwEditId = null;
+    } else {
+      state.produktWissen.push({ id: "pw-" + Date.now().toString(36), titel, marke, text, tags, updatedAt: new Date().toISOString().slice(0, 10) });
+    }
+    saveState(); render(); showToast("Produktwissen gespeichert");
+  });
+  if (editing) byId("pw-cancel")?.addEventListener("click", () => { _pwEditId = null; render(); });
+  listEl.querySelectorAll("[data-pw-edit]").forEach((b) => b.addEventListener("click", () => {
+    _pwEditId = b.dataset.pwEdit; render(); try { window.scrollTo({ top: 0, behavior: "smooth" }); } catch {}
+  }));
+  listEl.querySelectorAll("[data-pw-del]").forEach((b) => b.addEventListener("click", () => {
+    const id = b.dataset.pwDel; const e = (state.produktWissen || []).find((x) => x.id === id);
+    tgConfirm(`Eintrag "${e?.titel || id}" löschen?`, (ok) => {
+      if (!ok) return;
+      state.produktWissen = (state.produktWissen || []).filter((x) => x.id !== id);
+      saveState(); render(); showToast("Gelöscht");
+    });
+  }));
+}
+
 function render() {
   renderDashboard();
-  renderHome();
   renderSettings();
   renderCrossProjectFeed();
   renderSystems();
@@ -10540,6 +11369,7 @@ function render() {
   renderAbcUebersicht();
   renderLieferantCheck();
   renderMaValidation();
+  renderProduktWissen();
   // Nach allen Renders: Jargon-Hints auf alle Strategie-Karten
   setTimeout(applyJargonHintsToContainers, 0);
 }
@@ -10636,6 +11466,30 @@ const editConfig = {
       { name: "strengths", label: "Stärken (Beobachtungen)", type: "textarea" },
       { name: "weaknesses", label: "Fokus-Themen (Schwächen)", type: "textarea" },
       { name: "notes", label: "Notiz", type: "textarea" }
+    ]
+  },
+  akademieMarke: {
+    title: "Marke bearbeiten",
+    collection: "akademieMarken",
+    fields: [
+      { name: "name", label: "Marken-Name", type: "text", required: true },
+      { name: "herkunft", label: "Herkunft (JSON: {\"land\":\"…\",\"stadt\":\"…\",\"gruendung\":\"…\"})", type: "textarea",
+        transformIn: (v) => v && typeof v === "object" ? JSON.stringify(v) : (v || '{"land":"","stadt":"","gruendung":""}'),
+        transformOut: (v) => { try { const o = JSON.parse(v); return o && typeof o === "object" ? o : {}; } catch { return {}; } }
+      },
+      { name: "philosophie", label: "Philosophie / Origin-Story", type: "textarea" },
+      { name: "kategorien", label: "Kategorien (eine pro Zeile)", type: "textarea",
+        transformIn: (v) => Array.isArray(v) ? v.map((k) => typeof k === "string" ? k : (k.name || "")).filter(Boolean).join("\n") : (v || ""),
+        transformOut: (v) => String(v).split("\n").map((s) => s.trim()).filter(Boolean)
+      },
+      { name: "hero_produkte", label: "Hero-Produkte (eines pro Zeile)", type: "textarea",
+        transformIn: (v) => Array.isArray(v) ? v.map((h) => typeof h === "string" ? h : (h.name || h.produkt || "")).filter(Boolean).join("\n") : (v || ""),
+        transformOut: (v) => String(v).split("\n").map((s) => s.trim()).filter(Boolean)
+      },
+      { name: "verkaufsargumente", label: "Verkaufsargumente (eines pro Zeile)", type: "textarea",
+        transformIn: (v) => Array.isArray(v) ? v.map((a) => typeof a === "string" ? a : (a.argument || a.text || "")).filter(Boolean).join("\n") : (v || ""),
+        transformOut: (v) => String(v).split("\n").map((s) => s.trim()).filter(Boolean)
+      }
     ]
   },
   event: {
@@ -11280,12 +12134,15 @@ function openEdit(type, id) {
     if (!isNew) {
       deleteBtn.onclick = () => {
         const label = config.title.replace(" bearbeiten", "");
-        if (!confirm(`${label} "${entity.title || entity.name || entity.einwand || entity.text || entity.id}" wirklich löschen?`)) return;
-        state[config.collection] = state[config.collection].filter((x) => x.id !== id);
-        saveState();
-        render();
-        byId("edit-modal").close();
-        showToast("Gelöscht");
+        const itemLabel = entity.title || entity.name || entity.einwand || entity.text || entity.id;
+        tgConfirm(`${label} "${itemLabel}" wirklich löschen?`, (ok) => {
+          if (!ok) return;
+          state[config.collection] = state[config.collection].filter((x) => x.id !== id);
+          saveState();
+          render();
+          byId("edit-modal").close();
+          showToast("Gelöscht");
+        });
       };
     }
   }
@@ -11342,6 +12199,7 @@ document.querySelectorAll(".nav-item").forEach((button) => {
 
 document.querySelectorAll(".bottom-nav-item[data-view]").forEach((button) => {
   button.addEventListener("click", () => {
+    tgHaptic("selection");
     setView(button.dataset.view);
     updateBottomNavActive();
   });
@@ -11395,16 +12253,54 @@ document.addEventListener("keydown", (e) => {
 
 document.querySelectorAll(".sidebar .nav-item").forEach((b) => {
   b.addEventListener("click", () => {
+    tgHaptic("selection");
     setMobileDrawer(false);
     updateBottomNavActive();
   });
 });
+
+// === Collapsible nav groups ===
+(function initNavGroups() {
+  const STORAGE_KEY = "navGroupStates";
+  const saved = (() => { try { return JSON.parse(localStorage.getItem(STORAGE_KEY) || "{}"); } catch { return {}; } })();
+
+  document.querySelectorAll(".sidebar .nav-group[data-group]").forEach((group) => {
+    const key = group.dataset.group;
+    // Restore saved state; if no saved state, keep HTML default (collapsed class already set for non-daily groups)
+    if (key in saved) {
+      group.classList.toggle("collapsed", saved[key]);
+    }
+    const label = group.querySelector(".nav-label");
+    if (!label) return;
+    label.addEventListener("click", () => {
+      group.classList.toggle("collapsed");
+      saved[key] = group.classList.contains("collapsed");
+      try { localStorage.setItem(STORAGE_KEY, JSON.stringify(saved)); } catch {}
+    });
+  });
+
+  // Auto-expand group of active nav-item when setView is called
+  window._expandNavGroupForView = function(viewId) {
+    const btn = document.querySelector(`.sidebar .nav-item[data-view="${viewId}"]`);
+    if (!btn) return;
+    const group = btn.closest(".nav-group[data-group]");
+    if (!group || !group.classList.contains("collapsed")) return;
+    group.classList.remove("collapsed");
+    const key = group.dataset.group;
+    saved[key] = false;
+    try { localStorage.setItem(STORAGE_KEY, JSON.stringify(saved)); } catch {}
+  };
+})();
 
 const navSearchInput = byId("nav-search");
 if (navSearchInput) {
   const norm = (s) => String(s || "").toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g, "");
   const filterNav = () => {
     const q = norm(navSearchInput.value.trim());
+    // While searching: temporarily show items in collapsed groups
+    document.querySelectorAll(".sidebar .nav-group[data-group]").forEach((group) => {
+      group.classList.toggle("search-active", !!q);
+    });
     const items = document.querySelectorAll(".sidebar .nav-item");
     items.forEach((item) => {
       const text = norm(item.textContent);
@@ -11950,6 +12846,34 @@ async function callAi(systemPrompt, userPrompt) {
   return data.choices?.[0]?.message?.content?.trim() || "(leere Antwort)";
 }
 
+// Mehrstufige Konversation (für Live-Rollenspiel): voller Message-Verlauf statt nur 1 User-Prompt.
+async function callAiChat(systemPrompt, messages, temperature = 0.8) {
+  const cfg = loadAiConfig();
+  if (!cfg.apiKey) throw new Error("Kein KI-Key. ⚙ KI klicken.");
+  const url = cfg.provider === "openai"
+    ? "https://api.openai.com/v1/chat/completions"
+    : "https://api.deepseek.com/v1/chat/completions";
+  const response = await fetch(url, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${cfg.apiKey}`
+    },
+    body: JSON.stringify({
+      model: cfg.model,
+      messages: [{ role: "system", content: systemPrompt }, ...messages],
+      temperature
+    })
+  });
+  if (!response.ok) {
+    const text = await response.text();
+    console.warn("[KI-Fehler]", response.status, text.slice(0, 500));
+    throw new Error(`KI-Fehler ${response.status} — Details in der Browser-Konsole`);
+  }
+  const data = await response.json();
+  return data.choices?.[0]?.message?.content?.trim() || "(leere Antwort)";
+}
+
 async function aiSimulateStephan(topic) {
   const systemPrompt = `Du spielst Stephan, Inhaber von HFK (Herr und Frau Klein), einem mittelgroßen E-Commerce mit JTL Wawi und JTL-Shop. Du bist pragmatisch, geschäftsfokussiert, manchmal skeptisch. Du stellst Mago (Digital Sales & Data Lead) genau EINE Frage, die du als Geschäftsführer wirklich stellen würdest. Nur die Frage, keine Einleitung, kein Kontext, kein Drumherum. Maximal 2 Sätze.`;
   const userPrompt = topic
@@ -12022,11 +12946,50 @@ byId("print-week").addEventListener("click", () => {
   setTimeout(() => document.body.classList.remove("print-week"), 500);
 });
 
-// Boot: ERST von Server pullen (force=true), DANN setView - vermeidet Race wo
-// setView->saveState localStorage-Stale-Daten auf Disk schreibt bevor sync laeuft.
+// Boot: SOFORT mit localStorage rendern (kein Blank-Screen), DANN Server-Sync.
+// pushToServer ist durch _bootSyncDone blockiert, bis sync abgeschlossen —
+// verhindert dass staler localStorage-Stand den Server überschreibt.
 (async () => {
-  await syncFromServer(true);
-  setView(location.hash?.slice(1) || "dashboard");
+  const twa = window.Telegram?.WebApp;
+  let targetView = location.hash?.slice(1) || "dashboard";
+
+  // === HARTE ROLLEN-GATE (Telegram-Kontext) ===
+  // Erst Auth/Rolle klären, bevor irgendetwas gerendert wird. Verhindert dass ein
+  // Mitarbeiter kurz ungefilterten localStorage-Full-State (z.B. #dashboard) sieht.
+  if (twa?.initData) {
+    // Auf tg-auth warten (mit 5s-Fallback, damit Boot nie hängt)
+    try {
+      await Promise.race([
+        window._tgAuthPromise || Promise.resolve(null),
+        new Promise((r) => setTimeout(r, 5000))
+      ]);
+    } catch {}
+    const allowed = tmaAllowedViews(); // null = Admin/keine Sperre
+    if (allowed) {
+      // Mitarbeiter: Ziel-View auf Erlaubtes klemmen UND erst NACH gefiltertem
+      // Server-Sync rendern (kein stale Full-State aus localStorage zeigen).
+      if (!allowed.has(targetView)) targetView = allowed.has("akademie") ? "akademie" : [...allowed][0];
+      await syncFromServer(true);
+      _bootSyncDone = true;
+      setView(targetView);
+      applyTmaRoleLock();
+      return;
+    }
+    if (!window.tmaRole) {
+      // Auth in Telegram unklar (Timeout/Fehler) → fail-safe: nichts Sensibles rendern.
+      // Server liefert ohne gültige Session ohnehin 401; wir zeigen nur eine neutrale View.
+      await syncFromServer(true);
+      _bootSyncDone = true;
+      setView(byId("akademie") ? "akademie" : targetView);
+      return;
+    }
+  }
+
+  // Admin / Browser (mit Session): wie gehabt — sofort rendern, dann sync.
+  setView(targetView);               // sofort rendern — localStorage ist schnell
+  await syncFromServer(true);        // Hintergrund-Sync: überschreibt wenn Server neuer
+  _bootSyncDone = true;              // ab jetzt darf pushToServer senden
+  if (window.tmaRole) applyTmaRoleLock();
 })();
 
 window.addEventListener("hashchange", () => {
@@ -12035,32 +12998,22 @@ window.addEventListener("hashchange", () => {
 
 updateOfflineIndicator();
 
-// Realtime-Sync via Server-Sent Events
-let sseConnection = null;
-function startSseSync() {
-  if (typeof EventSource === "undefined") return;
-  try {
-    sseConnection = new EventSource("/api/state/stream");
-    sseConnection.addEventListener("state-updated", (event) => {
-      try {
-        const payload = JSON.parse(event.data);
-        // Eigene Updates ignorieren
-        if (payload.clientId === MAGALOKO_CLIENT_ID) return;
-        // Anderes Gerät / anderer Tab hat State geändert — re-sync
-        const localUpdated = Number(state.updatedAt || 0);
-        if (payload.updatedAt > localUpdated) {
-          syncFromServer().then(() => showToast("Update aus anderem Gerät"));
-        }
-      } catch {}
-    });
-    sseConnection.onerror = () => {
-      // Browser reconnected automatisch — kein Handling nötig
-    };
-  } catch (error) {
-    console.warn("SSE-Verbindung fehlgeschlagen:", error);
-  }
+// Near-Realtime-Sync via Polling (serverless-tauglich; ersetzt SSE).
+// Pull bei Tab-Sichtbarkeit + alle 25 s, solange sichtbar & online. syncFromServer
+// übernimmt nur, wenn der Server-Stand neuer ist — daher idempotent/günstig.
+let _pollTimer = null;
+function _pollOnce() {
+  if (document.visibilityState !== "visible" || !navigator.onLine) return;
+  if (!_bootSyncDone) return; // erst nach initialem Boot-Sync
+  syncFromServer(false).catch(() => {});
 }
-startSseSync();
+function startStateSync() {
+  if (_pollTimer) clearInterval(_pollTimer);
+  _pollTimer = setInterval(_pollOnce, 25000);
+  document.addEventListener("visibilitychange", () => { if (document.visibilityState === "visible") _pollOnce(); });
+  window.addEventListener("online", _pollOnce);
+}
+startStateSync();
 if (hasPendingSave() && navigator.onLine) flushOfflineQueue();
 
 // Service Worker registrieren
@@ -12096,7 +13049,7 @@ window.addEventListener("appinstalled", () => {
 // Auth-Status laden und UI entsprechend setzen
 fetch("/auth/status").then((r) => r.json()).then((s) => {
   if (s.authenticated) {
-    byId("auth-status-label").textContent = `Eingeloggt als ${s.email}`;
+    byId("auth-status-label").textContent = s.role ? `Eingeloggt · Rolle: ${s.role}` : "Eingeloggt";
     byId("logout-btn").hidden = false;
   } else if (s.requireAuth) {
     byId("auth-status-label").textContent = "Nicht eingeloggt";
@@ -12197,7 +13150,7 @@ function openDashboardPersonalize() {
     <div style="display:grid;gap:6px;">
       ${DASHBOARD_CARDS.map((c) => `
         <label style="display:flex;align-items:center;gap:10px;font-weight:500;text-transform:none;letter-spacing:0;">
-          <input type="checkbox" data-hide-card="${c.id}" ${prefs.hiddenCards.includes(c.id) ? "checked" : ""} />
+          <input type="checkbox" data-hide-card="${safeDataId(c.id)}" ${prefs.hiddenCards.includes(c.id) ? "checked" : ""} />
           ${escapeHtml(c.label)} ausblenden
         </label>
       `).join("")}
@@ -12539,29 +13492,8 @@ byId("logout-btn").addEventListener("click", async () => {
   location.href = "/login.html";
 });
 
-// === Workspace-Chip wiring ===
-byId("workspace-chip")?.addEventListener("click", () => setView("home"));
-
-// Beim Boot: Workspace-UI anwenden + auf Home starten falls noch nie ein Workspace gewählt
-(function workspaceBoot() {
-  applyWorkspaceUI();
-  // Wenn URL keinen Hash hat → Home zeigen (Projekt-Picker), sonst Hash respektieren
-  if (!location.hash || location.hash === "#" || location.hash === "#dashboard") {
-    // Default-Verhalten beibehalten: dashboard (nur User der das schon kennt sieht direkt seinen Kontext)
-    // Aber: wenn currentWorkspace noch nicht explizit gespeichert wurde, lieber zur Home leiten
-    if (!localStorage.getItem("magaloko:workspace-picked")) {
-      setTimeout(() => setView("home"), 0);
-    }
-  }
-})();
-
-// Sobald jemand einen Workspace via Card wählt → merken dass er das schon mal gemacht hat
-const _origSwitchWorkspace = switchWorkspace;
-window.switchWorkspace = function(id) {
-  const ok = _origSwitchWorkspace(id);
-  if (ok) localStorage.setItem("magaloko:workspace-picked", "1");
-  return ok;
-};
+// HFK ist der einzige Workspace — immer aktiv
+applyWorkspaceUI();
 
 // === Team-Notizen Wiring ===
 byId("tn-add")?.addEventListener("click", addTeamNote);
@@ -12582,6 +13514,7 @@ byId("ak-add-service")?.addEventListener("click", () => openEdit("consultingServ
 byId("ak-add-persona")?.addEventListener("click", () => openEdit("salesPersona", null));
 byId("ak-add-objection")?.addEventListener("click", () => openEdit("salesObjection", null));
 byId("ak-add-scenario")?.addEventListener("click", () => openEdit("trainingScenario", null));
+byId("ak-add-marke")?.addEventListener("click", () => openEdit("akademieMarke", null));
 byId("ak-add-staff-training")?.addEventListener("click", () => openEdit("staffTrainingEntry", null));
 byId("ak-objection-filter")?.addEventListener("change", (e) => { akObjectionFilter = e.target.value; renderAkObjections(); });
 byId("ak-drill-marke-filter")?.addEventListener("change", (e) => { akDrillMarkeFilter = e.target.value; renderAkDrills(); });
@@ -12619,6 +13552,30 @@ byId("ak-runner-next")?.addEventListener("click", () => {
   }
   akRunnerState.stepIdx++;
   renderAkRunnerStep();
+});
+
+// === Tastatur-Steuerung für alle Akademie-Trainer (Desktop) ===
+// 1-4 / A-D wählt eine Antwort, Enter = Weiter/Zurück-Footer-Button.
+document.addEventListener("keydown", (e) => {
+  if (e.metaKey || e.ctrlKey || e.altKey) return;
+  // aktives Runner-Modal bestimmen (Szenario/Quiz/Drill oder Rollenspiel)
+  const scen = byId("ak-scenario-runner");
+  const rp = byId("ak-rp-runner");
+  const modal = scen?.open ? scen : rp?.open ? rp : null;
+  if (!modal) return;
+  const tag = (e.target?.tagName || "").toLowerCase();
+  if (tag === "input" || tag === "textarea" || tag === "select") return; // Eingabefelder nicht stören
+  const body = modal.querySelector(".ak-runner-body, .ak-rp-body") || modal;
+  const map = { "1": 0, "2": 1, "3": 2, "4": 3, a: 0, b: 1, c: 2, d: 3 };
+  const key = e.key.toLowerCase();
+  if (key in map) {
+    const opts = body.querySelectorAll(".ak-quiz-opt, .ak-runner-option, .ak-rp-pt");
+    const btn = opts[map[key]];
+    if (btn && btn.style.pointerEvents !== "none" && !btn.disabled) { e.preventDefault(); btn.click(); }
+  } else if (e.key === "Enter") {
+    const next = modal === rp ? byId("ak-rp-next") : byId("ak-runner-next");
+    if (next && !next.hidden) { e.preventDefault(); next.click(); }
+  }
 });
 
 // === Marktanalyse Wiring ===

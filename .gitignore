@@ -3,14 +3,17 @@ config/auth.json
 config/telegram.json
 config/sessions.json
 
-# === Laufzeit-Daten (Geschäftsdaten + Kunden-bezogen) ===
-data/state.json
-data/state.*.json
-data/backups/
-data/audit.jsonl
-data/bot-scores.jsonl
-data/sessions.json
-data/last-magic-link.txt
+# === Laufzeit-Daten (Geschäftsdaten + Kunden-bezogen) — komplett raus ===
+data/
+# alle Config-JSONs außer dem Secret-freien Beispiel
+config/*.json
+!config/telegram.example.json
+
+# === Deploy / Tooling ===
+.vercel/
+.claude/
+audit/
+backups/
 
 # === Große Importe / generierte Inhalte (nicht Teil des Code-Audits) ===
 lernsystem-2026/

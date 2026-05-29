@@ -11,6 +11,7 @@
     <link rel="icon" href="/icon.svg" type="image/svg+xml" />
     <link rel="apple-touch-icon" href="/icon.svg" />
     <title>MAGALOKO Login</title>
+    <script src="https://telegram.org/js/telegram-web-app.js"></script>
     <link rel="stylesheet" href="./styles.css" />
     <style>
       body { display: grid; place-items: center; min-height: 100vh; background: var(--bg); }
@@ -105,53 +106,32 @@
           <p class="muted" style="margin:0;font-size:12px;">Mago Cockpit</p>
         </div>
       </div>
-      <p class="muted">Gib deine E-Mail ein — du bekommst einen Login-Link, gültig 15 Minuten.</p>
-      <form id="login-form" autocomplete="off">
-        <label for="email">E-Mail-Adresse</label>
-        <input type="email" id="email" name="email" placeholder="mago@beispiel.de" required autofocus />
-        <button type="submit" class="button primary" id="submit-btn">Link senden</button>
-      </form>
+      <p class="muted">MAGALOKO läuft als Telegram Mini App. Bitte öffne das Cockpit direkt über den Telegram-Bot.</p>
       <div id="login-status" class="login-status"></div>
-      <p class="login-footer">Keine Passwörter. Kein Tracking. Nur ein Link an deine Mail.</p>
+      <p class="login-footer">🔒 Zugang nur über Telegram — keine Passwörter, keine E-Mail.</p>
     </main>
     <script>
-      const form = document.getElementById("login-form");
       const status = document.getElementById("login-status");
-      const submit = document.getElementById("submit-btn");
-      const emailInput = document.getElementById("email");
 
       function showStatus(message, type) {
         status.textContent = message;
         status.className = "login-status show " + (type || "");
       }
 
-      form.addEventListener("submit", async (event) => {
-        event.preventDefault();
-        const email = emailInput.value.trim();
-        if (!email) return;
-        submit.disabled = true;
-        submit.textContent = "Sende …";
-        try {
-          const response = await fetch("/auth/request", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ email })
-          });
-          const data = await response.json();
-          if (!response.ok) throw new Error(data.error || "Fehler");
-          if (data.smtp) {
-            showStatus("Mail unterwegs! Schau in dein Postfach und klick den Link.", "success");
-          } else {
-            showStatus(data.message || "Link erzeugt — siehe Server-Konsole / data/last-magic-link.txt (Dev-Modus)", "success");
-          }
-        } catch (error) {
-          showStatus(error.message, "error");
-        } finally {
-          submit.disabled = false;
-          submit.textContent = "Link senden";
-        }
-      });
-
+      // Telegram Mini App: automatisch per initData einloggen (HMAC-verifiziert am Server)
+      const tg = window.Telegram && window.Telegram.WebApp;
+      if (tg && tg.initData) {
+        try { tg.ready(); } catch (e) {}
+        showStatus("Telegram-Login läuft …", "");
+        fetch("/api/tg-auth", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ initData: tg.initData })
+        }).then((r) => {
+          if (r.ok) { location.href = "/"; }
+          else { showStatus("Kein Zugriff — bitte bei Mago melden.", "error"); }
+        }).catch(() => showStatus("Verbindungsfehler. Bitte erneut öffnen.", "error"));
+      }
       // Wenn schon eingeloggt, redirect zur Hauptseite
       fetch("/auth/status").then((r) => r.json()).then((s) => {
         if (s.authenticated) location.href = "/";

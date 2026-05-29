@@ -4,7 +4,34 @@ import { createReadStream } from "node:fs";
 import { createInterface } from "node:readline";
 import { extname, dirname, join, normalize, resolve, sep } from "node:path";
 import { fileURLToPath } from "node:url";
-import { createHash, randomBytes, timingSafeEqual } from "node:crypto";
+import { createHash, createHmac, randomBytes, timingSafeEqual } from "node:crypto";
+import { gzip, brotliCompress, constants as zlibConstants } from "node:zlib";
+import { promisify } from "node:util";
+
+const gzipAsync = promisify(gzip);
+const brotliAsync = promisify(brotliCompress);
+
+// Komprimierbare MIME-Types (Text-basiert — binäre Files nicht komprimieren)
+const COMPRESSIBLE = new Set([
+  "text/html", "text/css", "text/javascript", "application/javascript",
+  "application/json", "image/svg+xml", "text/plain", "application/manifest+json"
+]);
+
+// In-Memory-Cache für komprimierte statische Files (invalidiert bei Server-Restart)
+const compressCache = new Map(); // key: `${path}:${encoding}` → Buffer
+
+async function compressResponse(data, acceptEncoding, contentType) {
+  const mime = contentType?.split(";")[0].trim();
+  if (!COMPRESSIBLE.has(mime)) return { data, encoding: null };
+  const supportsBr = /\bbr\b/.test(acceptEncoding || "");
+  const supportsGzip = /\bgzip\b/.test(acceptEncoding || "");
+  if (!supportsBr && !supportsGzip) return { data, encoding: null };
+  const encoding = supportsBr ? "br" : "gzip";
+  return { data: encoding === "br"
+    ? await brotliAsync(data, { params: { [zlibConstants.BROTLI_PARAM_QUALITY]: 4 } })
+    : await gzipAsync(data, { level: 6 }),
+    encoding };
+}
 
 const port = Number(process.env.PORT || 4177);
 const bindHost = process.env.HOST || "127.0.0.1"; // Cloudflare Tunnel braucht nur 127.0.0.1
@@ -21,9 +48,6 @@ const authConfigPath = join(configDir, "auth.json");
 const MAX_BODY = 5 * 1024 * 1024;
 const MAX_ATTACHMENT = 20 * 1024 * 1024; // 20 MB pro File
 const SESSION_DAYS = 30;
-const TOKEN_TTL_MIN = 15;
-const RATE_LIMIT_WINDOW = 15 * 60 * 1000; // 15 min
-const RATE_LIMIT_MAX = 5;
 
 // ============================================================
 // Auth-Konfiguration
@@ -31,8 +55,6 @@ const RATE_LIMIT_MAX = 5;
 
 let authConfig = null;
 let sessions = {}; // { token: { email, createdAt, lastSeen, ua } }
-let pendingTokens = {}; // { token: { email, createdAt } }
-let rateLimitBuckets = {}; // { ip: [timestamps] }
 const sseClients = new Map(); // clientId → response
 
 function broadcastSse(event, data, excludeClientId = null) {
@@ -65,6 +87,33 @@ function getSessionEmail(request) {
   const token = cookies.magaloko_session;
   if (!token) return null;
   return sessions[hashToken(token)]?.email || null;
+}
+
+// Admin-Bestimmung: autoritativ aus der Telegram-Session (tgRole), unabhängig von E-Mail.
+// Legacy-E-Mail-Admin bleibt als Fallback bis der E-Mail-Auth-Flow entfernt ist.
+function isSessionAdmin(request) {
+  const cookies = parseCookies(request.headers.cookie);
+  const token = cookies.magaloko_session;
+  const sess = token ? sessions[hashToken(token)] : null;
+  if (!sess) return false;
+  if (sess.tgRole === "admin") return true;
+  const adminEmail = (authConfig.allowedEmails || [])[0] || null;
+  return !!(adminEmail && sess.email === adminEmail);
+}
+
+// PII-Sperre: Telegram-Mitarbeiter dürfen KEINE Kunden-/Bestelldaten abrufen,
+// selbst wenn sie das Produkt-Modul haben (Produkt = Artikel/Lieferanten, NICHT Kunden-PII).
+// Gibt true zurück (und schreibt 403) wenn der Request blockiert werden soll.
+function denyEmployeePii(request, response) {
+  const cookies = parseCookies(request.headers.cookie);
+  const token = cookies.magaloko_session;
+  const sess = token ? sessions[hashToken(token)] : null;
+  if (sess && sess.tgRole === "mitarbeiter") {
+    response.writeHead(403, { "Content-Type": mimeTypes[".json"] });
+    response.end(JSON.stringify({ error: "Kundendaten für deine Rolle nicht freigegeben" }));
+    return true;
+  }
+  return false;
 }
 
 function generateStephanOtp() {
@@ -143,11 +192,10 @@ async function loadAuthConfig() {
     authConfig = JSON.parse(raw);
     // Auto-Migration: fehlende Felder ergänzen
     let dirty = false;
-    if (!authConfig.stephanToken) { authConfig.stephanToken = randomBytes(16).toString("base64url"); dirty = true; }
     if (authConfig.slackWebhook === undefined) { authConfig.slackWebhook = null; dirty = true; }
     if (dirty) {
       await writeFile(authConfigPath, JSON.stringify(authConfig, null, 2));
-      console.log("Auth-Config ergänzt (Stephan-Token, Slack-Webhook).");
+      console.log("Auth-Config ergänzt (Slack-Webhook).");
     }
   } catch (error) {
     if (error.code === "ENOENT") {
@@ -157,7 +205,6 @@ async function loadAuthConfig() {
         sessionSecret: randomBytes(32).toString("hex"),
         smtp: null,
         publicUrl: null,
-        stephanToken: randomBytes(16).toString("base64url"),
         slackWebhook: null
       };
       await mkdir(configDir, { recursive: true });
@@ -217,6 +264,44 @@ function parseCookies(header) {
   return out;
 }
 
+// === Rollenbasierter State-Filter ===
+// Mitarbeiter sehen NUR Akademie-Daten (+ Produkt-Daten falls Modul freigeschaltet).
+// Alle anderen Geschäfts-/Finanz-/Kundendaten werden server-seitig entfernt.
+const TG_AKADEMIE_KEYS = [
+  "consultingServices", "salesPersonas", "salesObjections", "trainingScenarios",
+  "staffTraining", "akademieDrills", "akademieMarken", "akademieRoleplays", "brands"
+];
+const TG_PRODUKT_KEYS = [
+  "vipArticles", "jtlManufacturers", "jtlSuppliers", "sortimentRules", "sortimentStats"
+];
+
+function filterStateForTgRole(full, modules) {
+  const allowed = new Set(TG_AKADEMIE_KEYS);
+  if (Array.isArray(modules) && modules.includes("produkt")) {
+    TG_PRODUKT_KEYS.forEach((k) => allowed.add(k));
+  }
+  // Quelle: HFK-Workspace bevorzugen, sonst Top-Level
+  const srcWs = full.workspaces?.hfk?.data || full;
+  const filteredData = {};
+  for (const k of allowed) {
+    if (k in srcWs) filteredData[k] = srcWs[k];
+  }
+  // Workspace-Hülle erhalten (App bootet sauber), aber nur erlaubte Daten
+  const out = {};
+  if (full.workspaces) {
+    out.workspaces = {};
+    for (const [wsId, ws] of Object.entries(full.workspaces)) {
+      const meta = { ...ws };
+      delete meta.data;
+      out.workspaces[wsId] = { ...meta, data: wsId === "hfk" ? filteredData : {} };
+    }
+  }
+  if (full.activeWorkspace) out.activeWorkspace = full.activeWorkspace;
+  // Akademie-Daten auch auf Top-Level spiegeln (App liest teils Top-Level)
+  Object.assign(out, filteredData);
+  return out;
+}
+
 function getSessionFromRequest(request) {
   const cookies = parseCookies(request.headers.cookie);
   const token = cookies.magaloko_session;
@@ -258,58 +343,6 @@ function clientIp(request) {
     if (fwd) return fwd;
   }
   return request.socket?.remoteAddress || "unknown";
-}
-
-function checkRateLimit(ip) {
-  const now = Date.now();
-  const cutoff = now - RATE_LIMIT_WINDOW;
-  if (!rateLimitBuckets[ip]) rateLimitBuckets[ip] = [];
-  rateLimitBuckets[ip] = rateLimitBuckets[ip].filter((t) => t > cutoff);
-  if (rateLimitBuckets[ip].length >= RATE_LIMIT_MAX) return false;
-  rateLimitBuckets[ip].push(now);
-  return true;
-}
-
-async function sendMagicLink(email, link) {
-  // Falls SMTP konfiguriert ist → echt versenden. Sonst Dev-Modus: in Datei + Konsole.
-  if (authConfig.smtp?.host && authConfig.smtp?.user && authConfig.smtp?.pass) {
-    try {
-      const nodemailer = await import("nodemailer").catch(() => null);
-      if (!nodemailer) {
-        console.warn("nodemailer nicht installiert — Magic-Link nur in Datei");
-      } else {
-        const transporter = nodemailer.default.createTransport({
-          host: authConfig.smtp.host,
-          port: authConfig.smtp.port || 587,
-          secure: authConfig.smtp.secure || false,
-          auth: { user: authConfig.smtp.user, pass: authConfig.smtp.pass }
-        });
-        await transporter.sendMail({
-          from: authConfig.smtp.from || authConfig.smtp.user,
-          to: email,
-          subject: "MAGALOKO Login-Link",
-          text: `Klicke diesen Link um dich bei MAGALOKO einzuloggen (gültig ${TOKEN_TTL_MIN} Minuten):\n\n${link}`,
-          html: `<p>Klicke diesen Link um dich bei MAGALOKO einzuloggen:</p><p><a href="${link}">${link}</a></p><p>Gültig ${TOKEN_TTL_MIN} Minuten.</p>`
-        });
-        console.log(`→ Magic-Link an ${email} versendet`);
-        return { sent: true };
-      }
-    } catch (error) {
-      console.error("SMTP-Fehler:", error.message);
-    }
-  }
-  // Fail-closed (Audit-Finding #10): bei aktiver Auth ohne SMTP KEINEN Dev-Link
-  // in Datei/Konsole schreiben — das wäre ein abgreifbarer Login.
-  if (authConfig.requireAuth) {
-    console.error("SMTP fehlt — Magic-Link kann nicht versendet werden. Bitte authConfig.smtp konfigurieren.");
-    return { sent: false, error: "SMTP nicht konfiguriert" };
-  }
-  // Nur im Dev-Modus (requireAuth:false): Link lokal ablegen zum Testen.
-  const devFile = join(dataDir, "last-magic-link.txt");
-  await mkdir(dataDir, { recursive: true });
-  await writeFile(devFile, `${new Date().toISOString()}\nEmail: ${email}\nLink: ${link}\n`, "utf8");
-  console.log(`\n=== MAGIC LINK (Dev-Modus, requireAuth:false) ===\nEmail: ${email}\nLink:  ${link}\nDatei: ${devFile}\n==============================\n`);
-  return { sent: false, devFile };
 }
 
 const hfkExportRoot = resolve(root, "..");
@@ -746,6 +779,146 @@ function searchArticles(q, limit = 30, manufacturerId = 0) {
   return { rows: enriched, total: matches.length, abcReady: !!abcMap };
 }
 
+// === RAG-Retrieval über Artikel-Index (BM25) ===
+// Lehrbuch "RAG-Systeme: von Theorie zur Praxis", Kap. 5: BM25 mit IDF-Gewichtung,
+// TF-Sättigung (k1) und Längen-Normalisierung (b). Feld-Gewichtung (Name/Marke > Suchbegriffe)
+// via Token-Vervielfachung (BM25F-Approximation). Invertierter Index → nur relevante Docs scoren.
+const RAG_STOPWORDS = new Set([
+  "was","wie","der","die","das","ist","sind","haben","wir","habt","ihr","ein","eine","einen",
+  "von","vom","fuer","den","dem","des","und","oder","mit","im","in","am","an","auf","gibt","es",
+  "kostet","kosten","preis","lager","bestand","welche","welcher","welches","mir","mal","bitte",
+  "zeig","zeige","suche","brauche","ich","kann","man","noch","zur","zum","viel","wieviel","euro"
+]);
+const BM25_K1 = 1.5, BM25_B = 0.75;
+// Feld-Gewichte (wie oft ein Token aus dem Feld in den "Dokument-Bag" gezählt wird)
+const RAG_FIELD_WEIGHTS = { name: 3, marke: 3, artnr: 2, such: 1 };
+
+function ragTokenize(s) {
+  return normalizeForSearch(s || "").split(/\s+/).filter(t => t.length >= 2 && !RAG_STOPWORDS.has(t));
+}
+
+// Baut invertierten BM25-Index einmalig, gecached an articleIndexCache.
+function buildRagBm25() {
+  if (!articleIndexCache) return null;
+  if (articleIndexCache._bm25) return articleIndexCache._bm25;
+  const t0 = Date.now();
+  const rows = articleIndexCache.rows;
+  const postings = new Map();   // token -> Array<[docIdx, tf]>
+  const df = new Map();         // token -> doc count
+  const docLen = new Float64Array(rows.length);
+  let totalLen = 0;
+  for (let i = 0; i < rows.length; i++) {
+    const r = rows[i];
+    const bag = new Map(); // token -> gewichtete tf
+    const addField = (text, w) => {
+      for (const tok of ragTokenize(text)) bag.set(tok, (bag.get(tok) || 0) + w);
+    };
+    addField(r.name || r.a, RAG_FIELD_WEIGHTS.name);
+    addField(r.herstName, RAG_FIELD_WEIGHTS.marke);
+    addField(r.a + " " + (r.han || ""), RAG_FIELD_WEIGHTS.artnr);
+    addField(r.such, RAG_FIELD_WEIGHTS.such);
+    let len = 0;
+    for (const [tok, tf] of bag) {
+      len += tf;
+      if (!postings.has(tok)) postings.set(tok, []);
+      postings.get(tok).push([i, tf]);
+      df.set(tok, (df.get(tok) || 0) + 1);
+    }
+    docLen[i] = len;
+    totalLen += len;
+  }
+  const avgdl = rows.length ? totalLen / rows.length : 0;
+  const bm25 = { postings, df, docLen, avgdl, N: rows.length };
+  articleIndexCache._bm25 = bm25;
+  console.log(`[rag/bm25] Index gebaut: ${rows.length} Docs, ${postings.size} Terme, ${Date.now() - t0}ms`);
+  return bm25;
+}
+
+function ragSearchArticles(q, k = 5) {
+  if (!articleIndexCache) return [];
+  const bm = buildRagBm25();
+  if (!bm) return [];
+  const qTokens = [...new Set(ragTokenize(q))];
+  if (!qTokens.length) return [];
+  const scores = new Map(); // docIdx -> score
+  for (const term of qTokens) {
+    const plist = bm.postings.get(term);
+    if (!plist) continue;
+    // IDF (BM25, mit +0.5-Glättung) — seltene Begriffe (Marken) wiegen stärker
+    const idf = Math.log(1 + (bm.N - plist.length + 0.5) / (plist.length + 0.5));
+    for (const [i, tf] of plist) {
+      const norm = tf * (BM25_K1 + 1) / (tf + BM25_K1 * (1 - BM25_B + BM25_B * bm.docLen[i] / (bm.avgdl || 1)));
+      scores.set(i, (scores.get(i) || 0) + idf * norm);
+    }
+  }
+  if (!scores.size) return [];
+  const ranked = [...scores.entries()]
+    .map(([i, s]) => {
+      const r = articleIndexCache.rows[i];
+      // leichter Bonus für aktive Artikel mit Bestand (Verkäuflichkeit)
+      const boost = (r.akt ? 0.15 : 0) + (r.bestand > 0 ? 0.1 : 0);
+      return { r, s: s * (1 + boost) };
+    })
+    .sort((a, b) => b.s - a.s)
+    .slice(0, k);
+  return ranked.map(({ r }) => ({
+    name: r.name || r.a || "",
+    marke: r.herstName || "",
+    artNr: r.a || "",
+    han: r.han || "",
+    preis: r.vk || 0,
+    uvp: r.uvp || 0,
+    bestand: r.bestand || 0,
+    aktiv: !!r.akt
+  }));
+}
+
+// === Manuell gepflegtes Produktwissen (Alter/Material/Pflege/USPs) ===
+// Liegt im hfk-Workspace (state.workspaces.hfk.data.produktWissen). Kurzer TTL-Cache.
+let _pwCache = null, _pwTs = 0;
+const PW_TTL = 10000;
+async function loadProduktWissen() {
+  const now = Date.now();
+  if (_pwCache && now - _pwTs < PW_TTL) return _pwCache;
+  try {
+    const state = JSON.parse(await readFile(statePath, "utf8"));
+    const ws = state.workspaces?.hfk?.data || state;
+    _pwCache = Array.isArray(ws.produktWissen) ? ws.produktWissen : [];
+  } catch { _pwCache = []; }
+  _pwTs = now;
+  return _pwCache;
+}
+
+// Kleines Korpus → leichtgewichtiges feldgewichtetes Token-Scoring (kein BM25-Index nötig).
+async function ragSearchKnowledge(q, k = 3) {
+  const entries = await loadProduktWissen();
+  if (!entries.length) return [];
+  const qTokens = [...new Set(ragTokenize(q))];
+  if (!qTokens.length) return [];
+  const scored = [];
+  for (const e of entries) {
+    const titel = new Set(ragTokenize(e.titel || ""));
+    const marke = new Set(ragTokenize(e.marke || ""));
+    const tags = new Set(ragTokenize(Array.isArray(e.tags) ? e.tags.join(" ") : (e.tags || "")));
+    const text = new Set(ragTokenize(e.text || ""));
+    let score = 0;
+    for (const t of qTokens) {
+      if (titel.has(t)) score += 4;
+      else if (marke.has(t)) score += 3;
+      else if (tags.has(t)) score += 2;
+      else if (text.has(t)) score += 1;
+    }
+    if (score > 0) scored.push({ e, score });
+  }
+  scored.sort((a, b) => b.score - a.score);
+  return scored.slice(0, k).map(({ e }) => ({
+    titel: e.titel || "",
+    marke: e.marke || "",
+    text: e.text || "",
+    tags: Array.isArray(e.tags) ? e.tags.join(", ") : (e.tags || "")
+  }));
+}
+
 function searchAddresses(q, limit = 30) {
   if (!addressIndexCache) return { rows: [], total: 0, hint: "Index nicht geladen" };
   const needle = normalizeForSearch(q);
@@ -925,107 +1098,8 @@ async function handleAuth(request, response, url) {
     response.end(JSON.stringify({
       requireAuth: authConfig.requireAuth,
       authenticated: !!sess,
-      email: sess?.email || null,
-      hasSmtp: !!authConfig.smtp?.host
+      role: sess?.tgRole || null
     }));
-    return true;
-  }
-
-  if (url.pathname === "/auth/request" && request.method === "POST") {
-    // Audit-Finding R9: CSRF-Schutz für Magic-Link-Request
-    if (!requireSameOrigin(request)) {
-      response.writeHead(403, { "Content-Type": mimeTypes[".json"] });
-      response.end(JSON.stringify({ error: "CSRF: Origin nicht erlaubt" }));
-      return true;
-    }
-    const ip = clientIp(request);
-    if (!checkRateLimit(ip)) {
-      audit("auth.rate_limit", { ip });
-      response.writeHead(429, { "Content-Type": mimeTypes[".json"] });
-      response.end(JSON.stringify({ error: "zu viele Versuche, warte 15 Minuten" }));
-      return true;
-    }
-    try {
-      const body = await readBody(request);
-      const { email } = JSON.parse(body);
-      const cleanEmail = String(email || "").trim().toLowerCase();
-      if (!cleanEmail || !cleanEmail.includes("@")) {
-        response.writeHead(400, { "Content-Type": mimeTypes[".json"] });
-        response.end(JSON.stringify({ error: "ungültige Mail" }));
-        return true;
-      }
-      const allowed = (authConfig.allowedEmails || []).map((e) => e.toLowerCase());
-      if (allowed.length && !allowed.includes(cleanEmail)) {
-        // Aus Sicherheitsgründen kein Hinweis ob Mail bekannt — gleiche Antwort
-        audit("auth.request.denied", { ip, email: cleanEmail });
-        response.writeHead(200, { "Content-Type": mimeTypes[".json"] });
-        response.end(JSON.stringify({ ok: true, message: "Wenn die Adresse zugelassen ist, ist der Link unterwegs." }));
-        return true;
-      }
-      // Token erzeugen
-      const token = randomBytes(32).toString("base64url");
-      const hashed = hashToken(token);
-      pendingTokens[hashed] = { email: cleanEmail, createdAt: Date.now() };
-      // Aufräumen alter pending Tokens
-      const cutoff = Date.now() - TOKEN_TTL_MIN * 60 * 1000;
-      for (const [h, t] of Object.entries(pendingTokens)) {
-        if (t.createdAt < cutoff) delete pendingTokens[h];
-      }
-      // Audit-Finding R7: Host-Header-Injection verhindern — niemals Host-Header für Auth-Links nutzen
-      const baseUrl = authConfig.publicUrl || `http://127.0.0.1:${port}`;
-      const link = `${baseUrl}/auth/verify?token=${encodeURIComponent(token)}`;
-      const result = await sendMagicLink(cleanEmail, link);
-      audit("auth.request.sent", { ip, email: cleanEmail, smtp: result.sent });
-      response.writeHead(200, { "Content-Type": mimeTypes[".json"] });
-      response.end(JSON.stringify({
-        ok: true,
-        smtp: result.sent,
-        message: result.sent ? "Link an deine Mail geschickt." : `Dev-Modus: Link in ${result.devFile}`
-      }));
-    } catch (error) {
-      response.writeHead(400, { "Content-Type": mimeTypes[".json"] });
-      response.end(JSON.stringify({ error: error.message }));
-    }
-    return true;
-  }
-
-  if (url.pathname === "/auth/verify" && request.method === "GET") {
-    const token = url.searchParams.get("token");
-    if (!token) {
-      response.writeHead(400, { "Content-Type": "text/html; charset=utf-8" });
-      response.end("<h1>Fehlender Token</h1><p><a href='/'>Zurück</a></p>");
-      return true;
-    }
-    const hashed = hashToken(token);
-    const pending = pendingTokens[hashed];
-    if (!pending) {
-      audit("auth.verify.invalid", { ip: clientIp(request) });
-      response.writeHead(400, { "Content-Type": "text/html; charset=utf-8" });
-      response.end("<h1>Link ungültig oder abgelaufen</h1><p><a href='/'>Neuen Link anfordern</a></p>");
-      return true;
-    }
-    const age = Date.now() - pending.createdAt;
-    if (age > TOKEN_TTL_MIN * 60 * 1000) {
-      delete pendingTokens[hashed];
-      response.writeHead(400, { "Content-Type": "text/html; charset=utf-8" });
-      response.end("<h1>Link abgelaufen</h1><p><a href='/'>Neuen Link anfordern</a></p>");
-      return true;
-    }
-    // Token konsumieren, Session erstellen
-    delete pendingTokens[hashed];
-    const sessionToken = randomBytes(32).toString("base64url");
-    const sessionHashed = hashToken(sessionToken);
-    sessions[sessionHashed] = {
-      email: pending.email,
-      createdAt: Date.now(),
-      lastSeen: Date.now(),
-      ua: request.headers["user-agent"] || ""
-    };
-    await saveSessions();
-    audit("auth.login", { ip: clientIp(request), email: pending.email });
-    setSessionCookie(response, sessionToken, request);
-    response.writeHead(302, { Location: "/" });
-    response.end();
     return true;
   }
 
@@ -1055,12 +1129,22 @@ async function handleAuth(request, response, url) {
   return false;
 }
 
+// Öffentliche Shell-Assets: enthalten KEINE Geschäftsdaten (nur Client-Code/Styling).
+// Nötig damit Login-Seite + Telegram-Bootstrap laden können, bevor eine Session existiert.
+const PUBLIC_ASSETS = new Set(["/styles.css", "/app.js", "/sw.js", "/manifest.json", "/icon.svg"]);
+
 function requireAuthFor(request, url) {
   if (!authConfig.requireAuth) return false;
   const method = (request?.method || "GET").toUpperCase();
   // Login-Seite und Auth-Endpoints sind immer erreichbar
   if (url.pathname.startsWith("/auth/")) return false;
   if (url.pathname === "/login.html") return false;
+  // Telegram-Login muss OHNE Session erreichbar sein (sonst Henne-Ei: kein Login möglich)
+  if (url.pathname === "/api/tg-auth" && method === "POST") return false;
+  // RAG-Retrieval für den Bot: eigener interner Token-Check im Handler (kein Session-Cookie)
+  if (url.pathname === "/api/rag/search" && method === "GET") return false;
+  // Statische Shell-Assets ohne Daten-Bezug freigeben (Login-Seite + PWA brauchen sie)
+  if (method === "GET" && PUBLIC_ASSETS.has(url.pathname)) return false;
   // Stephan-View braucht Token im URL (?token=...)
   if (url.pathname === "/stephan.html" || url.pathname === "/stephan") {
     // Audit-Finding R8: kurzlebiges OTP statt permanentem stephanToken
@@ -1595,10 +1679,9 @@ async function handleApi(request, response, url) {
   }
 
   if (url.pathname === "/api/stephan-link" && request.method === "GET") {
-    // Audit-Finding R9: nur Admin (allowedEmails[0]) darf Stephan-Links erzeugen
-    const sessionEmail = getSessionEmail(request);
-    const adminEmail = (authConfig.allowedEmails || [])[0] || null;
-    if (authConfig.requireAuth && adminEmail && sessionEmail !== adminEmail) {
+    // Nur Admin darf Stephan-Links erzeugen — autoritativ über Telegram-Rolle (tgRole),
+    // E-Mail-Admin nur noch als Legacy-Fallback (siehe isSessionAdmin).
+    if (authConfig.requireAuth && !isSessionAdmin(request)) {
       response.writeHead(403, { "Content-Type": mimeTypes[".json"] });
       response.end(JSON.stringify({ error: "Nur der Admin-Account darf Stephan-Links erzeugen" }));
       return true;
@@ -1627,6 +1710,24 @@ async function handleApi(request, response, url) {
   if (url.pathname === "/api/state" && request.method === "GET") {
     try {
       const data = await readFile(statePath, "utf8");
+      // === HARTE ROLLEN-SPERRE: Telegram-Mitarbeiter sehen NUR Akademie(+Produkt)-Daten ===
+      // Verhindert dass ein Mitarbeiter per DevTools /api/state direkt abruft und alles liest.
+      const sess = getSessionFromRequest(request);
+      if (sess && sess.tgRole === "mitarbeiter") {
+        try {
+          const full = JSON.parse(data);
+          const filtered = filterStateForTgRole(full, sess.tgModules || ["akademie"]);
+          response.writeHead(200, { "Content-Type": mimeTypes[".json"], "X-MAGALOKO-Role": "mitarbeiter" });
+          response.end(JSON.stringify(filtered));
+          return true;
+        } catch (e) {
+          console.error("[state-filter]", e.message);
+          // Im Zweifel fail-closed: leeren State statt vollen liefern
+          response.writeHead(200, { "Content-Type": mimeTypes[".json"] });
+          response.end("{}");
+          return true;
+        }
+      }
       response.writeHead(200, { "Content-Type": mimeTypes[".json"] });
       response.end(data);
     } catch (error) {
@@ -1667,6 +1768,32 @@ async function handleApi(request, response, url) {
       console.error("[jtl/suppliers]", error.message);
       response.writeHead(error.code === "ENOENT" ? 404 : 500, { "Content-Type": "text/plain; charset=utf-8" });
       response.end(error.code === "ENOENT" ? "Lieferanten-Daten nicht gefunden" : "Fehler beim Lesen der Lieferanten-Daten");
+    }
+    return true;
+  }
+
+  // === RAG-Retrieval für den Telegram-Bot (interner Token, kein Browser-Zugriff) ===
+  if (url.pathname === "/api/rag/search" && request.method === "GET") {
+    try {
+      const tgCfg = JSON.parse(await readFile(join(root, "config", "telegram.json"), "utf8").catch(() => "{}"));
+      const expected = tgCfg.internalApiToken;
+      const got = request.headers["x-internal-token"];
+      if (!expected || got !== expected) {
+        response.writeHead(403, { "Content-Type": mimeTypes[".json"] });
+        response.end(JSON.stringify({ error: "forbidden" }));
+        return true;
+      }
+      await loadArticleIndex();
+      const q = url.searchParams.get("q") || "";
+      const k = Math.min(10, Math.max(1, parseInt(url.searchParams.get("k") || "5", 10)));
+      const docs = ragSearchArticles(q, k);
+      const knowledge = await ragSearchKnowledge(q, 3); // kuratiertes Produktwissen
+      response.writeHead(200, { "Content-Type": mimeTypes[".json"] });
+      response.end(JSON.stringify({ ok: true, query: q, docs, knowledge }));
+    } catch (err) {
+      console.error("[rag/search]", err.message);
+      response.writeHead(500, { "Content-Type": mimeTypes[".json"] });
+      response.end(JSON.stringify({ error: "interner Fehler" }));
     }
     return true;
   }
@@ -2011,6 +2138,7 @@ async function handleApi(request, response, url) {
   // /api/jtl/customers/12345/orders
   const ordersMatch = url.pathname.match(/^\/api\/jtl\/customers\/(\d+)\/orders$/);
   if (ordersMatch && request.method === "GET") {
+    if (denyEmployeePii(request, response)) return true;
     try {
       const idx = await loadOrderIndex();
       const kKunde = parseInt(ordersMatch[1], 10);
@@ -2031,6 +2159,7 @@ async function handleApi(request, response, url) {
   }
 
   if (url.pathname === "/api/jtl/customers/search" && request.method === "GET") {
+    if (denyEmployeePii(request, response)) return true;
     try {
       const idx = await loadAddressIndex();
       // Order-Index im Hintergrund anstossen (nicht blockierend) — VIP-Info kommt beim zweiten Search
@@ -2106,10 +2235,134 @@ async function handleApi(request, response, url) {
     return true;
   }
 
+  if (url.pathname === "/api/tg-auth" && request.method === "POST") {
+    try {
+      // Read body MIT hartem Größenlimit (64 KB) — /api/tg-auth ist bewusst public,
+      // darum DoS-Schutz gegen riesige Bodies.
+      const body = await new Promise((resolve, reject) => {
+        let data = "";
+        let size = 0;
+        const MAX = 64 * 1024;
+        request.on("data", (c) => {
+          size += c.length;
+          if (size > MAX) { reject(new Error("body too large")); request.destroy(); return; }
+          data += c;
+        });
+        request.on("end", () => { try { resolve(JSON.parse(data)); } catch { resolve({}); } });
+        request.on("error", reject);
+      }).catch((e) => { throw e; });
+      const { initData } = body;
+      if (!initData || typeof initData !== "string") {
+        response.writeHead(400, { "Content-Type": mimeTypes[".json"] });
+        response.end(JSON.stringify({ error: "initData fehlt" }));
+        return true;
+      }
+      // Read telegram config
+      const tgCfg = JSON.parse(await readFile(join(root, "config", "telegram.json"), "utf8").catch(() => "{}"));
+      const token = tgCfg.token;
+      if (!token) {
+        response.writeHead(500, { "Content-Type": mimeTypes[".json"] });
+        response.end(JSON.stringify({ error: "Bot nicht konfiguriert" }));
+        return true;
+      }
+      // Validate HMAC (konstantzeitnah via timingSafeEqual)
+      const params = new URLSearchParams(initData);
+      const hash = params.get("hash") || "";
+      params.delete("hash");
+      const dataCheckString = [...params.entries()]
+        .sort(([a], [b]) => a.localeCompare(b))
+        .map(([k, v]) => `${k}=${v}`)
+        .join("\n");
+      const secretKey = createHmac("sha256", "WebAppData").update(token).digest();
+      const expectedHash = createHmac("sha256", secretKey).update(dataCheckString).digest("hex");
+      // Hex-Format + Länge prüfen, dann timingSafeEqual
+      const hashOk = /^[0-9a-f]{64}$/i.test(hash) &&
+        timingSafeEqual(Buffer.from(expectedHash, "hex"), Buffer.from(hash, "hex"));
+      if (!hashOk) {
+        response.writeHead(401, { "Content-Type": mimeTypes[".json"] });
+        response.end(JSON.stringify({ error: "Ungültige Telegram-Signatur" }));
+        return true;
+      }
+      // auth_date: endlich, positiv, max 24h alt, max 120s in der Zukunft (Clock-Skew/Replay-Schutz)
+      const authDate = Number(params.get("auth_date"));
+      const nowSec = Date.now() / 1000;
+      if (!Number.isFinite(authDate) || authDate <= 0 ||
+          nowSec - authDate > 86400 || authDate - nowSec > 120) {
+        response.writeHead(401, { "Content-Type": mimeTypes[".json"] });
+        response.end(JSON.stringify({ error: "Telegram-Session abgelaufen/ungültig" }));
+        return true;
+      }
+      // Parse user + ID auf Number normalisieren
+      let tgUser;
+      try { tgUser = JSON.parse(params.get("user") || "{}"); } catch { tgUser = {}; }
+      const userId = Number(tgUser.id);
+      if (!Number.isInteger(userId)) {
+        response.writeHead(400, { "Content-Type": mimeTypes[".json"] });
+        response.end(JSON.stringify({ error: "Ungültige User-ID" }));
+        return true;
+      }
+      // Allowlist/Admin-Liste konsequent auf Number normalisieren
+      const toIds = (arr) => (Array.isArray(arr) ? arr.map(Number).filter(Number.isInteger) : []);
+      const allowedIds = toIds(tgCfg.allowedUserIds);
+      const allowAll = tgCfg.allowAllUsers === true;
+      // FAIL-CLOSED: ohne allowAll UND ohne gültige Allowlist → niemand rein (Config-Fehler)
+      if (!allowAll && allowedIds.length === 0) {
+        console.error("[tg-auth] fail-closed: keine allowedUserIds und allowAllUsers!=true");
+        response.writeHead(503, { "Content-Type": mimeTypes[".json"] });
+        response.end(JSON.stringify({ error: "Zugang nicht konfiguriert" }));
+        return true;
+      }
+      if (!allowAll && !allowedIds.includes(userId)) {
+        response.writeHead(403, { "Content-Type": mimeTypes[".json"] });
+        response.end(JSON.stringify({ error: "Kein Zugriff" }));
+        return true;
+      }
+      // === Rolle + Module server-seitig bestimmen (autoritativ, gleiche Logik wie Bot) ===
+      const ALL_MODULES = ["akademie", "produkt", "ai"];
+      const adminList = toIds(tgCfg.adminUserIds).length ? toIds(tgCfg.adminUserIds) : allowedIds;
+      const isTgAdmin = adminList.includes(userId);
+      const userEntry = (tgCfg.users && (tgCfg.users[String(userId)] || tgCfg.users[userId])) || {};
+      const role = isTgAdmin ? "admin" : "mitarbeiter";
+      const modules = isTgAdmin
+        ? ALL_MODULES.slice()
+        : ["akademie", ...(Array.isArray(userEntry.modules) ? userEntry.modules : [])];
+      // Create session
+      const sessionToken = randomBytes(32).toString("base64url");
+      const sessionHashed = hashToken(sessionToken);
+      const email = `tg:${userId}@telegram`;
+      // Rolle in Session ablegen — verhindert spätere Client-Manipulation
+      sessions[sessionHashed] = { email, createdAt: Date.now(), lastSeen: Date.now(), ua: request.headers["user-agent"] || "", tgRole: role, tgModules: modules, tgUserId: userId };
+      await saveSessions();
+      setSessionCookie(response, sessionToken, request);
+      response.writeHead(200, { "Content-Type": mimeTypes[".json"] });
+      response.end(JSON.stringify({ ok: true, email, role, modules, userId }));
+      return true;
+    } catch (err) {
+      if (err && err.message === "body too large") {
+        response.writeHead(413, { "Content-Type": mimeTypes[".json"] });
+        response.end(JSON.stringify({ error: "Payload zu groß" }));
+        return true;
+      }
+      console.error("[tg-auth]", err.message);
+      response.writeHead(500, { "Content-Type": mimeTypes[".json"] });
+      response.end(JSON.stringify({ error: "Interner Fehler" }));
+      return true;
+    }
+  }
+
   if (url.pathname === "/api/state" && request.method === "PUT") {
     if (!requireSameOrigin(request)) {
       response.writeHead(403, { "Content-Type": mimeTypes[".json"] });
       response.end(JSON.stringify({ error: "CSRF: Origin nicht erlaubt" }));
+      return true;
+    }
+    // HARTE ROLLEN-SPERRE: Mitarbeiter dürfen NIE den globalen State schreiben.
+    // Sie bekommen ohnehin nur gefilterte Daten — ein PUT würde sonst Admin-Daten löschen.
+    const putSess = getSessionFromRequest(request);
+    if (putSess && putSess.tgRole === "mitarbeiter") {
+      console.warn(`[state-write-block] Mitarbeiter-PUT abgewiesen: tgUserId=${putSess.tgUserId}`);
+      response.writeHead(403, { "Content-Type": mimeTypes[".json"] });
+      response.end(JSON.stringify({ error: "Schreibzugriff für deine Rolle nicht erlaubt" }));
       return true;
     }
     try {
@@ -2117,7 +2370,11 @@ async function handleApi(request, response, url) {
       const parsed = JSON.parse(body);
       const baseHeader = request.headers["x-base-updated-at"];
       const base = Number(baseHeader || 0);
-      const clientId = request.headers["x-client-id"] || null;
+      // X-Client-Id sanitisieren: nur [A-Za-z0-9_-], max 64 Zeichen — sonst ignorieren.
+      // Verhindert Pfad-/Dateinamen-Manipulation im Tmp-Namen.
+      const rawClientId = request.headers["x-client-id"];
+      const clientId = (typeof rawClientId === "string" && /^[A-Za-z0-9_-]{1,64}$/.test(rawClientId))
+        ? rawClientId : null;
       // Audit-Finding R8: gesamten Read-Check-Write in withStateLock → kein paralleler PUT-Race
       const result = await withStateLock(async () => {
         // Optimistic-Concurrency (Audit-Finding #4)
@@ -2281,25 +2538,29 @@ async function start() {
     }
 
     try {
-      const data = await readFile(filePath);
+      const rawData = await readFile(filePath);
       const contentType = safePath === "manifest.json" ? "application/manifest+json; charset=utf-8" : mimeTypes[extension];
       const headers = { "Content-Type": contentType };
       if (extension === ".html") {
         headers["X-Content-Type-Options"] = "nosniff";
         headers["Referrer-Policy"] = "same-origin";
-        // Audit-Finding R4: CSP + Framing-Schutz (kein frame-ancestors, kein XSS über inline-scripts)
+        // Audit-Finding R4: CSP + Framing-Schutz
+        // frame-ancestors erlaubt Telegram Web/Desktop für Mini App
         headers["Content-Security-Policy"] = [
           "default-src 'self'",
-          "script-src 'self'",
+          "script-src 'self' https://telegram.org",
           "style-src 'self' 'unsafe-inline'",   // nötig für inline style="" in Templates
           "img-src 'self' data: blob:",
           "connect-src 'self' https://api.openai.com https://api.deepseek.com",
           "font-src 'self'",
-          "frame-ancestors 'none'",
+          "frame-ancestors 'self' https://web.telegram.org https://desktop.telegram.org https://k.zjcdn.com",
           "base-uri 'self'",
           "form-action 'self'"
         ].join("; ");
-        headers["X-Frame-Options"] = "DENY";
+        // X-Frame-Options: SAMEORIGIN statt DENY (Telegram Web braucht iframe-Zugriff)
+        headers["X-Frame-Options"] = "SAMEORIGIN";
+        // ngrok-Interstitial-Warning unterdrücken (für Telegram WebView)
+        headers["ngrok-skip-browser-warning"] = "true";
       }
       // Service Worker darf nie gecached werden
       if (safePath === "sw.js") {
@@ -2310,6 +2571,26 @@ async function start() {
       if (safePath === "manifest.json" || extension === ".svg") {
         headers["Cache-Control"] = "public, max-age=3600";
       }
+      // Gzip/Brotli-Kompression für Text-Assets (app.js 741KB → ~150KB)
+      const acceptEncoding = request.headers["accept-encoding"] || "";
+      const cacheKey = `${filePath}:${acceptEncoding.includes("br") ? "br" : acceptEncoding.includes("gzip") ? "gz" : ""}`;
+      let data = rawData;
+      if (safePath !== "sw.js") { // SW nie komprimieren (muss exakt sein)
+        let cached = compressCache.get(cacheKey);
+        if (!cached) {
+          const result = await compressResponse(rawData, acceptEncoding, contentType);
+          if (result.encoding) {
+            cached = result;
+            compressCache.set(cacheKey, cached);
+          }
+        }
+        if (cached?.encoding) {
+          data = cached.data;
+          headers["Content-Encoding"] = cached.encoding;
+          headers["Vary"] = "Accept-Encoding";
+        }
+      }
+      headers["Content-Length"] = data.length;
       response.writeHead(200, headers);
       response.end(data);
     } catch {

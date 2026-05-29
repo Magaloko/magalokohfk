@@ -1,0 +1,14 @@
+# Secrets & lokale Daten NIEMALS deployen
+config/
+data/
+backups/
+audit/
+.claude/
+scripts/
+# Lokaler Long-Poll-Server/Bot werden auf Vercel nicht gebraucht
+server.mjs
+telegram-bot.mjs
+ecosystem.config.cjs
+# Große lokale Exporte (liegen ohnehin im Parent)
+*.csv
+*.log

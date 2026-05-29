@@ -1,0 +1,13 @@
+{
+  "name": "magaloko",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "description": "MAGALOKO Cockpit/Akademie — Vercel + Supabase deployment",
+  "engines": {
+    "node": ">=18"
+  },
+  "dependencies": {
+    "@supabase/supabase-js": "^2.45.0"
+  }
+}

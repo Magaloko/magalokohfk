@@ -12,8 +12,15 @@
     <link rel="manifest" href="/manifest.json" />
     <link rel="icon" href="/icon.svg" type="image/svg+xml" />
     <link rel="apple-touch-icon" href="/icon.svg" />
+    <!-- Preload kritische Assets — Browser lädt parallel zum HTML-Parse -->
+    <link rel="preload" href="/styles.css" as="style" />
+    <link rel="preload" href="/app.js" as="script" />
+    <!-- Prefetch State — Netzwerkrequest startet bevor JS überhaupt läuft -->
+    <link rel="prefetch" href="/api/state" as="fetch" crossorigin="anonymous" />
     <title>MAGALOKO</title>
     <link rel="stylesheet" href="./styles.css" />
+  <!-- Telegram Mini App SDK -->
+  <script src="https://telegram.org/js/telegram-web-app.js"></script>
   </head>
   <body>
     <div id="offline-banner" class="offline-banner" hidden></div>
@@ -31,98 +38,112 @@
           <input id="nav-search" class="nav-search" type="search" placeholder="Modul suchen …" autocomplete="off" aria-label="Module filtern" />
         </div>
         <nav class="nav" aria-label="Hauptnavigation">
-          <div class="nav-group">
-            <span class="nav-label">Projekt</span>
-            <button class="nav-item" data-view="home"><span class="nav-icon">⌂</span>Projekt wechseln</button>
-          </div>
-          <div class="nav-group">
-            <span class="nav-label">Heute</span>
-            <button class="nav-item active" data-view="dashboard"><span class="nav-icon">◆</span>Start</button>
-            <button class="nav-item" data-view="today"><span class="nav-icon">☀</span>Heute (Playbook)</button>
+
+          <!-- ▸ JETZT — Täglicher Ausgangspunkt -->
+          <div class="nav-group" data-group="jetzt">
+            <span class="nav-label">▸ Jetzt</span>
+            <button class="nav-item active" data-view="dashboard"><span class="nav-icon">◆</span>Dashboard</button>
+            <button class="nav-item" data-view="today"><span class="nav-icon">☀️</span>Playbook</button>
             <button class="nav-item" data-view="calendar"><span class="nav-icon">📅</span>Kalender</button>
-            <button class="nav-item" data-view="levers"><span class="nav-icon">⚡</span>Hebel</button>
-            <button class="nav-item" data-view="anomalies"><span class="nav-icon">⚠</span>Anomalien</button>
-            <button class="nav-item" data-view="daily"><span class="nav-icon">☀</span>Morgen-Briefing</button>
             <button class="nav-item" data-view="week"><span class="nav-icon">▤</span>Wochenplan</button>
+            <button class="nav-item" data-view="daily"><span class="nav-icon">🌅</span>Morgen-Briefing</button>
           </div>
-          <div class="nav-group">
-            <span class="nav-label">Vor Ort</span>
-            <button class="nav-item" data-view="orders-intake"><span class="nav-icon">🛒</span>Bestellung aufnehmen</button>
-            <button class="nav-item" data-view="produkt-lookup"><span class="nav-icon">🔍</span>Produkt-Lookup (JTL-Live)</button>
-            <button class="nav-item" data-view="kunden-lookup"><span class="nav-icon">👤</span>Kunden-Lookup (JTL-Live)</button>
-            <button class="nav-item" data-view="abc-uebersicht"><span class="nav-icon">🏆</span>ABC-Übersicht (Top-Seller)</button>
-            <button class="nav-item" data-view="lieferant-check"><span class="nav-icon">📦</span>Bestand-Check pro Lieferant</button>
-            <button class="nav-item" data-view="ma-validation"><span class="nav-icon">🎯</span>MA-2026 Validierung</button>
+
+          <!-- 🏪 VOR ORT — Operative JTL-Tools für HFK-Besuche -->
+          <div class="nav-group" data-group="voront">
+            <span class="nav-label">🏪 Vor Ort</span>
+            <button class="nav-item" data-view="orders-intake"><span class="nav-icon">🛒</span>Bestellung</button>
+            <button class="nav-item" data-view="produkt-lookup"><span class="nav-icon">🔍</span>Produkt-Lookup</button>
+            <button class="nav-item" data-view="produktwissen"><span class="nav-icon">📝</span>Produktwissen-Pflege</button>
+            <button class="nav-item" data-view="kunden-lookup"><span class="nav-icon">👤</span>Kunden-Lookup</button>
+            <button class="nav-item" data-view="abc-uebersicht"><span class="nav-icon">🏆</span>Top-Seller (ABC)</button>
+            <button class="nav-item" data-view="lieferant-check"><span class="nav-icon">📦</span>Bestand-Check</button>
+          </div>
+
+          <!-- 📊 ANALYSE — Daten, Märkte, Wettbewerb -->
+          <div class="nav-group collapsed" data-group="analyse">
+            <span class="nav-label">📊 Analyse</span>
+            <button class="nav-item" data-view="levers"><span class="nav-icon">⚡</span>Hebel</button>
+            <button class="nav-item" data-view="anomalies"><span class="nav-icon">⚠️</span>Anomalien</button>
             <button class="nav-item" data-view="marktanalyse"><span class="nav-icon">📊</span>Marktanalyse 2026</button>
-            <button class="nav-item" data-view="akademie"><span class="nav-icon">🎓</span>Akademie · Beratung+Training</button>
-            <button class="nav-item" data-view="lernsystem"><span class="nav-icon">📚</span>Lernsystem 2026 (Kimi)</button>
-            <button class="nav-item" data-view="strategie-pitch"><span class="nav-icon">🎯</span>Strategie-Pitch HFK</button>
+            <button class="nav-item" data-view="ma-validation"><span class="nav-icon">🎯</span>MA-Validierung</button>
+            <button class="nav-item" data-view="brands"><span class="nav-icon">◈</span>Marken (BCG)</button>
+            <button class="nav-item" data-view="competitors"><span class="nav-icon">⚔️</span>Wettbewerber</button>
+            <button class="nav-item" data-view="sortiment"><span class="nav-icon">▥</span>Sortiment</button>
+            <button class="nav-item" data-view="saisonplan"><span class="nav-icon">❅</span>Saisonplan</button>
+            <button class="nav-item" data-view="risks"><span class="nav-icon">▲</span>Risiken</button>
+            <button class="nav-item" data-view="hypotheses"><span class="nav-icon">◎</span>Hypothesen</button>
+            <button class="nav-item" data-view="premortems"><span class="nav-icon">⚠️</span>Pre-Mortems</button>
           </div>
-          <div class="nav-group">
-            <span class="nav-label">Stephan (PA-Mode)</span>
-            <button class="nav-item" data-view="stephan-kalender"><span class="nav-icon">🗓</span>Stephans Tag</button>
-            <button class="nav-item" data-view="stephan-decisions"><span class="nav-icon">⚖</span>Decision-Pipeline</button>
-            <button class="nav-item" data-view="team-notizen"><span class="nav-icon">✉</span>Team-Notizen</button>
-          </div>
-          <div class="nav-group">
-            <span class="nav-label">Arbeit</span>
-            <button class="nav-item" data-view="roadmap"><span class="nav-icon">▦</span>Roadmap</button>
-            <button class="nav-item" data-view="access"><span class="nav-icon">⚷</span>Zugänge</button>
+
+          <!-- 👔 STEPHAN — PA-Modus, Meetings, Pitches -->
+          <div class="nav-group collapsed" data-group="stephan">
+            <span class="nav-label">👔 Stephan</span>
+            <button class="nav-item" data-view="stephan-kalender"><span class="nav-icon">🗓️</span>Stephans Tag</button>
+            <button class="nav-item" data-view="stephan-decisions"><span class="nav-icon">⚖️</span>Decision-Pipeline</button>
+            <button class="nav-item" data-view="team-notizen"><span class="nav-icon">✉️</span>Team-Notizen</button>
             <button class="nav-item" data-view="briefing"><span class="nav-icon">✎</span>Briefing</button>
             <button class="nav-item" data-view="meeting"><span class="nav-icon">◉</span>Gespräch</button>
+            <button class="nav-item" data-view="strategie-pitch"><span class="nav-icon">🎯</span>Strategie-Pitch</button>
+            <button class="nav-item" data-view="pitches"><span class="nav-icon">◆</span>Pitch-Builder</button>
             <button class="nav-item" data-view="assistant"><span class="nav-icon">★</span>Stephan-Assistent</button>
-            <button class="nav-item" data-view="aitools"><span class="nav-icon">⚡</span>KI-Tools</button>
-            <button class="nav-item" data-view="purchase"><span class="nav-icon">🛒</span>Einkaufsplaner</button>
+            <button class="nav-item" data-view="verhandlungen"><span class="nav-icon">⚖️</span>Verhandlungen</button>
+            <button class="nav-item" data-view="wirkungen"><span class="nav-icon">📈</span>Wirkungsnachweis</button>
+            <button class="nav-item" data-view="beforeafter"><span class="nav-icon">⇄</span>Vorher/Nachher</button>
           </div>
-          <div class="nav-group">
-            <span class="nav-label">Strategie</span>
-            <button class="nav-item" data-view="brands"><span class="nav-icon">◈</span>Marken (BCG)</button>
+
+          <!-- 🚀 PROJEKTE — Die 6 MAGALOKO-Hauptprojekte -->
+          <div class="nav-group collapsed" data-group="projekte">
+            <span class="nav-label">🚀 Projekte</span>
+            <button class="nav-item" data-view="purchase"><span class="nav-icon">🛒</span>Einkaufsplaner</button>
+            <button class="nav-item" data-view="sebo"><span class="nav-icon">⬡</span>SeBo</button>
             <button class="nav-item" data-view="champions"><span class="nav-icon">♛</span>Champions</button>
             <button class="nav-item" data-view="crosssell"><span class="nav-icon">⛗</span>Cross-Selling</button>
-            <button class="nav-item" data-view="sortiment"><span class="nav-icon">▥</span>Sortiment</button>
-            <button class="nav-item" data-view="vip"><span class="nav-icon">★</span>VIP-Wächter</button>
-            <button class="nav-item" data-view="sebo"><span class="nav-icon">⬡</span>SeBo</button>
-            <button class="nav-item" data-view="risks"><span class="nav-icon">▲</span>Risiken</button>
-            <button class="nav-item" data-view="decisions"><span class="nav-icon">▣</span>Decision-Log</button>
-            <button class="nav-item" data-view="pitches"><span class="nav-icon">◆</span>Pitch-Builder</button>
-            <button class="nav-item" data-view="beforeafter"><span class="nav-icon">⇄</span>Vorher/Nachher</button>
-            <button class="nav-item" data-view="competitors"><span class="nav-icon">⚔</span>Wettbewerber</button>
-            <button class="nav-item" data-view="hypotheses"><span class="nav-icon">◎</span>Hypothesen</button>
-            <button class="nav-item" data-view="premortems"><span class="nav-icon">⚠</span>Pre-Mortems</button>
-            <button class="nav-item" data-view="saisonplan"><span class="nav-icon">❅</span>Saisonplan</button>
-            <button class="nav-item" data-view="verhandlungen"><span class="nav-icon">⚖</span>Verhandlungen</button>
-            <button class="nav-item" data-view="wirkungen"><span class="nav-icon">★</span>Wirkungsnachweis</button>
+            <button class="nav-item" data-view="vip"><span class="nav-icon">⭐</span>VIP-Wächter</button>
             <button class="nav-item" data-view="capture"><span class="nav-icon">📥</span>Capture-Inbox</button>
-            <button class="nav-item" data-view="triggers"><span class="nav-icon">🔔</span>Trigger-Watcher</button>
-            <button class="nav-item" data-view="career"><span class="nav-icon">🚀</span>Karriere-Strategie</button>
-            <button class="nav-item" data-view="portfolio"><span class="nav-icon">📁</span>Portfolio-Builder</button>
+          </div>
+
+          <!-- 🧠 WISSEN — Lernen, Akademie, Wissens-Basis -->
+          <div class="nav-group collapsed" data-group="wissen">
+            <span class="nav-label">🧠 Wissen</span>
+            <button class="nav-item" data-view="lernsystem"><span class="nav-icon">📚</span>Lernsystem 2026</button>
+            <button class="nav-item" data-view="akademie"><span class="nav-icon">🎓</span>Akademie</button>
+            <button class="nav-item" data-view="knowledge"><span class="nav-icon">◐</span>Wissens-Cards</button>
+            <button class="nav-item" data-view="glossary"><span class="nav-icon">📖</span>Glossar</button>
+            <button class="nav-item" data-view="graph"><span class="nav-icon">◯</span>Knowledge-Graph</button>
             <button class="nav-item" data-view="mentors"><span class="nav-icon">🧭</span>Mentor-Library</button>
             <button class="nav-item" data-view="learnings"><span class="nav-icon">📚</span>Lese-Tracker</button>
+            <button class="nav-item" data-view="decisions"><span class="nav-icon">▣</span>Decision-Log</button>
+          </div>
+
+          <!-- 👤 ICH — Persönliche Entwicklung & Tracking -->
+          <div class="nav-group collapsed" data-group="ich">
+            <span class="nav-label">👤 Ich</span>
+            <button class="nav-item" data-view="time"><span class="nav-icon">⏱️</span>Time-Tracking</button>
+            <button class="nav-item" data-view="monthly"><span class="nav-icon">📊</span>Monatsbericht</button>
+            <button class="nav-item" data-view="honorar"><span class="nav-icon">💰</span>Honorar</button>
+            <button class="nav-item" data-view="team"><span class="nav-icon">👥</span>Team</button>
+            <button class="nav-item" data-view="career"><span class="nav-icon">🚀</span>Karriere-Strategie</button>
+            <button class="nav-item" data-view="portfolio"><span class="nav-icon">📁</span>Portfolio-Builder</button>
             <button class="nav-item" data-view="energy"><span class="nav-icon">⚡</span>Energie & Fokus</button>
-            <button class="nav-item" data-view="graph"><span class="nav-icon">◯</span>Knowledge-Graph</button>
             <button class="nav-item" data-view="recap"><span class="nav-icon">🎯</span>Jahres-Recap</button>
           </div>
-          <div class="nav-group">
-            <span class="nav-label">System</span>
-            <button class="nav-item" data-view="settings"><span class="nav-icon">⚙</span>Einstellungen</button>
-          </div>
-          <div class="nav-group">
-            <span class="nav-label">Selbst</span>
-            <button class="nav-item" data-view="time"><span class="nav-icon">⏱</span>Time-Tracking</button>
-            <button class="nav-item" data-view="monthly"><span class="nav-icon">📊</span>Monatsbericht</button>
-            <button class="nav-item" data-view="team"><span class="nav-icon">👥</span>Team</button>
-            <button class="nav-item" data-view="honorar"><span class="nav-icon">💰</span>Honorar</button>
-          </div>
-          <div class="nav-group">
-            <span class="nav-label">Wissen</span>
+
+          <!-- ⚙ SYSTEM — Einstellungen, Tools, Infrastruktur -->
+          <div class="nav-group collapsed" data-group="system">
+            <span class="nav-label">⚙ System</span>
+            <button class="nav-item" data-view="settings"><span class="nav-icon">⚙️</span>Einstellungen</button>
+            <button class="nav-item" data-view="access"><span class="nav-icon">⚷</span>Zugänge</button>
+            <button class="nav-item" data-view="aitools"><span class="nav-icon">🤖</span>KI-Tools</button>
             <button class="nav-item" data-view="systems"><span class="nav-icon">◧</span>Systeme</button>
             <button class="nav-item" data-view="jobs"><span class="nav-icon">▣</span>Jobs & Aufgaben</button>
-            <button class="nav-item" data-view="knowledge"><span class="nav-icon">◐</span>Wissen</button>
             <button class="nav-item" data-view="vendors"><span class="nav-icon">⊟</span>Dienstleister</button>
-            <button class="nav-item" data-view="glossary"><span class="nav-icon">📖</span>Glossar</button>
             <button class="nav-item" data-view="usage"><span class="nav-icon">⊙</span>Nutzung</button>
             <button class="nav-item" data-view="audit"><span class="nav-icon">⎙</span>Audit-Log</button>
+            <button class="nav-item" data-view="roadmap"><span class="nav-icon">▦</span>Roadmap</button>
+            <button class="nav-item" data-view="triggers"><span class="nav-icon">🔔</span>Trigger-Watcher</button>
           </div>
+
         </nav>
         <div class="sidebar-footer">
           <span class="status-dot"></span>
@@ -137,7 +158,6 @@
           <button class="mobile-menu-trigger" id="mobile-menu-trigger" type="button" aria-label="Menü öffnen" aria-controls="sidebar">
             <span aria-hidden="true">≡</span>
           </button>
-          <button class="workspace-chip" id="workspace-chip" type="button" title="Projekt wechseln" hidden>—</button>
           <div class="topbar-title">
             <p class="eyebrow">HFK digitale Steuerung</p>
             <h2 id="view-title">Start</h2>
@@ -162,18 +182,6 @@
             <button class="button primary" id="export-update" type="button">Wochenupdate kopieren</button>
           </div>
         </header>
-
-        <section id="home" class="view">
-          <div class="home-header">
-            <h2>In welchem Projekt arbeitest du jetzt?</h2>
-            <p class="muted">Wähle einen Kontext — die App lädt dann nur die Module + Daten dieses Projekts. Wechseln jederzeit über den Workspace-Chip oben links.</p>
-          </div>
-          <div id="home-workspace-grid" class="home-workspace-grid"></div>
-          <section class="panel" style="margin-top:24px;">
-            <div class="panel-header"><h3>+ Neues Projekt</h3></div>
-            <p class="muted">Wenn du einen neuen Kunden bekommst — erstmal die 3 Default-Projekte nutzen. Custom-Workspaces kommen in einer späteren Session.</p>
-          </section>
-        </section>
 
         <section id="abc-uebersicht" class="view">
           <div class="lookup-header">
@@ -370,6 +378,7 @@
               </select>
               <span class="muted" id="ak-objection-count"></span>
             </div>
+            <div id="ak-objections-quiz-bar"></div>
             <div id="ak-objections-list" class="ak-objections-list"></div>
           </div>
           <div id="ak-tab-szenarien" class="ak-tab-content">
@@ -383,6 +392,7 @@
               <span class="muted" id="ak-drill-count"></span>
             </div>
             <p class="view-intro muted">30 Quiz-Drills mit Spaced-Repetition. Für tägliches Mikro-Training. Quelle: Kimi-Lernsystem 2026.</p>
+            <div id="ak-drills-quiz-bar"></div>
             <div id="ak-drills-list" class="ak-drills-list"></div>
           </div>
           <div id="ak-tab-rollenspiele" class="ak-tab-content">
@@ -394,8 +404,9 @@
             <div id="ak-rp-list" class="ak-rp-list"></div>
           </div>
           <div id="ak-tab-marken" class="ak-tab-content">
-            <div class="toolbar"><span class="muted" id="ak-marken-count"></span></div>
+            <div class="toolbar"><button class="button primary" id="ak-add-marke" type="button">+ Neue Marke</button><span class="muted" id="ak-marken-count"></span></div>
             <p class="view-intro muted">Marken-Bibel: Origin-Story, USPs, Hero-Produkte, Verkaufsargumente. Für Showroom-Beratung + Onboarding.</p>
+            <div id="ak-marken-quiz-bar"></div>
             <div id="ak-marken-list" class="ak-marken-list"></div>
           </div>
           <div id="ak-tab-mitarbeiter" class="ak-tab-content">
@@ -483,6 +494,11 @@
             <button class="ma-section-btn" data-sp-sec="meeting">13. Meeting-Prep</button>
           </nav>
           <article id="sp-content" class="ma-content"><p class="muted">Lade …</p></article>
+        </section>
+
+        <section id="produktwissen" class="view">
+          <div class="toolbar"><h2 style="margin:0;">📝 Produktwissen-Pflege</h2></div>
+          <div id="pw-body"></div>
         </section>
 
         <section id="orders-intake" class="view">
