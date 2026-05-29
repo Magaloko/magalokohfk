@@ -81,6 +81,20 @@ export async function getProgress(userKey: string): Promise<Progress | null> {
   } catch { return null; }
 }
 
+// Alle Fortschritts-Zeilen (Admin: Team-Übersicht).
+export async function getAllProgress(): Promise<Progress[]> {
+  try {
+    const { data } = await db().from("akademie_progress").select("*").order("xp", { ascending: false }).limit(300);
+    return (data || []).map((d) => row2progress(d as Record<string, unknown>));
+  } catch { return []; }
+}
+
+// uid aus user_key ("tg:544821565@telegram") extrahieren; null bei Web-Sessions.
+export function uidFromKey(key: string): number | null {
+  const m = /^tg:(\d+)/.exec(key || "");
+  return m ? Number(m[1]) : null;
+}
+
 function earnedBadges(p: Progress): string[] {
   const out: string[] = [];
   if (p.sessions_count >= 1) out.push("first_steps");
