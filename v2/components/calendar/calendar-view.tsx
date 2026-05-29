@@ -3,7 +3,7 @@ import { useMemo, useState } from "react";
 import Link from "next/link";
 import { cn } from "@/lib/cn";
 import { NewEventButton, EventEditButton } from "./event-editor";
-import type { Task, Decision, WeeklyKpi, CalendarEvent } from "@/lib/cockpit";
+import type { Task, Decision, WeeklyKpi, CalendarEvent, Lever, StaffMember } from "@/lib/cockpit";
 
 type Tone = "accent" | "amber" | "red" | "green" | "teal" | "muted";
 type Item = { date: string; time?: string; title: string; kindLabel: string; tone: Tone; href?: string; event?: CalendarEvent; sort: number };
@@ -20,8 +20,8 @@ const toneDot: Record<Tone, string> = {
   accent: "bg-accent", amber: "bg-amber", red: "bg-red", green: "bg-green", teal: "bg-teal", muted: "bg-muted-2",
 };
 
-export function CalendarView({ events, tasks, decisions, kpis, today }: {
-  events: CalendarEvent[]; tasks: Task[]; decisions: Decision[]; kpis: WeeklyKpi[]; today: string;
+export function CalendarView({ events, tasks, decisions, kpis, levers, staff, today }: {
+  events: CalendarEvent[]; tasks: Task[]; decisions: Decision[]; kpis: WeeklyKpi[]; levers: Lever[]; staff: StaffMember[]; today: string;
 }) {
   const now = parse(today);
   const [vy, setVy] = useState(now.getFullYear());
@@ -40,9 +40,18 @@ export function CalendarView({ events, tasks, decisions, kpis, today }: {
     for (const t of tasks) if ((t.status || "") !== "Erledigt") push(t.dueDate, { title: t.title || "Aufgabe", kindLabel: "Aufgabe", tone: (t.dueDate || "") < today ? "red" : "amber", href: `/cockpit/tasks/${encodeURIComponent(t.id || String(tasks.indexOf(t)))}`, sort: 1 });
     for (const d of decisions) if ((d.status || "offen") !== "entschieden" && d.status !== "verworfen") push(d.frist, { title: d.titel || "Entscheidung", kindLabel: "Entscheidung", tone: (d.frist || "") < today ? "red" : "accent", href: `/cockpit/entscheidungen/${encodeURIComponent(d.id || String(decisions.indexOf(d)))}`, sort: 2 });
     for (const k of kpis) push(k.weekStart, { title: `KPI-Woche${k.weekLabel ? " · " + k.weekLabel : ""}`, kindLabel: "KPI", tone: "teal", href: "/cockpit/kpis", sort: 3 });
+    for (const l of levers) {
+      if (l.status === "Verworfen") continue;
+      const href = `/cockpit/hebel/${encodeURIComponent(l.id || String(levers.indexOf(l)))}`;
+      if (l.startDate) push(l.startDate, { title: `🎚 Start: ${l.title || "Hebel"}`, kindLabel: "Hebel-Start", tone: "accent", href, sort: 4 });
+      if (l.finishDate) push(l.finishDate, { title: `🎚 Ziel: ${l.title || "Hebel"}`, kindLabel: "Hebel-Ziel", tone: (l.finishDate < today && l.status !== "Live") ? "red" : "teal", href, sort: 4 });
+    }
+    for (const m of staff) for (const c of m.completedScenarios || []) {
+      push(c.completedAt, { title: `👤 ${m.name || "?"}: ${c.titel || "Training"}${typeof c.score === "number" ? ` (${c.score}%)` : ""}`, kindLabel: "Training", tone: "green", href: "/akademie/mitarbeiter", sort: 5 });
+    }
     for (const d of Object.keys(map)) map[d].sort((a, b) => a.sort - b.sort || (a.time || "").localeCompare(b.time || ""));
     return map;
-  }, [events, tasks, decisions, kpis, today]);
+  }, [events, tasks, decisions, kpis, levers, staff, today]);
 
   // 42 Zellen (6 Wochen), Montag-basiert.
   const cells = useMemo(() => {
@@ -97,9 +106,10 @@ export function CalendarView({ events, tasks, decisions, kpis, today }: {
           })}
         </div>
         <div className="mt-3 flex flex-wrap gap-3 text-[11px] text-muted-2">
-          <Legend tone="accent" label="Termin / Entscheidung" />
-          <Legend tone="teal" label="Erinnerung / KPI" />
+          <Legend tone="accent" label="Termin / Entscheidung / Hebel-Start" />
+          <Legend tone="teal" label="Erinnerung / KPI / Hebel-Ziel" />
           <Legend tone="amber" label="Aufgabe fällig" />
+          <Legend tone="green" label="Mitarbeiter-Training" />
           <Legend tone="red" label="Überfällig / Deadline" />
         </div>
       </div>

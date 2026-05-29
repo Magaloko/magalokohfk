@@ -1,7 +1,8 @@
 import { db, STATE_ID } from "./supabase-server";
 
 export type Task = { id?: string; title?: string; area?: string; status?: string; priority?: string; impact?: string; effort?: string; owner?: string; dueDate?: string; notes?: string };
-export type Lever = { id?: string; title?: string; area?: string; status?: string; expectedImpactEur?: number; effortHours?: number; confidence?: string; risk?: string };
+export type Lever = { id?: string; title?: string; area?: string; status?: string; expectedImpactEur?: number; effortHours?: number; confidence?: string; risk?: string; startDate?: string; finishDate?: string };
+export type StaffMember = { name?: string; completedScenarios?: { scenarioId?: string; titel?: string; score?: number; completedAt?: string }[]; strengths?: string; weaknesses?: string };
 export type WeeklyKpi = { id?: string; weekStart?: string; weekLabel?: string } & Record<string, unknown>;
 export type Decision = { id?: string; titel?: string; status?: string; frist?: string; kategorie?: string; empfehlung?: string };
 export type CalendarEvent = { id?: string; title?: string; date?: string; time?: string; kind?: string; notes?: string };
@@ -12,6 +13,7 @@ export type CockpitData = {
   weeklyKpis: WeeklyKpi[];
   decisions: Decision[];
   calendarEvents: CalendarEvent[];
+  staffTraining: StaffMember[];
 };
 
 const CONF: Record<string, number> = { hoch: 1, mittel: 0.7, niedrig: 0.4 };
@@ -44,6 +46,7 @@ export async function getCockpitData(): Promise<CockpitData> {
     weeklyKpis: arr<WeeklyKpi>("weeklyKpis"),
     decisions: arr<Decision>("stephanDecisions"),
     calendarEvents: arr<CalendarEvent>("calendarEvents"),
+    staffTraining: arr<StaffMember>("staffTraining"),
   };
   _cache = { data: out, ts: Date.now() };
   return out;

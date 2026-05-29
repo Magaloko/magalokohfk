@@ -7,11 +7,11 @@ export const dynamic = "force-dynamic";
 
 export default async function KalenderPage() {
   await requireAdmin();
-  const { tasks, decisions, weeklyKpis, calendarEvents } = await getCockpitData();
+  const { tasks, decisions, weeklyKpis, calendarEvents, levers, staffTraining } = await getCockpitData();
   const today = new Date().toISOString().slice(0, 10);
   return (
-    <PageShell title="📅 Kalender" subtitle="Termine · Aufgaben-Fälligkeiten · Entscheidungs-Fristen · KPI-Wochen — alles an einem Ort">
-      <CalendarView events={calendarEvents} tasks={tasks} decisions={decisions} kpis={weeklyKpis} today={today} />
+    <PageShell title="📅 Kalender" subtitle="Termine · Aufgaben · Fristen · KPI-Wochen · Hebel-Termine · Mitarbeiter-Training — alles an einem Ort">
+      <CalendarView events={calendarEvents} tasks={tasks} decisions={decisions} kpis={weeklyKpis} levers={levers} staff={staffTraining} today={today} />
     </PageShell>
   );
 }
