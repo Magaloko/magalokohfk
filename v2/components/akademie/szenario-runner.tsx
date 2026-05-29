@@ -2,6 +2,7 @@
 import { useMemo, useState } from "react";
 import { cn } from "@/lib/cn";
 import { Confetti } from "./confetti";
+import { ResultRewards } from "./result-rewards";
 import type { Szenario } from "@/lib/akademie";
 
 type Step = { prompt: string; options: { text: string; feedback?: string }[]; correctIdx: number };
@@ -45,6 +46,7 @@ export function SzenarioRunner({ sc, personaName, onClose }: { sc: Szenario; per
           <div className="mt-2 text-3xl font-extrabold">{score}<span className="text-lg text-muted">/{total}</span></div>
           <div className="text-muted">{pct}%{best >= 2 ? ` · 🔥 beste Serie ${best}` : ""}</div>
           <p className="mt-4 text-sm text-muted">{msg}</p>
+          <ResultRewards type="szenario" score={score} total={total} />
           <div className="mt-5 flex justify-center gap-2">
             <button onClick={() => { setIdx(0); setScore(0); setStreak(0); setBest(0); setAnswered(null); }} className="rounded-lg bg-accent px-4 py-2 font-semibold text-bg">🔄 Nochmal</button>
             <button onClick={onClose} className="rounded-lg bg-surface-2 px-4 py-2 font-semibold">✓ Fertig</button>

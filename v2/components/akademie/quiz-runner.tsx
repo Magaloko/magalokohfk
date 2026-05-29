@@ -2,6 +2,7 @@
 import { useMemo, useState } from "react";
 import { cn } from "@/lib/cn";
 import { Confetti } from "./confetti";
+import { ResultRewards } from "./result-rewards";
 import type { Drill, Einwand, Marke } from "@/lib/akademie";
 
 type Opt = { text: string; correct: boolean; feedback?: string };
@@ -69,6 +70,7 @@ export function QuizRunner({ drills, einwaende, marken, n = 5, onClose }: { dril
           <div className="text-5xl">{emoji}</div>
           <div className="mt-2 text-3xl font-extrabold">{score}<span className="text-lg text-muted">/{questions.length}</span></div>
           <div className="text-muted">{pct}% richtig{best >= 2 ? ` · 🔥 beste Serie ${best}` : ""}</div>
+          <ResultRewards type="quiz" score={score} total={questions.length} />
           <div className="mt-5 flex justify-center gap-2">
             <button onClick={() => { setIdx(0); setScore(0); setStreak(0); setBest(0); setAnswered(null); }} className="rounded-lg bg-accent px-4 py-2 font-semibold text-bg">🔄 Nochmal</button>
             <button onClick={onClose} className="rounded-lg bg-surface-2 px-4 py-2 font-semibold">✓ Fertig</button>

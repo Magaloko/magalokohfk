@@ -2,6 +2,7 @@
 import { useEffect, useRef, useState, useCallback } from "react";
 import { cn } from "@/lib/cn";
 import { Confetti } from "./confetti";
+import { ResultRewards } from "./result-rewards";
 import type { Rollenspiel } from "@/lib/akademie";
 
 type Msg = { role: "user" | "assistant"; content: string };
@@ -173,6 +174,7 @@ function CoachResult({ coach, onRetry, onClose }: { coach: Coach; onRetry: () =>
         <div className="mt-1 text-3xl font-extrabold">{coach.got}<span className="text-lg text-muted">/{coach.max}</span></div>
         <div className="text-muted">{coach.pct}%</div>
       </div>
+      {coach.max > 0 && <ResultRewards type="rollenspiel" score={coach.got} total={coach.max} />}
       {coach.gesamt && <p className="mt-3 rounded-lg border-l-2 border-accent bg-surface-2 px-3 py-2 text-sm text-muted">{coach.gesamt}</p>}
       <div className="mt-3 flex flex-col gap-2">
         {coach.perKrit.map((k, i) => {

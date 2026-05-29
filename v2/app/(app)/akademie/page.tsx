@@ -5,6 +5,7 @@ import { PageShell } from "@/components/_primitives/page-shell";
 import { QuizLauncher } from "@/components/akademie/quiz-launcher";
 import { DrillLauncher } from "@/components/akademie/drill-launcher";
 import { ContinueCard } from "@/components/akademie/continue-card";
+import { getProgress, getLeaderboard, levelInfo, BADGES, emptyProgress } from "@/lib/progress";
 
 export const dynamic = "force-dynamic";
 
@@ -29,9 +30,46 @@ export default async function AkademieHub() {
   const tiles = all.filter((t) => has(t.area));
   const showQuick = has("drills") || has("einwaende") || has("marken");
 
+  const progress = (await getProgress(sess.email)) || emptyProgress(sess.email);
+  const lvl = levelInfo(progress.xp);
+  const board = await getLeaderboard(sess.email, 8);
+
   return (
     <PageShell title="🎓 Akademie" subtitle="Dein Verkaufstraining — wähle einen Bereich oder leg direkt los.">
       <div className="flex flex-col gap-5">
+        {/* Fortschritt */}
+        <section className="rounded-xl border border-line bg-gradient-to-br from-accent/10 to-transparent p-4 shadow-sm">
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <div className="flex items-center gap-3">
+              <div className="grid h-12 w-12 place-items-center rounded-xl bg-accent/20 text-lg font-extrabold text-accent">L{lvl.level}</div>
+              <div>
+                <div className="text-sm font-bold">Level {lvl.level}</div>
+                <div className="text-xs text-muted-2">{progress.xp} XP gesamt · {progress.sessions_count} Trainings</div>
+              </div>
+            </div>
+            <div className="flex gap-2 text-sm">
+              <span className="rounded-full bg-amber/15 px-3 py-1 font-semibold text-amber">🔥 {progress.streak} Tage</span>
+              <span className="rounded-full bg-surface-2 px-3 py-1 font-semibold text-muted">🏅 {progress.badges.length}/{BADGES.length}</span>
+            </div>
+          </div>
+          <div className="mt-3 h-2 overflow-hidden rounded-full bg-surface-2">
+            <div className="h-full rounded-full bg-accent transition-all" style={{ width: `${lvl.pct}%` }} />
+          </div>
+          <div className="mt-1 text-right text-[11px] text-muted-2">{lvl.into}/{lvl.need} bis Level {lvl.level + 1}</div>
+          {/* Badges */}
+          <div className="mt-3 flex flex-wrap gap-2">
+            {BADGES.map((b) => {
+              const earned = progress.badges.includes(b.id);
+              return (
+                <span key={b.id} title={`${b.label} — ${b.hint}`}
+                  className={`inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-xs font-semibold ${earned ? "bg-green/15 text-green" : "bg-surface-2 text-muted-2 opacity-60"}`}>
+                  <span className={earned ? "" : "grayscale"}>{b.icon}</span>{b.label}
+                </span>
+              );
+            })}
+          </div>
+        </section>
+
         <ContinueCard allowed={areas} />
 
         {showQuick && (
@@ -70,6 +108,27 @@ export default async function AkademieHub() {
             )}
           </div>
         </section>
+
+        {board.length > 0 && (
+          <section>
+            <h2 className="mb-3 text-xs font-bold uppercase tracking-wide text-muted-2">🏆 Bestenliste (anonym)</h2>
+            <div className="overflow-hidden rounded-xl border border-line bg-surface">
+              {board.map((e) => (
+                <div key={e.rank}
+                  className={`flex items-center justify-between px-4 py-2.5 text-sm ${e.me ? "bg-accent/10" : ""} ${e.rank > 1 ? "border-t border-line" : ""}`}>
+                  <span className="flex items-center gap-3">
+                    <span className="w-6 text-center font-mono font-bold text-muted-2">{e.rank === 1 ? "🥇" : e.rank === 2 ? "🥈" : e.rank === 3 ? "🥉" : e.rank}</span>
+                    <span className={e.me ? "font-bold text-accent" : "font-medium"}>{e.label}</span>
+                  </span>
+                  <span className="flex items-center gap-3 text-xs text-muted-2">
+                    <span className="rounded-full bg-surface-2 px-2 py-0.5 font-semibold">L{e.level}</span>
+                    <span className="font-mono">{e.xp} XP</span>
+                  </span>
+                </div>
+              ))}
+            </div>
+          </section>
+        )}
       </div>
     </PageShell>
   );
