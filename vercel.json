@@ -3,8 +3,12 @@
   "functions": {
     "api/index.mjs": { "maxDuration": 30 },
     "api/tg-webhook.mjs": { "maxDuration": 30 },
-    "api/tg-setup.mjs": { "maxDuration": 15 }
+    "api/tg-setup.mjs": { "maxDuration": 15 },
+    "api/cron/prune-history.mjs": { "maxDuration": 30 }
   },
+  "crons": [
+    { "path": "/api/cron/prune-history", "schedule": "0 3 * * *" }
+  ],
   "rewrites": [
     { "source": "/auth/(.*)", "destination": "/api/index" },
     { "source": "/api/(.*)", "destination": "/api/index" }

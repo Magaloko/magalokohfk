@@ -5,7 +5,8 @@ import {
   db, tgConfig, requireAuth, publicUrl, slackWebhook, STATE_ID,
   hashToken, createHmac, timingSafeEqual, randomBytes, parseCookies,
   getSession, isSessionAdmin, setSessionCookie, clearSessionCookie,
-  requireSameOrigin, sanitizeStateJson, filterStateForTgRole, normAreas, AKADEMIE_AREAS, readRawBody, audit
+  requireSameOrigin, sanitizeStateJson, filterStateForTgRole, normAreas, AKADEMIE_AREAS, readRawBody, audit,
+  snapshotState, antiWipeViolation
 } from "../lib/db.mjs";
 
 const JSON_H = { "Content-Type": "application/json; charset=utf-8" };
@@ -85,7 +86,7 @@ export default async function handler(req, res) {
     if (requireAuth && !sess && !otpOk) return send(res, 401, { error: "nicht authentifiziert" });
 
     // Zentrales Admin-Gate: diese Endpunkte sind ausschließlich für Admins (Policy: Mitarbeiter = nur Akademie, read-only).
-    const ADMIN_ONLY = ["/api/capture", "/api/slack/send", "/api/mail/send", "/api/audit/log", "/api/bot/scores", "/api/stephan-link", "/api/calendar.ics"];
+    const ADMIN_ONLY = ["/api/capture", "/api/slack/send", "/api/mail/send", "/api/audit/log", "/api/bot/scores", "/api/stephan-link", "/api/calendar.ics", "/api/state/history", "/api/state/restore", "/api/admin/jobs"];
     if (ADMIN_ONLY.includes(path) && !isSessionAdmin(sess)) return send(res, 403, { error: "Nur Admin" });
 
     // ---- GET /api/state ----
@@ -108,13 +109,24 @@ export default async function handler(req, res) {
       try { parsed = JSON.parse(await readRawBody(req)); }
       catch (e) { return send(res, e.message === "body too large" ? 413 : 400, "invalid json"); }
       const base = Number(req.headers["x-base-updated-at"] || 0);
-      const cur = await db.from("app_state").select("updated_at").eq("id", STATE_ID).maybeSingle();
+      const cur = await db.from("app_state").select("data, updated_at").eq("id", STATE_ID).maybeSingle();
       const diskUpdatedAt = Number(cur.data?.updated_at || 0);
       if (!req.headers["x-base-updated-at"] && diskUpdatedAt > 0)
         return send(res, 428, { error: "X-Base-Updated-At erforderlich", serverUpdatedAt: diskUpdatedAt });
       if (base > 0 && diskUpdatedAt > base)
         return send(res, 409, { error: "conflict", serverUpdatedAt: diskUpdatedAt, base });
       const sanitized = sanitizeStateJson(parsed);
+      // ANTI-WIPE: ein Write, der eine geschützte Sammlung von >=3 auf 0 fallen ließe, wird
+      // abgelehnt — außer explizit per Header X-Force-Wipe: 1 (verhindert Daten-Verlust-Bug).
+      if (req.headers["x-force-wipe"] !== "1") {
+        const wiped = antiWipeViolation(cur.data?.data || {}, sanitized);
+        if (wiped) {
+          await audit("state.wipe_blocked", { collection: wiped, clientId: req.headers["x-client-id"] || null });
+          return send(res, 409, { error: "anti-wipe", collection: wiped, hint: "würde Sammlung leeren — abgelehnt (X-Force-Wipe: 1 zum Erzwingen)" });
+        }
+      }
+      // SNAPSHOT: aktuellen Stand vor dem Überschreiben sichern (best-effort)
+      await snapshotState(cur.data?.data, diskUpdatedAt, req.headers["x-client-id"]);
       const newUpdatedAt = Number(sanitized.updatedAt) || Date.now();
       // Bedingtes Update: nur wenn updated_at noch dem gelesenen Stand entspricht (Race-Schutz)
       const upd = await db.from("app_state")
@@ -185,6 +197,7 @@ export default async function handler(req, res) {
       };
       state.captureInbox.unshift(e);
       state.captureInbox = state.captureInbox.slice(0, 500);
+      await snapshotState(cur.data?.data, Number(cur.data?.updated_at || 0), "capture");
       state.updatedAt = Date.now();
       await db.from("app_state").update({ data: sanitizeStateJson(state), updated_at: state.updatedAt })
         .eq("id", STATE_ID);
@@ -198,6 +211,44 @@ export default async function handler(req, res) {
       const { data } = await db.from("audit_log").select("ts, event, detail").order("ts", { ascending: false }).limit(limit);
       const events = (data || []).map((r) => ({ ts: r.ts, event: r.event, ...(r.detail || {}) }));
       return send(res, 200, { total: events.length, events });
+    }
+
+    // ---- GET /api/state/history (admin) → Snapshot-Liste ----
+    if (path === "/api/state/history" && method === "GET") {
+      const { data } = await db.from("state_history").select("id, ts, updated_at, client_id, data").order("ts", { ascending: false }).limit(50);
+      const KEYS = ["akademieDrills", "salesObjections", "akademieRoleplays", "akademieMarken", "tasks"];
+      const list = (data || []).map((r) => {
+        const ws = r.data?.workspaces?.hfk?.data || r.data || {};
+        const counts = {}; for (const k of KEYS) counts[k] = Array.isArray(ws[k]) ? ws[k].length : 0;
+        return { id: r.id, ts: r.ts, updatedAt: r.updated_at, clientId: r.client_id, topLevelKeys: Object.keys(r.data || {}).length, counts };
+      });
+      return send(res, 200, { total: list.length, snapshots: list });
+    }
+
+    // ---- POST /api/state/restore (admin) → Snapshot zurückspielen ----
+    if (path === "/api/state/restore" && method === "POST") {
+      if (!requireSameOrigin(req)) return send(res, 403, { error: "CSRF: Origin nicht erlaubt" });
+      const body = JSON.parse(await readRawBody(req) || "{}");
+      const snapId = body.id;
+      if (!snapId) return send(res, 400, { error: "id erforderlich" });
+      const snap = await db.from("state_history").select("data").eq("id", snapId).maybeSingle();
+      if (!snap.data?.data) return send(res, 404, { error: "Snapshot nicht gefunden" });
+      // aktuellen Stand zuerst sichern (rückgängig-machbar), dann mit höchstem updated_at zurückspielen
+      const cur = await db.from("app_state").select("data, updated_at").eq("id", STATE_ID).maybeSingle();
+      await snapshotState(cur.data?.data, Number(cur.data?.updated_at || 0), "pre-restore");
+      const restored = sanitizeStateJson(snap.data.data);
+      const newUpdatedAt = Date.now();
+      restored.updatedAt = newUpdatedAt;
+      const upd = await db.from("app_state").update({ data: restored, updated_at: newUpdatedAt }).eq("id", STATE_ID).select("updated_at");
+      if (upd.error || !upd.data?.length) return send(res, 500, { error: "restore failed" });
+      await audit("state.restored", { snapshotId: snapId });
+      return send(res, 200, { ok: true, restoredUpdatedAt: newUpdatedAt });
+    }
+
+    // ---- GET /api/admin/jobs (admin) → Job-/Cron-Registry mit Heartbeat ----
+    if (path === "/api/admin/jobs" && method === "GET") {
+      const { data } = await db.from("scheduled_jobs").select("*").order("name");
+      return send(res, 200, { jobs: data || [] });
     }
 
     // ---- GET /api/stephan-link (nur Admin) → kurzlebiges OTP ----
