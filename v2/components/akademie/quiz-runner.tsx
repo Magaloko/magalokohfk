@@ -58,6 +58,7 @@ function makeMarkenQ(marken: Marke[], weak: Weak, only?: Set<string>): Q | null 
 export function QuizRunner({ drills, einwaende, marken, n = 5, onClose, recordType = "quiz", title, focusWeak = false }: { drills: Drill[]; einwaende: Einwand[]; marken: Marke[]; n?: number; onClose: () => void; recordType?: TrainingType; title?: string; focusWeak?: boolean }) {
   // Spaced Repetition: gemerkte Schwächen laden, dann Fragen gewichtet generieren.
   const [weak, setWeak] = useState<Weak | null>(null);
+  const [round, setRound] = useState(0);
   useEffect(() => {
     const headers: Record<string, string> = {};
     const init = (typeof window !== "undefined" && (window as any).Telegram?.WebApp?.initData) || "";
@@ -66,7 +67,7 @@ export function QuizRunner({ drills, einwaende, marken, n = 5, onClose, recordTy
       .then((r) => (r.ok ? r.json() : null))
       .then((j) => setWeak((j?.progress?.stats?.weak as Weak) || {}))
       .catch(() => setWeak({}));
-  }, []);
+  }, [round]);
 
   const questions = useMemo<Q[]>(() => {
     if (weak === null) return [];
@@ -82,7 +83,7 @@ export function QuizRunner({ drills, einwaende, marken, n = 5, onClose, recordTy
       if (q && (!q.itemKey.endsWith(":") ? !seen.has(q.itemKey) : true)) { if (q.itemKey) seen.add(q.itemKey); out.push(q); }
     }
     return out;
-  }, [drills, einwaende, marken, n, weak, focusWeak]);
+  }, [drills, einwaende, marken, n, weak, focusWeak, round]);
 
   const [idx, setIdx] = useState(0);
   const [score, setScore] = useState(0);
@@ -91,10 +92,39 @@ export function QuizRunner({ drills, einwaende, marken, n = 5, onClose, recordTy
   const [answered, setAnswered] = useState<number | null>(null);
   const resultsRef = useRef<{ key: string; correct: boolean }[]>([]);
 
+  const done = questions.length > 0 && idx >= questions.length;
+  const q = questions[idx];
+
+  const choose = (i: number) => {
+    if (answered !== null || !q) return;
+    setAnswered(i);
+    const correct = q.opts[i].correct;
+    if (q.itemKey && q.itemKey.length > q.itemKey.indexOf(":") + 1) resultsRef.current.push({ key: q.itemKey, correct });
+    if (correct) { setScore((s) => s + 1); setStreak((s) => { const ns = s + 1; setBest((b) => Math.max(b, ns)); return ns; }); }
+    else setStreak(0);
+  };
+  const next = () => { setAnswered(null); setIdx((i) => i + 1); };
+  // „Nochmal": frisches Schwächen-Profil laden (round++) -> Fragen werden neu generiert.
+  const restart = () => { resultsRef.current = []; setIdx(0); setScore(0); setStreak(0); setBest(0); setAnswered(null); setWeak(null); setRound((r) => r + 1); };
+
+  // Tastatur: 1–9 / A–Z zum Antworten, Enter/Leertaste = weiter, Escape = schließen.
+  useEffect(() => {
+    function onKey(e: KeyboardEvent) {
+      if (e.key === "Escape") { onClose(); return; }
+      if (weak === null || !questions.length || done || !q) return;
+      if (answered === null) {
+        const num = parseInt(e.key, 10);
+        if (Number.isInteger(num) && num >= 1 && num <= q.opts.length) { e.preventDefault(); choose(num - 1); return; }
+        if (e.key.length === 1) { const l = e.key.toLowerCase().charCodeAt(0) - 97; if (l >= 0 && l < q.opts.length) { e.preventDefault(); choose(l); } }
+      } else if (e.key === "Enter" || e.key === " ") { e.preventDefault(); next(); }
+    }
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [answered, idx, done, q, weak, questions.length, onClose]);
+
   if (weak === null) return <Modal onClose={onClose}><p className="py-6 text-center text-muted">Quiz wird vorbereitet…</p></Modal>;
   if (!questions.length) return <Modal onClose={onClose}><p className="py-4 text-center text-muted">{focusWeak ? <span className="inline-flex items-center gap-1">Noch keine Schwächen erfasst — mach erst ein paar Quizze, dann tauchen hier deine schwachen Themen auf. <Icon name="bolt" className="h-4 w-4" /></span> : "Nicht genug Daten für ein Quiz."}</p><div className="text-center"><button onClick={onClose} className="rounded-lg bg-surface-2 px-4 py-2 text-sm font-semibold">Schließen</button></div></Modal>;
 
-  const done = idx >= questions.length;
   if (done) {
     const pct = Math.round((score / questions.length) * 100);
     const resultIcon = pct === 100 ? "party" : pct >= 80 ? "trophy" : pct >= 60 ? "target" : pct >= 40 ? "bolt" : "book";
@@ -107,7 +137,7 @@ export function QuizRunner({ drills, einwaende, marken, n = 5, onClose, recordTy
           <div className="text-muted flex items-center justify-center gap-1">{pct}% richtig{best >= 2 ? <><span> · </span><Icon name="flame" className="h-4 w-4" /><span> beste Serie {best}</span></> : ""}</div>
           <ResultRewards type={recordType} score={score} total={questions.length} itemResults={resultsRef.current} />
           <div className="mt-5 flex justify-center gap-2">
-            <button onClick={() => { resultsRef.current = []; setIdx(0); setScore(0); setStreak(0); setBest(0); setAnswered(null); }} className="rounded-lg bg-accent px-4 py-2 font-semibold text-bg flex items-center gap-1.5"><Icon name="repeat" className="h-4 w-4" /> Nochmal</button>
+            <button onClick={restart} className="rounded-lg bg-accent px-4 py-2 font-semibold text-bg flex items-center gap-1.5"><Icon name="repeat" className="h-4 w-4" /> Nochmal</button>
             <button onClick={onClose} className="rounded-lg bg-surface-2 px-4 py-2 font-semibold flex items-center gap-1.5"><Icon name="check" className="h-4 w-4" /> Fertig</button>
           </div>
         </div>
@@ -115,16 +145,7 @@ export function QuizRunner({ drills, einwaende, marken, n = 5, onClose, recordTy
     );
   }
 
-  const q = questions[idx];
-  const choose = (i: number) => {
-    if (answered !== null) return;
-    setAnswered(i);
-    const correct = q.opts[i].correct;
-    if (q.itemKey && q.itemKey.length > q.itemKey.indexOf(":") + 1) resultsRef.current.push({ key: q.itemKey, correct });
-    if (correct) { setScore((s) => s + 1); setStreak((s) => { const ns = s + 1; setBest((b) => Math.max(b, ns)); return ns; }); }
-    else setStreak(0);
-  };
-  const next = () => { setAnswered(null); setIdx((i) => i + 1); };
+  const correctIdx = q.opts.findIndex((o) => o.correct);
 
   return (
     <Modal onClose={onClose}>
@@ -150,6 +171,11 @@ export function QuizRunner({ drills, einwaende, marken, n = 5, onClose, recordTy
           <div className={cn("rounded-lg px-3 py-2 text-sm", q.opts[answered].correct ? "bg-green/10 text-green" : "bg-red/10 text-red")}>
             <span className="inline-flex items-center gap-1">{q.opts[answered].correct ? <Icon name="check" className="h-4 w-4" /> : <Icon name="x" className="h-4 w-4" />}{q.opts[answered].feedback || (q.opts[answered].correct ? "Richtig!" : "Leider falsch.")}</span>
           </div>
+          {!q.opts[answered].correct && correctIdx >= 0 && (
+            <div className="mt-2 rounded-lg border-l-2 border-green bg-surface-2 px-3 py-2 text-sm text-muted">
+              <Icon name="check" className="h-4 w-4 inline-block mr-1" />Richtig ({String.fromCharCode(65 + correctIdx)}): {q.opts[correctIdx].text}
+            </div>
+          )}
           {q.muster && <div className="mt-2 rounded-lg border-l-2 border-accent bg-surface-2 px-3 py-2 text-sm text-muted">{q.muster}</div>}
           <button onClick={next} className="mt-3 w-full rounded-lg bg-accent px-4 py-2.5 font-semibold text-bg">
             {idx === questions.length - 1 ? "Ergebnis →" : "Nächste Frage →"}
