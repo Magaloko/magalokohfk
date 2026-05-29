@@ -9,6 +9,8 @@ scripts/
 server.mjs
 telegram-bot.mjs
 ecosystem.config.cjs
+# V2 (eigenes Vercel-Projekt mit Root Directory = v2/) — NICHT ins Live-Projekt deployen
+v2/
 # Große lokale Exporte (liegen ohnehin im Parent)
 *.csv
 *.log

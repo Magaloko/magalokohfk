@@ -1,0 +1,46 @@
+@import "tailwindcss";
+
+/* === MAGALOKO V2 Design-Tokens (ZENA-V3-Muster: @theme inline) === */
+@theme {
+  --color-bg: #0f1020;
+  --color-surface: #1a1b33;
+  --color-surface-2: #232544;
+  --color-line: rgba(255, 255, 255, 0.08);
+  --color-ink: #f2f3ff;
+  --color-muted: #a3a6c8;
+  --color-muted-2: #6e718f;
+  --color-accent: #6ea8fe;
+  --color-accent-2: #4f8ef7;
+  --color-teal: #38d6c4;
+  --color-gold: #f5c451;
+  --color-green: #4ade80;
+  --color-red: #f87171;
+  --color-amber: #fbbf24;
+
+  --font-sans: "Manrope", ui-sans-serif, system-ui, -apple-system, sans-serif;
+  --font-mono: "JetBrains Mono", ui-monospace, monospace;
+  --radius: 0.75rem;
+  --radius-sm: 0.5rem;
+}
+
+html, body {
+  background: var(--color-bg);
+  color: var(--color-ink);
+  font-family: var(--font-sans);
+  -webkit-font-smoothing: antialiased;
+}
+
+* { border-color: var(--color-line); }
+
+/* iOS: kein Auto-Zoom beim Fokus auf Eingabefelder */
+@media (max-width: 767px) {
+  input:not([type="checkbox"]):not([type="radio"]), textarea, select { font-size: 16px; }
+}
+
+/* Scrollbar dezent */
+::-webkit-scrollbar { width: 10px; height: 10px; }
+::-webkit-scrollbar-thumb { background: var(--color-surface-2); border-radius: 8px; }
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { animation-duration: 0.01ms !important; transition-duration: 0.01ms !important; }
+}
