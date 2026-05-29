@@ -96,10 +96,10 @@ export function SzenarioRunner({ sc, personaName, onClose }: { sc: Szenario; per
         <div className="h-full rounded-full bg-accent transition-all" style={{ width: `${progress}%` }} />
       </div>
       <div className="mb-3 flex items-center justify-between text-xs">
-        <span className="font-semibold uppercase tracking-wide text-muted-2">Schritt {idx + 1}/{total}{personaName ? ` · ${personaName}` : ""}</span>
+        <span className="font-medium text-muted-2">Schritt {idx + 1}/{total}{personaName ? ` · ${personaName}` : ""}</span>
         <span className={cn("rounded-full px-2.5 py-0.5 font-semibold inline-flex items-center gap-1", streak >= 3 ? "bg-amber/20 text-amber" : "bg-surface-2 text-muted")}><Icon name="check" className="h-3 w-3" /> {score} · <Icon name="flame" className="h-3 w-3" /> {streak}</span>
       </div>
-      <p className="mb-4 whitespace-pre-wrap font-semibold">{step.prompt}</p>
+      <p className="mb-4 whitespace-pre-wrap text-base font-semibold sm:text-lg">{step.prompt}</p>
       <div className="flex flex-col gap-2">
         {step.options.map((o, i) => {
           const show = answered !== null;
@@ -108,7 +108,7 @@ export function SzenarioRunner({ sc, personaName, onClose }: { sc: Szenario; per
             : "border-line hover:border-accent";
           return (
             <button key={i} disabled={show} onClick={() => choose(i)}
-              className={cn("rounded-lg border px-4 py-3 text-left text-sm transition", tone, show && "cursor-default")}>
+              className={cn("rounded-lg border px-4 py-3.5 text-left text-base leading-snug transition", tone, show && "cursor-default")}>
               <span className="mr-2 font-mono text-muted-2">{String.fromCharCode(65 + i)}</span>{o.text}
             </button>
           );
@@ -124,7 +124,7 @@ export function SzenarioRunner({ sc, personaName, onClose }: { sc: Szenario; per
               <Icon name="bulb" className="h-4 w-4 inline-block mr-1" />Beste Antwort ({String.fromCharCode(65 + step.correctIdx)}): {step.options[step.correctIdx].feedback}
             </div>
           )}
-          <button onClick={next} className="mt-3 w-full rounded-lg bg-accent px-4 py-2.5 font-semibold text-bg">
+          <button onClick={next} className="mt-3 w-full rounded-lg bg-accent px-4 py-3 text-base font-semibold text-bg">
             {idx === total - 1 ? "Ergebnis →" : "Nächster Schritt →"}
           </button>
         </div>

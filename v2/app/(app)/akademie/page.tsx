@@ -103,26 +103,26 @@ export default async function AkademieHub() {
 
         <section>
           <h2 className="mb-3 text-xs font-bold uppercase tracking-wide text-muted-2">Bereiche</h2>
-          <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
             {tiles.map((t) => (
               <Link key={t.area} href={`/akademie/${t.area}`}
-                className={`group relative overflow-hidden rounded-xl border border-line bg-gradient-to-br ${t.tone} to-transparent p-4 transition hover:border-accent`}>
+                className={`group relative flex min-h-[140px] flex-col overflow-hidden rounded-xl border border-line bg-gradient-to-br ${t.tone} to-transparent p-5 transition hover:border-accent`}>
                 <div className="flex items-start justify-between">
-                  <Icon name={t.icon} className="h-6 w-6" />
-                  <span className="rounded-full bg-surface-2 px-2 py-0.5 text-xs font-mono font-bold text-muted">{t.count}</span>
+                  <Icon name={t.icon} className="h-7 w-7" />
+                  <span className="rounded-full bg-surface-2 px-2.5 py-0.5 text-xs font-mono font-bold text-muted">{t.count}</span>
                 </div>
-                <h3 className="mt-3 font-bold">{t.title}</h3>
-                <p className="mt-0.5 text-xs text-muted">{t.desc}</p>
-                <span className="mt-3 inline-block text-xs font-semibold text-accent opacity-0 transition group-hover:opacity-100">Öffnen →</span>
+                <h3 className="mt-3 text-lg font-bold">{t.title}</h3>
+                <p className="mt-1 text-sm text-muted">{t.desc}</p>
+                <span className="mt-auto pt-3 inline-block text-sm font-semibold text-accent">Öffnen →</span>
               </Link>
             ))}
             {admin && (
               <Link href="/akademie/mitarbeiter"
-                className="group rounded-xl border border-line bg-surface p-4 transition hover:border-accent">
-                <Icon name="user" className="h-6 w-6" />
-                <h3 className="mt-3 font-bold">Mitarbeiter</h3>
-                <p className="mt-0.5 text-xs text-muted">Team-Fortschritt & Verwaltung</p>
-                <span className="mt-3 inline-block text-xs font-semibold text-accent opacity-0 transition group-hover:opacity-100">Öffnen →</span>
+                className="group flex min-h-[140px] flex-col rounded-xl border border-line bg-surface p-5 transition hover:border-accent">
+                <Icon name="user" className="h-7 w-7" />
+                <h3 className="mt-3 text-lg font-bold">Mitarbeiter</h3>
+                <p className="mt-1 text-sm text-muted">Team-Fortschritt & Verwaltung</p>
+                <span className="mt-auto pt-3 inline-block text-sm font-semibold text-accent">Öffnen →</span>
               </Link>
             )}
           </div>

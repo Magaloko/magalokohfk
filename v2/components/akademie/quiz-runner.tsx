@@ -150,17 +150,17 @@ export function QuizRunner({ drills, einwaende, marken, n = 5, onClose, recordTy
   return (
     <Modal onClose={onClose}>
       <div className="mb-3 flex items-center justify-between text-xs">
-        <span className="rounded-full bg-surface-2 px-2.5 py-0.5 font-semibold text-muted">{idx + 1}/{questions.length} · {q.label}</span>
+        <span className="font-medium text-muted-2">{idx + 1}/{questions.length} · {q.label}</span>
         <span className={cn("rounded-full px-2.5 py-0.5 font-semibold flex items-center gap-1", streak >= 3 ? "bg-amber/20 text-amber" : "bg-surface-2 text-muted")}><Icon name="check" className="h-4 w-4" /> {score} · <Icon name="flame" className="h-4 w-4" /> {streak}</span>
       </div>
-      <p className="mb-4 whitespace-pre-wrap font-semibold">{q.frage}</p>
+      <p className="mb-4 whitespace-pre-wrap text-base font-semibold sm:text-lg">{q.frage}</p>
       <div className="flex flex-col gap-2">
         {q.opts.map((o, i) => {
           const show = answered !== null;
           const tone = show && o.correct ? "border-green bg-green/10" : show && i === answered && !o.correct ? "border-red bg-red/10" : "border-line hover:border-accent";
           return (
             <button key={i} disabled={show} onClick={() => choose(i)}
-              className={cn("rounded-lg border px-4 py-3 text-left text-sm transition", tone, show && "cursor-default")}>
+              className={cn("rounded-lg border px-4 py-3.5 text-left text-base leading-snug transition", tone, show && "cursor-default")}>
               <span className="mr-2 font-mono text-muted-2">{String.fromCharCode(65 + i)}</span>{o.text}
             </button>
           );
@@ -177,7 +177,7 @@ export function QuizRunner({ drills, einwaende, marken, n = 5, onClose, recordTy
             </div>
           )}
           {q.muster && <div className="mt-2 rounded-lg border-l-2 border-accent bg-surface-2 px-3 py-2 text-sm text-muted">{q.muster}</div>}
-          <button onClick={next} className="mt-3 w-full rounded-lg bg-accent px-4 py-2.5 font-semibold text-bg">
+          <button onClick={next} className="mt-3 w-full rounded-lg bg-accent px-4 py-3 text-base font-semibold text-bg">
             {idx === questions.length - 1 ? "Ergebnis →" : "Nächste Frage →"}
           </button>
         </div>

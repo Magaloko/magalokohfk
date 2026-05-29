@@ -146,7 +146,7 @@ export function RoleplayRunner({ rp, onClose }: { rp: Rollenspiel; onClose: () =
               rows={2}
               disabled={sending}
               placeholder="Deine Antwort als VerkäuferIn…"
-              className="flex-1 resize-none rounded-lg border border-line bg-surface-2 px-3 py-2 text-sm text-ink outline-none focus:border-accent disabled:opacity-60"
+              className="flex-1 resize-none rounded-lg border border-line bg-surface-2 px-3 py-2.5 text-base text-ink outline-none focus:border-accent disabled:opacity-60"
             />
             <button onClick={send} disabled={sending || !input.trim()} aria-label="Senden"
               className="rounded-lg bg-accent px-4 py-2.5 font-semibold text-bg disabled:opacity-50"><Icon name="send" className="h-4 w-4" /></button>
@@ -201,7 +201,7 @@ function Bubble({ seller, text, typing }: { seller: boolean; text?: string; typi
   return (
     <div className={cn("flex flex-col", seller ? "items-end" : "items-start")}>
       <span className="mb-0.5 text-[10px] font-semibold uppercase tracking-wide text-muted-2">{seller ? "Du" : <><Icon name="user" className="h-3 w-3 inline-block mr-0.5" />Kunde</>}</span>
-      <div className={cn("max-w-[85%] whitespace-pre-wrap rounded-2xl px-3 py-2 text-sm",
+      <div className={cn("max-w-[85%] whitespace-pre-wrap rounded-2xl px-3.5 py-2.5 text-base leading-relaxed",
         seller ? "rounded-br-sm bg-accent/20 text-ink" : "rounded-bl-sm bg-surface-2 text-ink")}>
         {typing ? <Dots /> : text}
       </div>

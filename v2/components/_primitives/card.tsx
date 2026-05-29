@@ -3,14 +3,14 @@ import { cn } from "@/lib/cn";
 
 export function Card({ children, className }: { children: ReactNode; className?: string }) {
   return (
-    <div className={cn("rounded-xl border border-line bg-surface p-4 shadow-sm transition hover:border-accent/40", className)}>
+    <div className={cn("rounded-xl border border-line bg-surface p-5 shadow-sm transition hover:border-accent/40", className)}>
       {children}
     </div>
   );
 }
 
 export function CardGrid({ children }: { children: ReactNode }) {
-  return <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">{children}</div>;
+  return <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">{children}</div>;
 }
 
 export function Pill({ children, tone = "muted" }: { children: ReactNode; tone?: "muted" | "accent" | "green" | "amber" | "red" | "teal" }) {
