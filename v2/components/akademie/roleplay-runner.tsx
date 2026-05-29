@@ -37,24 +37,28 @@ export function RoleplayRunner({ rp, onClose }: { rp: Rollenspiel; onClose: () =
     requestAnimationFrame(() => { if (chatRef.current) chatRef.current.scrollTop = chatRef.current.scrollHeight; });
   }, []);
 
-  // Eröffnung der KI beim Öffnen.
-  useEffect(() => {
-    let alive = true;
-    (async () => {
-      try {
-        const r = await aiCall("chat", rp, [{ role: "user", content: SEED }]);
-        const j = await r.json().catch(() => ({}));
-        if (!alive) return;
-        if (r.ok && j.reply) setConvo((c) => [...c, { role: "assistant", content: j.reply }]);
-        else setErr(j.error === "no_key" ? "no_key" : "unreachable");
-      } catch { if (alive) setErr("unreachable"); }
-      finally { if (alive) { setSending(false); scrollDown(); } }
-    })();
-    return () => { alive = false; };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  // Eröffnung der KI (einmalig genutzt von Erst-Start UND „Nochmal").
+  const startConversation = useCallback(async () => {
+    setSending(true); setErr("");
+    try {
+      const r = await aiCall("chat", rp, [{ role: "user", content: SEED }]);
+      const j = await r.json().catch(() => ({}));
+      if (r.ok && j.reply) setConvo([{ role: "user", content: SEED }, { role: "assistant", content: j.reply }]);
+      else setErr(j.error === "no_key" ? "no_key" : "unreachable");
+    } catch { setErr("unreachable"); }
+    finally { setSending(false); scrollDown(); }
+  }, [rp, scrollDown]);
 
+  useEffect(() => { startConversation(); }, [startConversation]);
   useEffect(scrollDown, [convo, sending, scrollDown]);
+
+  // Escape schließt; Eingabe fokussieren, sobald die KI fertig ist.
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => { if (e.key === "Escape") onClose(); };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [onClose]);
+  useEffect(() => { if (!sending && phase === "chat") inputRef.current?.focus(); }, [sending, phase]);
 
   async function send() {
     const text = input.trim();
@@ -88,16 +92,8 @@ export function RoleplayRunner({ rp, onClose }: { rp: Rollenspiel; onClose: () =
 
   function reset() {
     setConvo([{ role: "user", content: SEED }]);
-    setCoach(null); setErr(""); setInput(""); setPhase("chat"); setSending(true);
-    (async () => {
-      try {
-        const r = await aiCall("chat", rp, [{ role: "user", content: SEED }]);
-        const j = await r.json().catch(() => ({}));
-        if (r.ok && j.reply) setConvo((c) => [...c, { role: "assistant", content: j.reply }]);
-        else setErr(j.error === "no_key" ? "no_key" : "unreachable");
-      } catch { setErr("unreachable"); }
-      finally { setSending(false); }
-    })();
+    setCoach(null); setInput(""); setPhase("chat");
+    startConversation();
   }
 
   const visible = convo.slice(1);
