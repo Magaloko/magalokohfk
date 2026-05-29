@@ -16,22 +16,44 @@ function looksNonGerman(text: string): boolean {
   return hits.size >= 2 && !hasGermanChars;
 }
 
+type Filter = "all" | "suspect" | "flagged";
+
 export function QaAuditClient({ items, configured }: { items: QAItem[]; configured: boolean }) {
-  const [onlySuspect, setOnlySuspect] = useState(false);
+  const [filter, setFilter] = useState<Filter>("all");
   const [results, setResults] = useState<Record<string, Result | "busy" | "err">>({});
   const [copied, setCopied] = useState<string | null>(null);
+  const [batch, setBatch] = useState<{ running: boolean; done: number; total: number }>({ running: false, done: 0, total: 0 });
 
   const flagged = useMemo(() => new Set(items.filter((i) => looksNonGerman(i.text)).map((i) => i.key)), [items]);
-  const shown = onlySuspect ? items.filter((i) => flagged.has(i.key)) : items;
+  const kiFlagged = useMemo(() => items.filter((i) => { const r = results[i.key]; return r && r !== "busy" && r !== "err" && !r.german; }).length, [items, results]);
+  const checkedCount = useMemo(() => items.filter((i) => { const r = results[i.key]; return r && r !== "busy" && r !== "err"; }).length, [items, results]);
 
-  async function check(it: QAItem) {
+  const shown = filter === "suspect" ? items.filter((i) => flagged.has(i.key))
+    : filter === "flagged" ? items.filter((i) => { const r = results[i.key]; return r && r !== "busy" && r !== "err" && !r.german; })
+      : items;
+
+  async function checkOne(it: QAItem): Promise<Result | "err"> {
     setResults((r) => ({ ...r, [it.key]: "busy" }));
     try {
       const res = await fetch("/api/qa-audit", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ text: it.text }) });
       const j = await res.json().catch(() => ({}));
-      if (res.ok && j.result) setResults((r) => ({ ...r, [it.key]: j.result as Result }));
-      else setResults((r) => ({ ...r, [it.key]: "err" }));
-    } catch { setResults((r) => ({ ...r, [it.key]: "err" })); }
+      const out: Result | "err" = res.ok && j.result ? (j.result as Result) : "err";
+      setResults((r) => ({ ...r, [it.key]: out }));
+      return out;
+    } catch { setResults((r) => ({ ...r, [it.key]: "err" })); return "err"; }
+  }
+  const check = (it: QAItem) => { void checkOne(it); };
+
+  // Stapel-Prüfung: nacheinander (schont KI/Rate-Limit). targets = Verdächtige oder alle.
+  async function runBatch(targets: QAItem[]) {
+    const todo = targets.filter((it) => { const r = results[it.key]; return !r || r === "err"; });
+    if (!todo.length || batch.running) return;
+    setBatch({ running: true, done: 0, total: todo.length });
+    for (let i = 0; i < todo.length; i++) {
+      await checkOne(todo[i]);
+      setBatch({ running: true, done: i + 1, total: todo.length });
+    }
+    setBatch({ running: false, done: 0, total: 0 });
   }
   async function copy(key: string, text: string) {
     try { await navigator.clipboard.writeText(text); setCopied(key); setTimeout(() => setCopied(null), 1500); } catch { /* noop */ }
@@ -41,13 +63,30 @@ export function QaAuditClient({ items, configured }: { items: QAItem[]; configur
     <div className="flex flex-col gap-4">
       {!configured && <div className="rounded-lg border border-amber/40 bg-amber/10 p-3 text-sm text-amber">KI nicht konfiguriert (BOT_AI_KEY) — die KI-Prüfung ist deaktiviert. Die Heuristik-Markierung funktioniert trotzdem.</div>}
 
-      <div className="flex flex-wrap items-center gap-3 rounded-xl border border-line bg-surface p-4 shadow-sm">
-        <span className="text-sm font-semibold">{items.length} Einträge</span>
-        <span className="text-sm text-muted-2">· {flagged.size} verdächtig (Heuristik)</span>
-        <label className="ml-auto inline-flex cursor-pointer items-center gap-2 text-sm">
-          <input type="checkbox" checked={onlySuspect} onChange={(e) => setOnlySuspect(e.target.checked)} className="h-4 w-4" />
-          Nur Verdächtige
-        </label>
+      <div className="flex flex-col gap-3 rounded-xl border border-line bg-surface p-4 shadow-sm">
+        <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-sm">
+          <span className="font-semibold">{items.length} Einträge</span>
+          <span className="text-muted-2">{flagged.size} verdächtig (Heuristik)</span>
+          <span className="text-muted-2">{checkedCount} geprüft</span>
+          <span className={kiFlagged ? "font-semibold text-red" : "text-muted-2"}>{kiFlagged} auffällig (KI)</span>
+        </div>
+        <div className="flex flex-wrap items-center gap-2">
+          {([["all", "Alle"], ["suspect", `Verdächtige (${flagged.size})`], ["flagged", `KI-auffällig (${kiFlagged})`]] as [Filter, string][]).map(([f, label]) => (
+            <button key={f} onClick={() => setFilter(f)} className={cn("rounded-full border px-3 py-1 text-xs font-medium transition", filter === f ? "border-accent bg-accent/15 text-accent" : "border-line bg-surface-2 text-muted hover:text-ink")}>{label}</button>
+          ))}
+          <span className="ml-auto flex gap-2">
+            <button disabled={!configured || batch.running} onClick={() => runBatch(items.filter((i) => flagged.has(i.key)))}
+              className="rounded-lg bg-surface-2 px-3 py-1.5 text-xs font-semibold hover:text-ink disabled:opacity-50">Verdächtige prüfen</button>
+            <button disabled={!configured || batch.running} onClick={() => runBatch(items)}
+              className="rounded-lg bg-accent px-3 py-1.5 text-xs font-semibold text-bg disabled:opacity-50">Alle prüfen</button>
+          </span>
+        </div>
+        {batch.running && (
+          <div>
+            <div className="mb-1 text-xs text-muted-2">KI prüft … {batch.done}/{batch.total}</div>
+            <div className="h-1.5 overflow-hidden rounded-full bg-surface-2"><div className="h-full rounded-full bg-accent transition-all" style={{ width: `${batch.total ? (batch.done / batch.total) * 100 : 0}%` }} /></div>
+          </div>
+        )}
       </div>
 
       <ul className="flex flex-col gap-3">
