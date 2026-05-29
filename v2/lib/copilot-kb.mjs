@@ -7,8 +7,17 @@ export const APPS = [
   { key: "excel", label: "Excel", icon: "kpi" },
   { key: "word", label: "Word", icon: "book" },
   { key: "teams", label: "Teams", icon: "users" },
+  { key: "powerpoint", label: "PowerPoint", icon: "scenario" },
+  { key: "copilotchat", label: "Copilot Chat", icon: "chat" },
 ];
 export const appLabel = (k) => APPS.find((a) => a.key === k)?.label || k;
+
+export const ROLES = [
+  { key: "einkauf", label: "Einkauf", icon: "package" },
+  { key: "marketing", label: "Marketing", icon: "globe" },
+  { key: "buchhaltung", label: "Buchhaltung", icon: "money" },
+];
+export const roleLabel = (k) => ROLES.find((r) => r.key === k)?.label || k;
 
 export const COPILOT_GUIDES = [
   // ===== OUTLOOK =====
@@ -146,6 +155,140 @@ export const COPILOT_GUIDES = [
       { title: "Antworten", detail: "Wo nötig direkt antworten — Entwürfe kann Copilot ebenfalls vorschlagen." },
     ],
   },
+
+  // ===== POWERPOINT =====
+  {
+    id: "ppt-from-word", app: "powerpoint", minutes: 6,
+    title: "Präsentation aus einem Word-Dokument",
+    goal: "Aus einem bestehenden Dokument in Minuten einen Foliensatz machen.",
+    steps: [
+      { title: "Neue Präsentation öffnen", detail: "PowerPoint starten und auf der Registerkarte „Start“ das Copilot-Symbol anklicken." },
+      { title: "Aus Datei erstellen", detail: "Copilot eine Präsentation aus dem Dokument erzeugen lassen.", prompt: "Erstelle eine Präsentation aus dem Dokument [Dateiname] mit Titelfolie, Agenda und je einer Folie pro Abschnitt." },
+      { title: "Folien straffen", detail: "Textmenge reduzieren und Struktur schärfen.", prompt: "Reduziere den Text pro Folie auf Stichpunkte und füge am Ende eine Zusammenfassungsfolie hinzu." },
+      { title: "Sprechernotizen erzeugen", detail: "Notizen für den Vortrag ergänzen lassen.", prompt: "Erstelle kurze Sprechernotizen für jede Folie." },
+    ],
+    tips: ["Copilot in PowerPoint braucht ein gespeichertes Quelldokument (OneDrive/SharePoint).", "Folien danach gegenlesen — Fakten und Zahlen prüfen."],
+  },
+  {
+    id: "ppt-brand-deck", app: "powerpoint", minutes: 7,
+    title: "Marken-/Lieferantenpräsentation erstellen",
+    goal: "Einen überzeugenden Foliensatz zu einem Thema von Grund auf erzeugen.",
+    steps: [
+      { title: "Copilot öffnen", detail: "Start-Registerkarte → Copilot-Symbol." },
+      { title: "Thema vorgeben", detail: "Copilot einen kompletten Entwurf erstellen lassen.", prompt: "Erstelle eine 8-Folien-Präsentation über die Marke [Marke] für ein Verkaufstraining: Herkunft, USPs, Hero-Produkte, typische Einwände, Cross-Selling-Ideen." },
+      { title: "Design & Bilder", detail: "Über den PowerPoint-Designer Layout/Bilder vorschlagen lassen und passende wählen." },
+      { title: "Zuspitzen", detail: "Einzelne Folien verbessern.", prompt: "Mach die Folie „USPs“ prägnanter und füge eine Folie mit 3 Verkaufsargumenten hinzu." },
+    ],
+  },
+
+  // ===== COPILOT CHAT =====
+  {
+    id: "chat-find", app: "copilotchat", minutes: 4,
+    title: "Unternehmensweit Infos & Dateien finden",
+    goal: "Eine Antwort über alle Mails, Dateien und Chats hinweg bekommen — mit Quellen.",
+    steps: [
+      { title: "Copilot Chat öffnen", detail: "Im Browser/Edge mit Arbeitskonto, in der Microsoft-365-App oder in Teams; den Modus „Arbeit“ wählen, damit Copilot auf Firmendaten zugreift." },
+      { title: "Frage stellen", detail: "Konkret nach der Information suchen.", prompt: "Wo finde ich den aktuellen Liefertermin von [Marke]? Suche in meinen E-Mails und Dateien und nenne die Quelle." },
+      { title: "Quelle prüfen", detail: "Copilot nennt Quellen-Links — diese öffnen und die Aussage verifizieren." },
+    ],
+    tips: ["„Arbeit“-Modus nutzen — der „Web“-Modus durchsucht keine Firmendaten.", "Funktioniert am besten, wenn Dateien in OneDrive/SharePoint liegen."],
+  },
+  {
+    id: "chat-catchup", app: "copilotchat", minutes: 3,
+    title: "Tagesüberblick holen",
+    goal: "In 30 Sekunden wissen, was heute wichtig ist.",
+    steps: [
+      { title: "Copilot Chat öffnen", detail: "Arbeitsmodus wählen." },
+      { title: "Überblick anfordern", detail: "Tag zusammenfassen lassen.", prompt: "Was ist heute Wichtiges passiert? Fasse meine E-Mails, Teams-Chats und Termine zusammen und nenne, was meine Aufmerksamkeit braucht." },
+      { title: "Aufgaben ableiten", detail: "Daraus To-dos ins Cockpit übernehmen." },
+    ],
+  },
+  {
+    id: "chat-draft-multi", app: "copilotchat", minutes: 5,
+    title: "Aus mehreren Quellen ein Dokument erstellen",
+    goal: "Infos aus Mail + Datei zu einer sauberen Übersicht zusammenführen.",
+    steps: [
+      { title: "Copilot Chat öffnen", detail: "Arbeitsmodus wählen." },
+      { title: "Quellen benennen", detail: "Copilot auf konkrete Dateien/Mails verweisen.", prompt: "Erstelle aus der E-Mail von [Lieferant] und der Excel-Liste [Datei] eine kurze Bestellzusammenfassung als Tabelle (Artikel, Menge, Liefertermin)." },
+      { title: "Export/Übernahme", detail: "Ergebnis in Word/Excel übernehmen und prüfen." },
+    ],
+  },
+
+  // ===== ROLLEN: EINKAUF =====
+  {
+    id: "einkauf-lieferstatus", app: "copilotchat", role: "einkauf", minutes: 5,
+    title: "Liefer- & Bestellstatus bündeln",
+    goal: "Alle offenen Bestellungen und Liefertermine auf einen Blick.",
+    steps: [
+      { title: "Copilot Chat (Arbeit) öffnen", detail: "Damit Copilot Mails & Dateien durchsucht." },
+      { title: "Status anfordern", detail: "Nach offenen Bestellungen fragen.", prompt: "Fasse alle offenen Bestellungen und zugesagten Liefertermine aus meinen E-Mails der letzten 4 Wochen zusammen, gruppiert nach Lieferant." },
+      { title: "In Excel übertragen", detail: "Liste in eine Tabelle kopieren und mit Strg+T formatieren." },
+      { title: "Nachfassen", detail: "Bei Verzug eine Erinnerung entwerfen lassen.", prompt: "Schreibe eine höfliche Erinnerung an [Lieferant] wegen der überfälligen Lieferung [Bestellnummer]." },
+    ],
+    tips: ["Keine sensiblen Konditionen in unsichere Kanäle kopieren."],
+  },
+  {
+    id: "einkauf-vergleich", app: "excel", role: "einkauf", minutes: 6,
+    title: "Lieferanten & Konditionen vergleichen",
+    goal: "Schnell sehen, wo die beste Marge liegt.",
+    steps: [
+      { title: "Daten als Tabelle formatieren", detail: "Konditionsliste markieren, Strg+T." },
+      { title: "Copilot in Excel öffnen", detail: "Start-Registerkarte → Copilot." },
+      { title: "Vergleich anfordern", detail: "Top-Lieferanten herausarbeiten.", prompt: "Vergleiche die Einkaufskonditionen je Lieferant: Wer bietet die beste Marge bei welcher Warengruppe? Zeige die Top 3 mit Begründung." },
+      { title: "Entscheidung festhalten", detail: "Ergebnis als Entscheidung im Cockpit (Stephan) hinterlegen." },
+    ],
+  },
+
+  // ===== ROLLEN: MARKETING =====
+  {
+    id: "marketing-social", app: "word", role: "marketing", minutes: 4,
+    title: "Social-Media-Post entwerfen",
+    goal: "Mehrere Varianten für einen Aktions-Post in Sekunden.",
+    steps: [
+      { title: "Word oder Copilot Chat öffnen", detail: "Beides geht — für reinen Text reicht Copilot Chat." },
+      { title: "Post generieren", detail: "Varianten mit klaren Vorgaben anfordern.", prompt: "Schreibe 3 Varianten für einen Instagram-Post über unsere neue [Marke]-Kinderwagen-Aktion: freundlich, mit Emojis, je max. 280 Zeichen, inkl. 5 passenden Hashtags." },
+      { title: "Feinschliff", detail: "Tonalität und CTA anpassen.", prompt: "Mach Variante 2 verspielter und füge einen klaren Call-to-Action zur Beratung hinzu." },
+      { title: "Freigabe", detail: "Vor dem Posten Marke, Preis und Aktionszeitraum prüfen." },
+    ],
+    tips: ["Markennamen/Aktionsdetails selbst vorgeben — nicht raten lassen."],
+  },
+  {
+    id: "marketing-newsletter", app: "outlook", role: "marketing", minutes: 5,
+    title: "Eltern-Newsletter entwerfen",
+    goal: "Einen herzlichen Newsletter-Entwurf für (werdende) Eltern.",
+    steps: [
+      { title: "Neue Mail / Word öffnen", detail: "„Mit Copilot entwerfen“ nutzen." },
+      { title: "Newsletter generieren", detail: "Struktur und Ton vorgeben.", prompt: "Entwirf einen kurzen Newsletter für werdende Eltern: herzliche Begrüßung, 3 Produkt-Highlights der Saison, Einladung zur kostenlosen Erstausstattungs-Beratung. Ton: warm, nahbar." },
+      { title: "Personalisieren", detail: "Anrede/Filiale ergänzen, Highlights mit echten Produkten füllen." },
+      { title: "Prüfen", detail: "Links, Preise und Termine kontrollieren." },
+    ],
+  },
+
+  // ===== ROLLEN: BUCHHALTUNG =====
+  {
+    id: "buha-monatszahlen", app: "excel", role: "buchhaltung", minutes: 6,
+    title: "Monatszahlen aufbereiten",
+    goal: "Umsätze pro Monat/Warengruppe verdichten und Abweichungen sehen.",
+    steps: [
+      { title: "Als Tabelle formatieren", detail: "Umsatzdaten markieren, Strg+T." },
+      { title: "Copilot in Excel öffnen", detail: "Start-Registerkarte → Copilot." },
+      { title: "Auswertung anfordern", detail: "Verdichten und Abweichungen markieren.", prompt: "Fasse diese Umsatztabelle pro Monat und Warengruppe zusammen und markiere Abweichungen über 10 % zum Vormonat." },
+      { title: "Übernehmen", detail: "Kennzahlen als KPI ins Cockpit (KPIs) eintragen." },
+    ],
+    tips: ["Zahlen immer gegen die Quelle prüfen, bevor sie weitergegeben werden."],
+  },
+  {
+    id: "buha-zahlungserinnerung", app: "word", role: "buchhaltung", minutes: 4,
+    title: "Zahlungserinnerung formulieren",
+    goal: "Eine höfliche, korrekte erste Zahlungserinnerung.",
+    steps: [
+      { title: "Word/Outlook öffnen", detail: "„Mit Copilot entwerfen“ nutzen." },
+      { title: "Erinnerung entwerfen", detail: "Sachlich und freundlich formulieren lassen.", prompt: "Formuliere eine höfliche, sachliche erste Zahlungserinnerung an einen Geschäftskunden zur offenen Rechnung Nr. [X] über [Betrag], fällig am [Datum]. Freundlich, ohne Druck, mit Bitte um kurze Rückmeldung." },
+      { title: "Daten einsetzen", detail: "Rechnungsnummer, Betrag, Frist und Bankverbindung selbst einfügen." },
+      { title: "Prüfen & senden", detail: "Beträge und Fristen kontrollieren." },
+    ],
+    tips: ["Mahnstufe/Fristen mit der Buchhaltung abstimmen — Copilot kennt eure Regeln nicht."],
+  },
 ];
 
 export const COPILOT_FAQ = [
@@ -158,8 +301,38 @@ export const COPILOT_FAQ = [
   { q: "Was kann Mago/MAGALOKO dabei für HFK tun?", a: "Mago übersetzt Copilot in den HFK-Alltag: rollenbasierte Arbeitsanweisungen, eine deutsche Prompt-Bibliothek, Schulung & Zertifizierung, Datenschutz-Leitplanken und ein ROI-Tracking der gesparten Zeit — alles gebündelt im Cockpilot." },
 ];
 
+// Prompt-Bibliothek — kopierfertige Prompts, nach App/Rolle gefiltert.
+export const COPILOT_PROMPTS = [
+  { id: "p-ol-1", app: "outlook", title: "Posteingang zusammenfassen", prompt: "Fasse meine ungelesenen E-Mails von heute zusammen und ordne sie nach Dringlichkeit. Markiere, welche eine Antwort brauchen." },
+  { id: "p-ol-2", app: "outlook", title: "Antwort entwerfen", prompt: "Entwirf eine freundliche, professionelle Antwort auf diese Anfrage und schlage einen Beratungstermin diese Woche vor." },
+  { id: "p-ol-3", app: "outlook", title: "Termine & Fristen finden", prompt: "Welche Termine, Liefertermine und Fristen stehen in dieser E-Mail-Kette? Liste sie mit Datum." },
+  { id: "p-ol-4", app: "outlook", title: "Höflich nachfassen", prompt: "Schreibe eine höfliche Erinnerung an [Lieferant] wegen der ausstehenden Lieferung [Bestellnummer]." },
+  { id: "p-xl-1", app: "excel", title: "Verkaufsdaten analysieren", prompt: "Analysiere diese Verkaufsdaten: Top-5-Produkte, auffällige Trends, was wächst und was schwächelt." },
+  { id: "p-xl-2", app: "excel", title: "Diagramm erstellen", prompt: "Erstelle ein Diagramm, das den Umsatz pro Monat und Warengruppe zeigt." },
+  { id: "p-xl-3", app: "excel", title: "Formelspalte anlegen", prompt: "Füge eine Spalte „Marge %“ hinzu: (Verkaufspreis − Einkaufspreis) / Verkaufspreis als Prozent." },
+  { id: "p-xl-4", app: "excel", title: "Liste bereinigen", prompt: "Markiere alle Zeilen mit Lagerbestand unter 5 und sortiere nach Lagerbestand aufsteigend." },
+  { id: "p-wd-1", app: "word", title: "Dokument aus Stichpunkten", prompt: "Erstelle ein Beratungsprotokoll aus diesen Stichpunkten: [...]. Struktur: Anliegen, Empfehlung, nächste Schritte." },
+  { id: "p-wd-2", app: "word", title: "Text umschreiben", prompt: "Formuliere diesen Absatz höflich, klar und in maximal 5 Sätzen um. Ton: professionell." },
+  { id: "p-wd-3", app: "word", title: "Dokument zusammenfassen", prompt: "Fasse dieses Dokument in 5 Stichpunkten zusammen und nenne die wichtigsten Fristen und Bedingungen." },
+  { id: "p-tm-1", app: "teams", title: "Meeting-Recap", prompt: "Fasse die Besprechung zusammen: Welche Entscheidungen wurden getroffen und welche Action Items hat wer bis wann?" },
+  { id: "p-tm-2", app: "teams", title: "Meine Action Items", prompt: "Was sind meine persönlichen Action Items aus diesem Meeting?" },
+  { id: "p-tm-3", app: "teams", title: "Kanal aufholen", prompt: "Fasse die wichtigsten Nachrichten in diesem Kanal seit gestern zusammen und nenne offene Fragen an mich." },
+  { id: "p-pp-1", app: "powerpoint", title: "Präsentation aus Word", prompt: "Erstelle eine Präsentation aus dem Dokument [Datei] mit Titelfolie, Agenda und je einer Folie pro Abschnitt." },
+  { id: "p-pp-2", app: "powerpoint", title: "Markenpräsentation", prompt: "Erstelle eine 8-Folien-Präsentation über die Marke [Marke]: Herkunft, USPs, Hero-Produkte, typische Einwände." },
+  { id: "p-pp-3", app: "powerpoint", title: "Sprechernotizen", prompt: "Erstelle kurze Sprechernotizen für jede Folie." },
+  { id: "p-cc-1", app: "copilotchat", title: "Info firmenweit finden", prompt: "Wo finde ich den aktuellen Liefertermin von [Marke]? Suche in meinen E-Mails und Dateien und nenne die Quelle." },
+  { id: "p-cc-2", app: "copilotchat", title: "Tagesüberblick", prompt: "Was ist heute Wichtiges passiert? Fasse meine E-Mails, Teams-Chats und Termine zusammen." },
+  { id: "p-ek-1", app: "copilotchat", role: "einkauf", title: "Bestellstatus bündeln", prompt: "Fasse alle offenen Bestellungen und zugesagten Liefertermine der letzten 4 Wochen zusammen, gruppiert nach Lieferant." },
+  { id: "p-ek-2", app: "excel", role: "einkauf", title: "Konditionen vergleichen", prompt: "Vergleiche die Einkaufskonditionen je Lieferant: beste Marge je Warengruppe, Top 3 mit Begründung." },
+  { id: "p-mk-1", app: "word", role: "marketing", title: "Instagram-Post", prompt: "Schreibe 3 Varianten für einen Instagram-Post über die [Marke]-Aktion: freundlich, mit Emojis, max. 280 Zeichen, 5 Hashtags." },
+  { id: "p-mk-2", app: "outlook", role: "marketing", title: "Eltern-Newsletter", prompt: "Entwirf einen kurzen Newsletter für werdende Eltern: Begrüßung, 3 Produkt-Highlights, Einladung zur kostenlosen Beratung. Ton: herzlich." },
+  { id: "p-bh-1", app: "excel", role: "buchhaltung", title: "Monatszahlen verdichten", prompt: "Fasse diese Umsatztabelle pro Monat und Warengruppe zusammen und markiere Abweichungen über 10 % zum Vormonat." },
+  { id: "p-bh-2", app: "word", role: "buchhaltung", title: "Zahlungserinnerung", prompt: "Formuliere eine höfliche erste Zahlungserinnerung zur Rechnung Nr. [X] über [Betrag], fällig am [Datum]. Freundlich, ohne Druck." },
+];
+
 export const getGuide = (id) => COPILOT_GUIDES.find((g) => g.id === id);
 export const guidesByApp = (app) => COPILOT_GUIDES.filter((g) => g.app === app);
+export const guidesByRole = (role) => COPILOT_GUIDES.filter((g) => g.role === role);
 
 // Erdungs-Text für den Cockpilot-Assistenten.
 export function buildCopilotKB() {
@@ -168,9 +341,12 @@ export function buildCopilotKB() {
   out.push(COPILOT_FAQ.map((f) => `F: ${f.q}\nA: ${f.a}`).join("\n\n"));
   out.push("\n# SCHRITT-FÜR-SCHRITT-GUIDES (in MAGALOKO verfügbar, mit Check-ins)");
   for (const g of COPILOT_GUIDES) {
+    const tag = g.role ? `${appLabel(g.app)} · Rolle: ${roleLabel(g.role)}` : appLabel(g.app);
     const steps = g.steps.map((s, i) => `  ${i + 1}. ${s.title} — ${s.detail}${s.prompt ? `\n     Beispiel-Prompt: „${s.prompt}“` : ""}`).join("\n");
-    out.push(`## [${appLabel(g.app)}] ${g.title} (Guide-ID: ${g.id}, ~${g.minutes} Min.)\nZiel: ${g.goal}\n${steps}${g.tips?.length ? `\nTipps: ${g.tips.join(" | ")}` : ""}`);
+    out.push(`## [${tag}] ${g.title} (Guide-ID: ${g.id}, ~${g.minutes} Min.)\nZiel: ${g.goal}\n${steps}${g.tips?.length ? `\nTipps: ${g.tips.join(" | ")}` : ""}`);
   }
+  out.push("\n# PROMPT-BIBLIOTHEK (kopierfertige Prompts)");
+  out.push(COPILOT_PROMPTS.map((p) => `- [${appLabel(p.app)}${p.role ? ` · ${roleLabel(p.role)}` : ""}] ${p.title}: „${p.prompt}“`).join("\n"));
   return out.join("\n\n");
 }
 
