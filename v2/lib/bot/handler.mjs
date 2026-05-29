@@ -294,12 +294,13 @@ async function sendMenu(chatId, userId) {
   if (allowedQuizTypes(userId).length) { btns.push({ text: "🎯 Quiz", callback_data: "menu|quiz" }); btns.push({ text: "☀️ Tagesaufgabe", callback_data: "menu|tagesaufgabe" }); }
   btns.push({ text: "📊 Score", callback_data: "menu|score" });
   btns.push({ text: "📚 Lehren", callback_data: "menu|lern" });
+  btns.push({ text: "🧠 Copilot", callback_data: "menu|copilot" });
   const rows = []; for (let i = 0; i < btns.length; i += 3) rows.push(btns.slice(i, i + 3));
   if (isAdmin(userId)) { rows.push([{ text: "📱 Cockpit", web_app: { url: WEBAPP_URL + "#dashboard" } }, { text: "👔 Stephan", web_app: { url: WEBAPP_URL + "#stephan-decisions" } }]); rows.push([{ text: "⚙️ Admin", callback_data: "admin|panel" }]); }
   return tgApi("sendMessage", { chat_id: chatId, text: "<b>🎯 MAGALOKO</b> — Was möchtest du tun?", parse_mode: "HTML", reply_markup: { inline_keyboard: rows } });
 }
 async function cmdStart(chatId, userId) {
-  const lines = ["🎓 <b>HFK Verkaufs-Akademie</b>", "", "Trainiere Produktwissen & Verkauf — direkt im Chat.", "", "<b>🎯 Training:</b>", "/drill — Zufalls-Quiz", "/quiz — Gemischtes Quiz (z.B. <code>/quiz 7</code>)", "/tagesaufgabe — Tägliche Challenge ☀️", "/marke <i>LIEWOOD</i> · /einwand <i>preis</i> · /persona <i>anna</i>", "/rollenspiel · /score · /lern", "/check — Wissens-Check · /fortschritt — Skill-Profil"];
+  const lines = ["🎓 <b>HFK Verkaufs-Akademie</b>", "", "Trainiere Produktwissen & Verkauf — direkt im Chat.", "", "<b>🎯 Training:</b>", "/drill — Zufalls-Quiz", "/quiz — Gemischtes Quiz (z.B. <code>/quiz 7</code>)", "/tagesaufgabe — Tägliche Challenge ☀️", "/marke <i>LIEWOOD</i> · /einwand <i>preis</i> · /persona <i>anna</i>", "/rollenspiel · /score · /lern", "/check — Wissens-Check · /fortschritt — Skill-Profil", "", "<b>🧠 Microsoft Copilot:</b>", "/copilot — Hilfe & Schritt-für-Schritt zu Outlook, Excel, Word, Teams"];
   if (hasModule(userId, "ai")) lines.push("/frag <i>…</i> — KI-Assistent");
   if (isAdmin(userId)) lines.push("", "<b>⚙️ Admin:</b>", "/admin — Panel (User + Bereiche)", "/adduser <i>ID Name</i> · /setrole <i>ID admin|mitarbeiter</i> · /removeuser <i>ID</i>", "/grant <i>ID bereich</i> · /revoke <i>ID bereich</i> — Akademie-Bereiche je Person", "/webcode <i>ID</i> — Web-Login-Code für Browser-Zugang");
   await send(chatId, lines.join("\n"));
@@ -456,6 +457,56 @@ async function cmdFrag(chatId, question, from) {
     console.error("[cmdFrag]", e.message);
     return send(chatId, "⚠️ KI-Anfrage fehlgeschlagen. Versuch es nochmal.");
   }
+}
+
+// === Cockpilot: Microsoft-365-Copilot-Hilfe (Chat-Modus) ===
+function copilotSystemBot() {
+  return [
+    "Du bist „Cockpilot“, der Microsoft-365-Copilot-Trainer von MAGALOKO für HFK (Babyfachhandel Wien/Österreich).",
+    "Beantworte Fragen zu Microsoft 365 Copilot (Outlook, Excel, Word, Teams, PowerPoint) sehr präzise und praxisnah.",
+    "REGELN:",
+    "- Deutsch, freundlich, du-Form. Bei Handlungsfragen IMMER eine nummerierte Schritt-für-Schritt-Anleitung.",
+    "- Wo hilfreich: einen fertigen Beispiel-Prompt zum Kopieren angeben (in Anführungszeichen).",
+    "- Nur echte, existierende Copilot-Funktionen/Menüs nennen. Bei Unsicherheit das offen sagen statt zu raten.",
+    "- Telegram-HTML erlaubt (<b>, <i>, <code>), KEIN Markdown (keine #, ##, **).",
+    "- Kurz halten (max ~350 Wörter). Schließe mit „Nächster Schritt: …“.",
+    "- Bei sensiblen Daten kurz an Datenschutz erinnern (keine sensiblen Kundendaten eingeben).",
+    "",
+    "WISSEN (kurz):",
+    "- M365 Copilot arbeitet in Word/Excel/Outlook/Teams; benötigt die kostenpflichtige Microsoft-365-Copilot-Lizenz.",
+    "- Outlook: Copilot-Symbol oben rechts; „Mit Copilot entwerfen“ beim Verfassen; lange Kette „Zusammenfassen“.",
+    "- Excel: Registerkarte Start ganz rechts; Daten ZUERST als Tabelle formatieren (Strg+T); Analyse, Diagramme, Formeln.",
+    "- Word: oben rechts + am Absatzrand; „Mit Copilot entwerfen“ aus Stichpunkten; Text markieren → umschreiben.",
+    "- Teams: „Copilot“ im Meeting (Transkript/Aufzeichnung nötig); Recap, Entscheidungen, Action Items; Chats aufholen.",
+    "- Guter Prompt = Ziel + Kontext + Quelle + Format/Ton.",
+    "- Copilot kann Fehler machen → Zahlen, Preise, Namen, Fristen immer prüfen.",
+    "- In der MAGALOKO-Web-App gibt es im Hub „Cockpilot“ Schritt-für-Schritt-Guides mit Check-ins.",
+  ].join("\n");
+}
+async function cmdCopilotStart(chatId, uid) {
+  if (!AI_KEY) return send(chatId, "⚙️ Kein KI-Key konfiguriert (<code>BOT_AI_KEY</code>).");
+  await patchSess(uid, { copilot: { messages: [] } });
+  return send(chatId,
+    "🧠 <b>Cockpilot — Microsoft-Copilot-Hilfe</b>\n\nStell mir jede Frage zu Microsoft 365 Copilot (Outlook, Excel, Word, Teams) — ich gebe dir eine Schritt-für-Schritt-Anleitung.\n\n<i>z.B. „Wie fasse ich meinen Posteingang in Outlook zusammen?“</i>\n\nBeenden: /stop",
+    { reply_markup: { inline_keyboard: [[{ text: "✖️ Beenden", callback_data: "copilot|exit" }]] } });
+}
+async function cmdCopilotMessage(chatId, uid, text, sess) {
+  if (!AI_KEY) return send(chatId, "⚙️ Kein KI-Key konfiguriert (<code>BOT_AI_KEY</code>).");
+  const hist = Array.isArray(sess.copilot?.messages) ? sess.copilot.messages : [];
+  const q = text.slice(0, 2000);
+  await tgApi("sendChatAction", { chat_id: chatId, action: "typing" });
+  let answer;
+  try {
+    answer = await callAI([{ role: "system", content: copilotSystemBot() }, ...hist.slice(-8), { role: "user", content: q }]);
+  } catch (e) {
+    if (e.message === "NO_KEY") return send(chatId, "⚙️ Kein KI-Key konfiguriert (<code>BOT_AI_KEY</code>).");
+    console.error("[copilot]", e.message);
+    return send(chatId, "⚠️ KI-Anfrage fehlgeschlagen. Versuch es nochmal.");
+  }
+  const newHist = [...hist, { role: "user", content: q }, { role: "assistant", content: answer }].slice(-12);
+  await patchSess(uid, { copilot: { messages: newHist } });
+  const kb = { reply_markup: { inline_keyboard: [[{ text: "✖️ Beenden", callback_data: "copilot|exit" }]] } };
+  for (let i = 0; i < answer.length; i += 4000) await send(chatId, answer.slice(i, i + 4000), i + 4000 >= answer.length ? kb : {});
 }
 
 // === Quiz-Flow (Session in Supabase) ===
@@ -742,6 +793,8 @@ async function handleUpdate(u) {
     if (data === "menu|quiz") return cmdQuiz(cid, uid, 5);
     if (data === "menu|tagesaufgabe") return cmdTagesaufgabe(cid, uid);
     if (data === "menu|fortschritt") return cmdFortschritt(cid, uid, tgUserName(cbq.from));
+    if (data === "menu|copilot") return cmdCopilotStart(cid, uid);
+    if (data === "copilot|exit") { await patchSess(uid, { copilot: null }); return send(cid, "✅ Cockpilot beendet. Mit /copilot wieder starten."); }
     return;
   }
   const msg = u.message;
@@ -751,7 +804,12 @@ async function handleUpdate(u) {
   if (msg.text.trim().toLowerCase().startsWith("/myid")) return send(chatId, `🪪 <b>Deine Telegram-User-ID:</b> <code>${userId}</code>\n\nSchick diese Zahl an Mago zur Freischaltung.`);
   if (!isAllowed(userId)) return send(chatId, `⛔ Kein Zugriff.\n\nDeine ID: <code>${userId}</code>\nBitte bei Mago melden.`);
   const text = msg.text.trim();
-  if (!text.startsWith("/")) { if (!hasModule(userId, "ai")) return send(chatId, "🔒 Freitext-KI nicht freigeschaltet."); return cmdFrag(chatId, text, msg.from); }
+  if (!text.startsWith("/")) {
+    const sess = await getSess(userId);
+    if (sess && sess.copilot) return cmdCopilotMessage(chatId, userId, text, sess);
+    if (!hasModule(userId, "ai")) return send(chatId, "🔒 Freitext-KI nicht freigeschaltet.\n\n🧠 Tipp: /copilot für Microsoft-Copilot-Hilfe.");
+    return cmdFrag(chatId, text, msg.from);
+  }
   const [cmdRaw, ...rest] = text.split(/\s+/);
   const cmd = cmdRaw.toLowerCase().replace(/@.*$/, ""); const arg = rest.join(" ").trim();
   try {
@@ -766,6 +824,8 @@ async function handleUpdate(u) {
       if (cmd === "/webcode") return cmdWebCode(chatId, arg);
     }
     if (cmd === "/start" || cmd === "/help") return cmdStart(chatId, userId);
+    if (cmd === "/copilot" || cmd === "/cp") return cmdCopilotStart(chatId, userId);
+    if (cmd === "/stop" || cmd === "/ende") { await patchSess(userId, { copilot: null }); return send(chatId, "✅ Cockpilot beendet. Mit /copilot jederzeit wieder starten."); }
     if (cmd === "/frag" || cmd === "/ask" || cmd === "/ai") { if (!hasModule(userId, "ai")) return denyModule(chatId, "KI-Assistent"); return cmdFrag(chatId, arg, msg.from); }
     if (cmd === "/produkt" || cmd === "/p") return send(chatId, "🔍 Produkt-Lookup ist im Cloud-Deployment deaktiviert (JTL-Daten liegen lokal). Nutze /marke für Marken-Infos.");
     const akademieCmds = ["/drill", "/marke", "/einwand", "/persona", "/rollenspiel", "/rollenspiele", "/score", "/punkte", "/lern", "/learn", "/korrektur", "/quiz", "/tagesaufgabe", "/ta"];

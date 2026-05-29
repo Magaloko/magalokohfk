@@ -42,6 +42,17 @@ export const PATHS: LearnPath[] = [
     ],
   },
   {
+    id: "copilot", icon: "sparkles", title: "Microsoft-Copilot-Profi",
+    desc: "Im Arbeitsalltag mit Microsoft 365 Copilot schneller werden — Outlook, Excel, Word, Teams.",
+    steps: [
+      { title: "Outlook: Posteingang priorisieren", hint: "Mails zusammenfassen & sortieren", href: "/cockpilot/guide/outlook-inbox-triage" },
+      { title: "Outlook: Antwort entwerfen", hint: "Kundenanfrage in Sekunden beantworten", href: "/cockpilot/guide/outlook-reply-draft" },
+      { title: "Excel: Verkaufszahlen analysieren", hint: "Trends & Empfehlungen ohne Formeln", href: "/cockpilot/guide/excel-analyze-sales" },
+      { title: "Word: Beratungsprotokoll erstellen", hint: "Aus Stichpunkten ein Dokument", href: "/cockpilot/guide/word-draft" },
+      { title: "Teams: Meeting-Recap & Aufgaben", hint: "Zusammenfassung & Action Items", href: "/cockpilot/guide/teams-recap" },
+    ],
+  },
+  {
     id: "beratung", icon: "handshake", title: "Premium-Beratung",
     desc: "Hochwertig beraten: vom Bedarf zur passenden Empfehlung.",
     steps: [
