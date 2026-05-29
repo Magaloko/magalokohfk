@@ -208,10 +208,9 @@ async function tgAuth(req, res) {
   const ALL_MODULES = ["akademie", "produkt", "ai"];
   const adminList = tgCfg.adminUserIds.length ? tgCfg.adminUserIds : allowedIds;
   const isTgAdmin = adminList.includes(userId);
-  const userEntry = (tgCfg.users && (tgCfg.users[String(userId)] || tgCfg.users[userId])) || {};
   const role = isTgAdmin ? "admin" : "mitarbeiter";
-  const modules = isTgAdmin ? ALL_MODULES.slice()
-    : ["akademie", ...(Array.isArray(userEntry.modules) ? userEntry.modules : [])];
+  // Policy: NUR Admin sieht alles. Alle anderen ausschließlich Akademie (keine produkt-/ai-Module).
+  const modules = isTgAdmin ? ALL_MODULES.slice() : ["akademie"];
 
   const sessionToken = randomBytes(32).toString("base64url");
   const sessionHashed = hashToken(sessionToken);

@@ -41,8 +41,9 @@ function fmtScore(s) { return Number.isInteger(s) ? String(s) : s.toFixed(1).rep
 function isAllowed(uid) { uid = Number(uid); if (!Number.isInteger(uid)) return false; if (ALLOW_ALL) return true; if (uid in USERS) return true; if (!ALLOWED) return false; return ALLOWED.includes(uid); }
 function isAdmin(uid) { uid = Number(uid); return Number.isInteger(uid) && ADMINS.has(uid); }
 const ALL_MODULES = ["akademie", "produkt", "ai"];
-function getUserModules(uid) { if (isAdmin(uid)) return ALL_MODULES; const u = USERS[Number(uid)]; return ["akademie", ...(u?.modules || [])]; }
-function hasModule(uid, mod) { return isAdmin(uid) || getUserModules(uid).includes(mod); }
+// Policy: NUR Admin sieht alles. Alle anderen ausschließlich Akademie.
+function getUserModules(uid) { return isAdmin(uid) ? ALL_MODULES : ["akademie"]; }
+function hasModule(uid, mod) { return isAdmin(uid) || mod === "akademie"; }
 function isPrivateChat(chat) { return chat?.type === "private"; }
 
 // === Daten aus Supabase (app_state) ===
