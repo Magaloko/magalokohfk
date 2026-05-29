@@ -5,23 +5,40 @@ import { getProgress, levelInfo, emptyProgress } from "@/lib/progress";
 import { PATHS } from "@/lib/paths";
 import { PageShell } from "@/components/_primitives/page-shell";
 import { Icon } from "@/components/icon";
+import { cn } from "@/lib/cn";
 
 export const dynamic = "force-dynamic";
 
 const SKIP = new Set(["id", "weekstart", "weeklabel", "label", "notes", "note"]);
 const pretty = (k: string) => k.replace(/_/g, " ").replace(/([a-z])([A-Z])/g, "$1 $2").replace(/^./, (c) => c.toUpperCase());
+type Tone = "accent" | "amber" | "red" | "green" | "teal" | "muted";
+const toneDot: Record<Tone, string> = { accent: "bg-accent", amber: "bg-amber", red: "bg-red", green: "bg-green", teal: "bg-teal", muted: "bg-muted-2" };
+const eKind: Record<string, Tone> = { Termin: "accent", Erinnerung: "teal", Deadline: "red", Block: "muted" };
 
 export default async function HeutePage() {
   const sess = await requireAdmin();
   const today = new Date().toISOString().slice(0, 10);
   const dateLabel = new Date().toLocaleDateString("de-AT", { weekday: "long", day: "numeric", month: "long", year: "numeric" });
 
-  const { tasks, levers, weeklyKpis, decisions } = await getCockpitData();
+  const { tasks, levers, weeklyKpis, decisions, calendarEvents } = await getCockpitData();
   const progress = (await getProgress(sess.email)) || emptyProgress(sess.email);
   const lvl = levelInfo(progress.xp);
   const pathsDone = PATHS.filter((p) => (progress.stats.paths?.[p.id]?.length || 0) >= p.steps.length).length;
 
   const openTasks = tasks.filter(isTaskOpen);
+
+  // Heute-Agenda: alles, was auf den heutigen Tag datiert ist — chronologisch.
+  const agenda: { time?: string; title: string; kind: string; tone: Tone; href?: string; sort: number }[] = [];
+  for (const e of calendarEvents) if (e.date === today) agenda.push({ time: e.time, title: e.title || "Termin", kind: e.kind || "Termin", tone: eKind[e.kind || ""] || "accent", sort: 0 });
+  for (const t of openTasks) if (t.dueDate === today) agenda.push({ title: t.title || "Aufgabe", kind: "Aufgabe fällig", tone: "amber", href: `/cockpit/tasks/${encodeURIComponent(t.id || String(tasks.indexOf(t)))}`, sort: 1 });
+  for (const d of decisions) if ((d.status || "offen") !== "entschieden" && d.status !== "verworfen" && d.frist === today) agenda.push({ title: d.titel || "Entscheidung", kind: "Entscheidungs-Frist", tone: "accent", href: `/cockpit/entscheidungen/${encodeURIComponent(d.id || String(decisions.indexOf(d)))}`, sort: 2 });
+  for (const l of levers) {
+    if (l.status === "Verworfen") continue;
+    const href = `/cockpit/hebel/${encodeURIComponent(l.id || String(levers.indexOf(l)))}`;
+    if (l.startDate === today) agenda.push({ title: `Start: ${l.title || "Hebel"}`, kind: "Hebel-Start", tone: "accent", href, sort: 3 });
+    if (l.finishDate === today) agenda.push({ title: `Ziel: ${l.title || "Hebel"}`, kind: "Hebel-Ziel", tone: l.status === "Live" ? "green" : "teal", href, sort: 3 });
+  }
+  agenda.sort((a, b) => a.sort - b.sort || (a.time || "").localeCompare(b.time || ""));
   const dueTasks = openTasks
     .filter((t) => !!t.dueDate && t.dueDate <= today)
     .sort((a, b) => String(a.dueDate).localeCompare(String(b.dueDate)));
@@ -38,13 +55,29 @@ export default async function HeutePage() {
   return (
     <PageShell title="Heute" icon="home" subtitle={dateLabel}>
       <div className="flex flex-col gap-5">
-        <div className="grid grid-cols-2 gap-3 lg:grid-cols-5">
+        <div className="grid grid-cols-2 gap-3 lg:grid-cols-6">
+          <Stat href="/kalender" icon="calendar" label="Termine heute" value={agenda.length} sub="in der Agenda" />
           <Stat href="/cockpit/tasks" icon="alert" label="Fällig / überfällig" value={dueTasks.length} sub={`${openTasks.length} offen`} />
           <Stat href="/cockpit/entscheidungen" icon="clock" label="Anstehende Fristen" value={upcomingDecisions.length} sub="Entscheidungen" />
           <Stat href="/akademie/lernpfade" icon="compass" label="Lernpfade" value={pathsDone} sub={`von ${PATHS.length} abgeschlossen`} />
           <Stat href="/cockpit/hebel" icon="lever" label="Aktive Hebel" value={levers.filter(isLeverActive).length} sub={topLevers[0] ? `Top: ${formatEur(topLevers[0].expectedImpactEur)}/J` : "—"} />
           <Stat href="/akademie" icon="academy" label="Dein Level" value={lvl.level} sub={`${progress.xp} XP · `} subIcon="flame" subIconSuffix={String(progress.streak)} />
         </div>
+
+        <Section titleIcon="calendar" title="Heute-Agenda" href="/kalender" linkLabel="Kalender →">
+          {agenda.length ? (
+            <ul className="flex flex-col">
+              {agenda.map((a, i) => (
+                <li key={i} className="flex items-center gap-3 border-b border-line/60 py-2 text-sm last:border-0">
+                  <span className="w-14 shrink-0 text-right font-mono text-xs text-muted-2">{a.time || "—"}</span>
+                  <span className={cn("h-2 w-2 shrink-0 rounded-full", toneDot[a.tone])} />
+                  <span className="min-w-0 flex-1 truncate">{a.href ? <Link href={a.href} className="font-medium hover:text-accent">{a.title}</Link> : <span className="font-medium">{a.title}</span>}</span>
+                  <span className="shrink-0 text-xs text-muted-2">{a.kind}</span>
+                </li>
+              ))}
+            </ul>
+          ) : <Empty>Heute nichts geplant. „Kalender →" zum Anlegen.</Empty>}
+        </Section>
 
         <div className="grid gap-5 lg:grid-cols-2">
           <Section titleIcon="alert" title="Heute fällig & überfällig" href="/cockpit/tasks">
@@ -123,14 +156,14 @@ function Stat({ href, icon, label, value, sub, subIcon, subIconSuffix }: { href:
     </Link>
   );
 }
-function Section({ titleIcon, title, href, children }: { titleIcon: string; title: string; href: string; children: React.ReactNode }) {
+function Section({ titleIcon, title, href, children, linkLabel = "Alle →" }: { titleIcon: string; title: string; href: string; children: React.ReactNode; linkLabel?: string }) {
   return (
     <section className="rounded-xl border border-line bg-surface p-4 shadow-sm">
       <div className="mb-3 flex items-center justify-between">
         <h2 className="flex items-center gap-1.5 text-xs font-bold uppercase tracking-wide text-muted-2">
           <Icon name={titleIcon} className="h-3.5 w-3.5" />{title}
         </h2>
-        <Link href={href} className="text-xs font-semibold text-accent">Alle →</Link>
+        <Link href={href} className="text-xs font-semibold text-accent">{linkLabel}</Link>
       </div>
       {children}
     </section>
