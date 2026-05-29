@@ -1,20 +1,23 @@
-import { requireArea } from "@/lib/auth-helpers";
+import { requireArea, isAdmin } from "@/lib/auth-helpers";
 import { getAkademieData } from "@/lib/akademie";
 import { PageShell } from "@/components/_primitives/page-shell";
 import { Card, CardGrid, Pill } from "@/components/_primitives/card";
 import { EmptyState } from "@/components/_primitives/empty-state";
 import { SzenarioLauncher } from "@/components/akademie/szenario-launcher";
+import { NewSzenarioButton, SzenarioActions } from "@/components/akademie/szenario-editor";
 
 export const dynamic = "force-dynamic";
 
 export default async function SzenarienPage() {
-  await requireArea("szenarien");
+  const sess = await requireArea("szenarien");
+  const admin = isAdmin(sess);
   const { szenarien, personas } = await getAkademieData();
-  if (!szenarien.length) return <PageShell title="Trainings-Szenarien"><EmptyState title="Noch keine Szenarien" /></PageShell>;
+  const slimPersonas = personas.map((p) => ({ id: p.id, name: p.name }));
+  if (!szenarien.length) return <PageShell title="Trainings-Szenarien" action={admin ? <NewSzenarioButton personas={slimPersonas} /> : undefined}><EmptyState title="Noch keine Szenarien" /></PageShell>;
   const personaName = (id?: string) => personas.find((p) => p.id === id)?.name;
 
   return (
-    <PageShell title="Trainings-Szenarien" subtitle={`${szenarien.length} mehrstufige Übungen`}>
+    <PageShell title="Trainings-Szenarien" subtitle={`${szenarien.length} mehrstufige Übungen`} action={admin ? <NewSzenarioButton personas={slimPersonas} /> : undefined}>
       <CardGrid>
         {szenarien.map((s, i) => {
           const steps = (s.steps || []).length;
@@ -31,6 +34,7 @@ export default async function SzenarienPage() {
                 <span>🛠 {steps} {steps === 1 ? "Schritt" : "Schritte"}</span>
               </div>
               <SzenarioLauncher sc={s} personaName={pName} />
+              {admin && <SzenarioActions id={s.id || String(szenarien.indexOf(s))} szenario={s} personas={slimPersonas} />}
             </Card>
           );
         })}

@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { getSession } from "@/lib/session";
 import { isAdmin } from "@/lib/auth-helpers";
 import { createItem, patchItem, replaceItem, deleteItem } from "@/lib/cockpit-write";
+import { STRUCTURED } from "@/lib/struct-sanitize";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -63,7 +64,26 @@ export async function POST(req: NextRequest) {
   const collection = body?.collection || "";
   const spec = SPEC[collection];
   const isDyn = DYNAMIC.has(collection);
-  if (!spec && !isDyn) return NextResponse.json({ error: "bad_collection" }, { status: 400 });
+  const struct = STRUCTURED[collection];
+  if (!spec && !isDyn && !struct) return NextResponse.json({ error: "bad_collection" }, { status: 400 });
+
+  // Strukturierte Sammlungen (Szenarien/Rollenspiele): create/replace/delete mit Deep-Sanitizer.
+  if (struct) {
+    if (body.action === "delete") {
+      if (!body.id) return NextResponse.json({ error: "no_id" }, { status: 400 });
+      const r = await deleteItem(collection, String(body.id));
+      return finish(r);
+    }
+    if (body.action === "create" || body.action === "replace") {
+      const item = struct.fn(body.action === "create" ? body.item : body.item);
+      if (!String(item[struct.required] || "").trim()) return NextResponse.json({ error: "empty" }, { status: 400 });
+      const r = body.action === "create"
+        ? await createItem(collection, item, struct.prefix)
+        : (body.id ? await replaceItem(collection, String(body.id), item) : { ok: false, error: "no_id" as const });
+      return finish(r);
+    }
+    return NextResponse.json({ error: "bad_action" }, { status: 400 });
+  }
 
   const clean = (v: unknown) => (isDyn ? cleanKpi(v) : cleanFixed(spec, v));
   const prefix = isDyn ? KPI_PREFIX : spec.prefix;
@@ -90,8 +110,15 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "bad_action" }, { status: 400 });
   }
 
+  return finish(res);
+}
+
+function finish(res: { ok: boolean; error?: string; updatedAt?: number }) {
   if (!res.ok) {
-    const code = res.error === "conflict" || res.error === "anti-wipe" ? 409 : res.error === "noop" ? 404 : 500;
+    const code = res.error === "conflict" || res.error === "anti-wipe" ? 409
+      : res.error === "noop" ? 404
+      : res.error === "no_id" ? 400
+      : 500;
     return NextResponse.json({ error: res.error }, { status: code });
   }
   return NextResponse.json({ ok: true, updatedAt: res.updatedAt });
