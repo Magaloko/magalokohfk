@@ -2,6 +2,7 @@
 export type MutateBody =
   | { collection: string; action: "create"; item: Record<string, unknown> }
   | { collection: string; action: "update"; id: string; patch: Record<string, unknown> }
+  | { collection: string; action: "replace"; id: string; item: Record<string, unknown> }
   | { collection: string; action: "delete"; id: string };
 
 export async function cockpitMutate(body: MutateBody): Promise<{ ok: boolean; error?: string }> {

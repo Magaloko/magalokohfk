@@ -4,6 +4,7 @@ import { requireAdmin } from "@/lib/auth-helpers";
 import { getCockpitData, leverScore, formatEur, type Lever } from "@/lib/cockpit";
 import { PageShell } from "@/components/_primitives/page-shell";
 import { Pill } from "@/components/_primitives/card";
+import { LeverActions } from "@/components/cockpit/lever-editor";
 
 export const dynamic = "force-dynamic";
 
@@ -48,6 +49,7 @@ export default async function HebelDetail({ params }: { params: Promise<{ id: st
             <p className="whitespace-pre-wrap text-sm text-muted">{String(v)}</p>
           </section>
         ))}
+        <LeverActions id={l.id || key} lever={l} />
       </div>
     </PageShell>
   );

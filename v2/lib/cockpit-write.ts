@@ -96,6 +96,16 @@ export async function patchItem(collection: string, idOrIdx: string, patch: Reco
   });
 }
 
+// Ersetzt ein Item vollständig (id bleibt erhalten) — z. B. für KPIs mit dynamischen Metriken.
+export async function replaceItem(collection: string, idOrIdx: string, item: Record<string, unknown>): Promise<MutateResult> {
+  return mutateCollection(collection, (items) => {
+    const i = locate(items, idOrIdx);
+    if (i < 0) return null;
+    items[i] = { id: items[i]?.id, ...item };
+    return items;
+  });
+}
+
 export async function deleteItem(collection: string, idOrIdx: string): Promise<MutateResult> {
   return mutateCollection(collection, (items) => {
     const i = locate(items, idOrIdx);

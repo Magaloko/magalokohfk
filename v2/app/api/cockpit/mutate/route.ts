@@ -1,24 +1,50 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getSession } from "@/lib/session";
 import { isAdmin } from "@/lib/auth-helpers";
-import { createItem, patchItem, deleteItem } from "@/lib/cockpit-write";
+import { createItem, patchItem, replaceItem, deleteItem } from "@/lib/cockpit-write";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 export const maxDuration = 30;
 
-// Erlaubte Sammlungen + ihre erlaubten Felder + id-Präfix.
-const SPEC: Record<string, { fields: string[]; prefix: string }> = {
+// Sammlungen mit festem Feld-Schema (Strings + optional numerische Felder).
+const SPEC: Record<string, { fields: string[]; numeric?: string[]; prefix: string }> = {
   tasks: { fields: ["title", "area", "status", "priority", "impact", "effort", "owner", "dueDate", "notes"], prefix: "t" },
   stephanDecisions: { fields: ["titel", "status", "kategorie", "frist", "empfehlung"], prefix: "d" },
+  levers: { fields: ["title", "area", "status", "confidence", "risk", "description", "notes"], numeric: ["expectedImpactEur", "effortHours"], prefix: "l" },
 };
+const DYNAMIC = new Set(["weeklyKpis"]); // dynamische Metrik-Felder
+const KPI_PREFIX = "kpi";
+const KPI_STRINGS = new Set(["weekStart", "weekLabel", "label", "notes"]);
 
-function clean(spec: { fields: string[] }, input: unknown): Record<string, unknown> {
+function cleanFixed(spec: { fields: string[]; numeric?: string[] }, input: unknown): Record<string, unknown> {
   const o = (input || {}) as Record<string, unknown>;
   const out: Record<string, unknown> = {};
   for (const f of spec.fields) {
     if (o[f] === undefined || o[f] === null) continue;
     out[f] = String(o[f]).slice(0, 4000);
+  }
+  for (const f of spec.numeric || []) {
+    if (o[f] === undefined || o[f] === null || o[f] === "") continue;
+    const n = Number(o[f]);
+    if (Number.isFinite(n)) out[f] = n;
+  }
+  return out;
+}
+
+// KPIs: weekStart/weekLabel als String, restliche Keys numerisch (sonst String), begrenzt.
+function cleanKpi(input: unknown): Record<string, unknown> {
+  const o = (input || {}) as Record<string, unknown>;
+  const out: Record<string, unknown> = {};
+  let count = 0;
+  for (const [k0, v] of Object.entries(o)) {
+    if (k0 === "id") continue;
+    const k = k0.slice(0, 60);
+    if (!k || v === undefined || v === null || v === "") continue;
+    if (++count > 60) break;
+    if (KPI_STRINGS.has(k)) { out[k] = String(v).slice(0, 200); continue; }
+    const n = Number(v);
+    out[k] = Number.isFinite(n) && String(v).trim() !== "" ? n : String(v).slice(0, 200);
   }
   return out;
 }
@@ -31,20 +57,29 @@ export async function POST(req: NextRequest) {
   let body: { collection?: string; action?: string; id?: string; item?: unknown; patch?: unknown };
   try { body = await req.json(); } catch { return NextResponse.json({ error: "bad_request" }, { status: 400 }); }
 
-  const spec = body?.collection ? SPEC[body.collection] : undefined;
-  if (!spec) return NextResponse.json({ error: "bad_collection" }, { status: 400 });
-  const collection = body!.collection as string;
+  const collection = body?.collection || "";
+  const spec = SPEC[collection];
+  const isDyn = DYNAMIC.has(collection);
+  if (!spec && !isDyn) return NextResponse.json({ error: "bad_collection" }, { status: 400 });
+
+  const clean = (v: unknown) => (isDyn ? cleanKpi(v) : cleanFixed(spec, v));
+  const prefix = isDyn ? KPI_PREFIX : spec.prefix;
 
   let res;
   if (body.action === "create") {
-    const item = clean(spec, body.item);
+    const item = clean(body.item);
     if (!Object.keys(item).length) return NextResponse.json({ error: "empty" }, { status: 400 });
-    res = await createItem(collection, item, spec.prefix);
+    res = await createItem(collection, item, prefix);
   } else if (body.action === "update") {
     if (!body.id) return NextResponse.json({ error: "no_id" }, { status: 400 });
-    const patch = clean(spec, body.patch);
+    const patch = clean(body.patch);
     if (!Object.keys(patch).length) return NextResponse.json({ error: "empty" }, { status: 400 });
     res = await patchItem(collection, String(body.id), patch);
+  } else if (body.action === "replace") {
+    if (!body.id) return NextResponse.json({ error: "no_id" }, { status: 400 });
+    const item = clean(body.item);
+    if (!Object.keys(item).length) return NextResponse.json({ error: "empty" }, { status: 400 });
+    res = await replaceItem(collection, String(body.id), item);
   } else if (body.action === "delete") {
     if (!body.id) return NextResponse.json({ error: "no_id" }, { status: 400 });
     res = await deleteItem(collection, String(body.id));
@@ -53,7 +88,7 @@ export async function POST(req: NextRequest) {
   }
 
   if (!res.ok) {
-    const code = res.error === "conflict" ? 409 : res.error === "anti-wipe" ? 409 : res.error === "noop" ? 404 : 500;
+    const code = res.error === "conflict" || res.error === "anti-wipe" ? 409 : res.error === "noop" ? 404 : 500;
     return NextResponse.json({ error: res.error }, { status: code });
   }
   return NextResponse.json({ ok: true, updatedAt: res.updatedAt });

@@ -4,6 +4,7 @@ import { getCockpitData, leverScore, formatEur, isLeverActive, type Lever } from
 import { PageShell } from "@/components/_primitives/page-shell";
 import { DataTable, type Column } from "@/components/_primitives/data-table";
 import { Pill } from "@/components/_primitives/card";
+import { NewLeverButton } from "@/components/cockpit/lever-editor";
 
 export const dynamic = "force-dynamic";
 
@@ -29,7 +30,7 @@ export default async function HebelPage() {
   ];
 
   return (
-    <PageShell title="🎚 Hebel" subtitle={`${levers.filter(isLeverActive).length} aktiv · sortiert nach ROI`}>
+    <PageShell title="🎚 Hebel" subtitle={`${levers.filter(isLeverActive).length} aktiv · sortiert nach ROI`} action={<NewLeverButton />}>
       <DataTable columns={cols} rows={rows} getKey={(r, i) => r.id || String(i)} empty={{ title: "Keine Hebel" }} />
     </PageShell>
   );

@@ -2,6 +2,7 @@ import { requireAdmin } from "@/lib/auth-helpers";
 import { getCockpitData, sortedWeeks } from "@/lib/cockpit";
 import { PageShell } from "@/components/_primitives/page-shell";
 import { EmptyState } from "@/components/_primitives/empty-state";
+import { NewKpiButton, KpiActions } from "@/components/cockpit/kpi-editor";
 
 export const dynamic = "force-dynamic";
 
@@ -21,10 +22,10 @@ export default async function KpisPage() {
   const { weeklyKpis } = await getCockpitData();
   const weeks = sortedWeeks(weeklyKpis).slice(0, 12);
 
-  if (!weeks.length) return <PageShell title="📈 KPIs"><EmptyState title="Noch keine KPI-Wochen" hint="Wöchentliche Kennzahlen erfassen." /></PageShell>;
+  if (!weeks.length) return <PageShell title="📈 KPIs" action={<NewKpiButton />}><EmptyState title="Noch keine KPI-Wochen" hint="Wöchentliche Kennzahlen erfassen." /></PageShell>;
 
   return (
-    <PageShell title="📈 KPIs" subtitle={`${weeklyKpis.length} erfasste Wochen`}>
+    <PageShell title="📈 KPIs" subtitle={`${weeklyKpis.length} erfasste Wochen`} action={<NewKpiButton />}>
       <div className="flex flex-col gap-3">
         {weeks.map((w, i) => {
           const metrics = Object.entries(w).filter(([k, v]) =>
@@ -43,6 +44,7 @@ export default async function KpisPage() {
                   ))}
                 </div>
               ) : <p className="text-sm text-muted-2">Keine Kennzahlen erfasst.</p>}
+              <KpiActions id={w.id || String(weeklyKpis.indexOf(w))} week={w} />
             </section>
           );
         })}
