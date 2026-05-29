@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { requireArea } from "@/lib/auth-helpers";
 import { getAkademieData } from "@/lib/akademie";
 import { PageShell } from "@/components/_primitives/page-shell";
@@ -15,18 +16,21 @@ export default async function MarkenPage() {
     <PageShell title="Marken-Bibel" subtitle={`${marken.length} Marken · Herkunft, USPs, Hero-Produkte`}>
       <CardGrid>
         {marken.map((m, i) => (
-          <Card key={m.id || i}>
-            <div className="flex items-start justify-between gap-2">
-              <h3 className="font-bold">{m.name}</h3>
-              {m.herkunft?.land && <Pill tone="teal">{m.herkunft.land}</Pill>}
-            </div>
-            {m.philosophie && <p className="mt-2 text-sm italic text-muted">„{m.philosophie}"</p>}
-            {!!(m.verkaufsargumente || m.usps || []).length && (
-              <ul className="mt-3 space-y-1 text-sm">
-                {(m.verkaufsargumente || m.usps || []).slice(0, 4).map((a, j) => <li key={j}>✓ {txt(a)}</li>)}
-              </ul>
-            )}
-          </Card>
+          <Link key={m.id || i} href={`/akademie/marken/${encodeURIComponent(m.id || String(i))}`} className="group block">
+            <Card className="h-full group-hover:border-accent">
+              <div className="flex items-start justify-between gap-2">
+                <h3 className="font-bold">{m.name}</h3>
+                {m.herkunft?.land && <Pill tone="teal">{m.herkunft.land}</Pill>}
+              </div>
+              {m.philosophie && <p className="mt-2 line-clamp-2 text-sm italic text-muted">„{m.philosophie}"</p>}
+              {!!(m.verkaufsargumente || m.usps || []).length && (
+                <ul className="mt-3 space-y-1 text-sm">
+                  {(m.verkaufsargumente || m.usps || []).slice(0, 3).map((a, j) => <li key={j}>✓ {txt(a)}</li>)}
+                </ul>
+              )}
+              <span className="mt-3 inline-block text-xs font-semibold text-accent opacity-0 transition group-hover:opacity-100">Details →</span>
+            </Card>
+          </Link>
         ))}
       </CardGrid>
     </PageShell>
