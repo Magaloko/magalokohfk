@@ -5,8 +5,8 @@ export const AKADEMIE_AREAS = ["angebote", "personas", "einwaende", "szenarien",
 export type AkademieArea = (typeof AKADEMIE_AREAS)[number];
 
 export function normAreas(areas: unknown): AkademieArea[] {
-  const a = (Array.isArray(areas) ? areas : []).filter((x): x is AkademieArea => (AKADEMIE_AREAS as readonly string[]).includes(x));
-  return a.length ? a : [...AKADEMIE_AREAS];
+  // Deny-by-default: leere/ungültige Module = KEINE Bereiche (Admins erhalten alle separat via allowedAreas).
+  return (Array.isArray(areas) ? areas : []).filter((x): x is AkademieArea => (AKADEMIE_AREAS as readonly string[]).includes(x));
 }
 
 export function isAdmin(sess: Session | null): boolean {
@@ -58,6 +58,7 @@ export async function requireArea(area: AkademieArea): Promise<Session> {
   const sess = await requireUser();
   if (isAdmin(sess)) return sess;
   const areas = allowedAreas(sess);
-  if (!areas.includes(area)) redirect(`/akademie/${areas[0] || "drills"}`);
+  // Kein erlaubter Bereich → zur Akademie-Übersicht (requireUser, kein Redirect-Loop); sonst zum ersten erlaubten.
+  if (!areas.includes(area)) redirect(areas.length ? `/akademie/${areas[0]}` : "/akademie");
   return sess;
 }
