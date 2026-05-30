@@ -4,7 +4,32 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { Icon } from "@/components/icon";
 import { cn } from "@/lib/cn";
+import { cockpitMutate } from "@/components/cockpit/mutate";
+import type { MutateBody } from "@/components/cockpit/mutate";
 import type { StephanMessage } from "@/lib/stephan-thread";
+
+// Extraktions-Typ → Ziel-Sammlung (Cockpit). Mapping siehe buildMutate().
+type ExItem = { type: string; title: string; detail: string; date: string; area: string; reason: string; _key: string; _status?: "busy" | "done" | "err" };
+const TYPE_LABEL: Record<string, string> = { aufgabe: "Aufgabe", ziel: "Ziel / Hebel", entscheidung: "Entscheidung", termin: "Termin", idee: "Idee" };
+const TARGET_HINT: Record<string, string> = { aufgabe: "→ Aufgaben (Datum = fällig)", ziel: "→ Hebel (Datum = Start)", entscheidung: "→ Entscheidungen (Datum = Frist)", termin: "→ Kalender (Datum = Termin)", idee: "→ Aufgaben, Bereich „Idee“" };
+
+// Baut den Anti-Wipe-sicheren create-Aufruf je Typ; leere Felder werden weggelassen.
+// Provenance-Backlink kommt in notes/empfehlung (alle Ziel-Sammlungen unterstützen das).
+function buildMutate(it: ExItem): MutateBody {
+  const notes = [it.detail.trim(), it.reason.trim() && `Beleg: „${it.reason.trim()}“`, "[Aus Stephan-Chat erfasst]"].filter(Boolean).join("\n\n");
+  const put = (o: Record<string, unknown>): Record<string, unknown> => {
+    const c: Record<string, unknown> = {};
+    for (const [k, v] of Object.entries(o)) if (v !== undefined && String(v).trim() !== "") c[k] = v;
+    return c;
+  };
+  switch (it.type) {
+    case "ziel": return { collection: "levers", action: "create", item: put({ title: it.title, area: it.area, startDate: it.date, notes }) };
+    case "entscheidung": return { collection: "stephanDecisions", action: "create", item: put({ titel: it.title, kategorie: it.area, frist: it.date, empfehlung: notes }) };
+    case "termin": return { collection: "calendarEvents", action: "create", item: put({ title: it.title, date: it.date, kind: "Termin", notes }) };
+    case "idee": return { collection: "tasks", action: "create", item: put({ title: it.title, area: it.area || "Idee", priority: "niedrig", notes }) };
+    default: return { collection: "tasks", action: "create", item: put({ title: it.title, area: it.area, dueDate: it.date, notes }) };
+  }
+}
 
 const sel = "w-full rounded-lg border border-line bg-surface-2 px-3 py-2 text-sm text-ink outline-none focus:border-accent";
 const errText = (e?: string) =>
@@ -47,6 +72,12 @@ export function StephanAssist({ configured, thread, openDecisions }: { configure
   const [manSaving, setManSaving] = useState(false);
 
   const [delId, setDelId] = useState<string | null>(null);
+
+  // Extraktion: Aufgaben/Ziele/Termine/Ideen aus Text erkennen → "Übernehmen"-Karten
+  const [exSrc, setExSrc] = useState("");
+  const [exBusy, setExBusy] = useState(false);
+  const [exErr, setExErr] = useState("");
+  const [exItems, setExItems] = useState<ExItem[]>([]);
 
   async function run() {
     if (!msg.trim() || busy) return;
@@ -112,6 +143,29 @@ export function StephanAssist({ configured, thread, openDecisions }: { configure
       if (r.ok) router.refresh();
     } catch { /* noop */ }
     setDelId(null);
+  }
+
+  async function runExtract() {
+    if (!exSrc.trim() || exBusy) return;
+    setExBusy(true); setExErr(""); setExItems([]);
+    try {
+      const r = await fetch("/api/stephan/extract", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ text: exSrc }) });
+      const j = await r.json().catch(() => ({}));
+      if (r.ok && Array.isArray(j.items)) {
+        setExItems(j.items.map((x: Omit<ExItem, "_key" | "_status">, idx: number) => ({ ...x, _key: `ex${idx}-${String(x.title).slice(0, 12)}` })));
+      } else setExErr(errText(j.error));
+    } catch { setExErr("Verbindungsfehler."); }
+    setExBusy(false);
+  }
+  const editItem = (i: number, patch: Partial<ExItem>) => setExItems((arr) => arr.map((x, j) => (j === i ? { ...x, ...patch } : x)));
+  const discardItem = (i: number) => setExItems((arr) => arr.filter((_, j) => j !== i));
+  async function applyItem(i: number) {
+    const it = exItems[i];
+    if (!it || !it.title.trim() || it._status === "busy" || it._status === "done") return;
+    editItem(i, { _status: "busy" });
+    const r = await cockpitMutate(buildMutate(it));
+    editItem(i, { _status: r.ok ? "done" : "err" });
+    if (r.ok) router.refresh();
   }
 
   const decTitel = (id?: string | null) => openDecisions.find((d) => d.id === id)?.titel;
@@ -210,6 +264,55 @@ export function StephanAssist({ configured, thread, openDecisions }: { configure
                 className="ml-auto rounded-lg bg-accent px-4 py-2 text-sm font-semibold text-bg disabled:opacity-50">{manSaving ? "Speichere …" : "Erfassen"}</button>
             </div>
           </div>
+        )}
+      </div>
+
+      {/* Aufgaben & Ziele aus dem Chat extrahieren */}
+      <div className="rounded-xl border border-line bg-surface p-4 shadow-sm">
+        <h2 className="mb-1 flex items-center gap-1.5 text-sm font-bold"><Icon name="bolt" className="h-4 w-4 text-muted-2" />Aufgaben &amp; Ziele aus dem Chat</h2>
+        <p className="mb-2 text-xs text-muted-2">Erkennt Aufgaben, Ziele, Termine, Entscheidungen und Ideen — du prüfst &amp; übernimmst jede einzeln.</p>
+        <div className="mb-2 flex flex-wrap gap-2">
+          <button disabled={!msg.trim()} onClick={() => setExSrc(msg)} className="rounded-lg bg-surface-2 px-2.5 py-1 text-xs font-semibold hover:text-ink disabled:opacity-50">← Eingehende Nachricht</button>
+          <button disabled={!thread.length} onClick={() => setExSrc(thread.map((m) => `${m.direction === "incoming" ? "Stephan" : "Ich"}: ${m.body}`).join("\n\n"))} className="rounded-lg bg-surface-2 px-2.5 py-1 text-xs font-semibold hover:text-ink disabled:opacity-50">← Ganzer Verlauf</button>
+        </div>
+        <textarea value={exSrc} onChange={(e) => setExSrc(e.target.value)} rows={4} placeholder="Text einfügen, aus dem Aufgaben/Ziele/Termine/Ideen erkannt werden sollen …" className={sel} />
+        <div className="mt-3 flex flex-wrap items-center gap-3">
+          <button disabled={exBusy || !exSrc.trim() || !configured} onClick={runExtract}
+            className="inline-flex items-center gap-1.5 rounded-lg bg-accent px-4 py-2 text-sm font-semibold text-bg disabled:opacity-50">
+            <Icon name="bolt" className="h-4 w-4" />{exBusy ? "Analysiere …" : "Analysieren"}
+          </button>
+          {exItems.length > 0 && !exBusy && <button onClick={() => { setExItems([]); setExSrc(""); }} className="text-xs font-semibold text-muted-2 hover:text-ink">Leeren</button>}
+        </div>
+        {exErr && <p className="mt-2 text-sm text-red">{exErr}</p>}
+        {!exBusy && !exErr && !exItems.length && exSrc.trim() && <p className="mt-2 text-xs text-muted-2">Klick „Analysieren" — oder es wurde nichts Umsetzbares gefunden.</p>}
+
+        {exItems.length > 0 && (
+          <ul className="mt-3 flex flex-col gap-2">
+            {exItems.map((it, i) => (
+              <li key={it._key} className="rounded-lg border border-line bg-surface-2/40 p-3">
+                <div className="flex flex-wrap items-center gap-2">
+                  <select value={it.type} onChange={(e) => editItem(i, { type: e.target.value })} disabled={it._status === "done"} className="rounded-lg border border-line bg-surface px-2 py-1 text-xs font-semibold outline-none focus:border-accent disabled:opacity-60">
+                    {Object.entries(TYPE_LABEL).map(([v, l]) => <option key={v} value={v}>{l}</option>)}
+                  </select>
+                  <input value={it.title} onChange={(e) => editItem(i, { title: e.target.value })} disabled={it._status === "done"} className="min-w-[180px] flex-1 rounded-lg border border-line bg-surface px-2 py-1 text-sm font-medium outline-none focus:border-accent disabled:opacity-60" />
+                </div>
+                <div className="mt-2 flex flex-wrap items-center gap-2">
+                  <input value={it.area} onChange={(e) => editItem(i, { area: e.target.value })} disabled={it._status === "done"} placeholder="Bereich/Kategorie" className="w-40 rounded-lg border border-line bg-surface px-2 py-1 text-xs outline-none focus:border-accent disabled:opacity-60" />
+                  <input type="date" value={it.date} onChange={(e) => editItem(i, { date: e.target.value })} disabled={it._status === "done"} className="rounded-lg border border-line bg-surface px-2 py-1 text-xs outline-none focus:border-accent disabled:opacity-60" />
+                  <span className="text-[11px] text-muted-2">{TARGET_HINT[it.type]}</span>
+                </div>
+                {it.detail && <p className="mt-1.5 text-xs text-muted">{it.detail}</p>}
+                {it.reason && <p className="mt-0.5 text-[11px] italic text-muted-2">Beleg: {it.reason}</p>}
+                <div className="mt-2 flex items-center gap-3">
+                  {it._status === "done"
+                    ? <span className="inline-flex items-center gap-1 rounded-lg bg-green/15 px-2.5 py-1 text-[11px] font-semibold text-green"><Icon name="check" className="h-3 w-3" />Übernommen</span>
+                    : <button disabled={it._status === "busy" || !it.title.trim()} onClick={() => applyItem(i)} className="inline-flex items-center gap-1 rounded-lg bg-accent px-2.5 py-1 text-[11px] font-semibold text-bg disabled:opacity-50"><Icon name="check" className="h-3 w-3" />{it._status === "busy" ? "Übernehme …" : "Übernehmen"}</button>}
+                  {it._status !== "done" && <button onClick={() => discardItem(i)} className="text-[11px] font-semibold text-muted-2 hover:text-red">verwerfen</button>}
+                  {it._status === "err" && <span className="text-[11px] text-red">Übernahme fehlgeschlagen.</span>}
+                </div>
+              </li>
+            ))}
+          </ul>
         )}
       </div>
 

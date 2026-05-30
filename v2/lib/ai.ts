@@ -63,6 +63,49 @@ export function stephanSystem(context: string, today: string, styleExamples: str
   return lines.join("\n");
 }
 
+// Extraktion: findet im Text (Stephan-Nachricht/Gespräch) konkrete, umsetzbare Elemente → striktes JSON.
+export function extractSystem(today: string): string {
+  return [
+    "Du extrahierst aus einer Nachricht bzw. einem Gespräch (Babyfachhandel HFK, Wien/Österreich) konkrete, umsetzbare Elemente.",
+    "Kategorien (Feld type):",
+    "- 'aufgabe': eine konkrete To-do/Handlung, die jemand erledigen muss.",
+    "- 'ziel': eine Initiative/ein Vorhaben mit Wirkung (ggf. mit Zeitrahmen).",
+    "- 'entscheidung': etwas, das entschieden werden muss.",
+    "- 'termin': ein datierter Termin, eine Frist oder ein Meilenstein.",
+    "- 'idee': eine Idee/ein Vorschlag, den man festhalten will.",
+    "VERBINDLICHE REGELN:",
+    "1. Extrahiere NUR, was im Text tatsächlich steht oder eindeutig impliziert ist. Erfinde nichts, keine zusätzlichen Annahmen.",
+    "2. Feld 'date' nur setzen, wenn ein Datum genannt oder eindeutig ableitbar ist (relative Angaben wie 'bis Freitag' relativ zum heutigen Datum auflösen). Format strikt YYYY-MM-DD. Sonst Feld weglassen oder leer.",
+    "3. Kurze, klare deutsche Titel. 'detail' optional (1–2 Sätze Kontext). 'reason' = kurze Textstelle als Beleg.",
+    "4. Gibt es nichts Umsetzbares, liefere eine leere Liste.",
+    `Heutiges Datum: ${today}.`,
+    "Antworte AUSSCHLIESSLICH als JSON ohne Markdown, exakt in diesem Format:",
+    '{"items":[{"type":"aufgabe","title":"...","detail":"...","date":"YYYY-MM-DD","area":"...","reason":"..."}]}',
+  ].join("\n");
+}
+
+export type ExtractItem = { type: string; title: string; detail: string; date: string; area: string; reason: string };
+const EXTRACT_TYPES = new Set(["aufgabe", "ziel", "entscheidung", "termin", "idee"]);
+export function parseExtract(raw: string): ExtractItem[] {
+  let t = String(raw || "").trim().replace(/^```(?:json)?/i, "").replace(/```$/, "").trim();
+  const s = t.indexOf("{"), e = t.lastIndexOf("}");
+  if (s >= 0 && e > s) t = t.slice(s, e + 1);
+  try {
+    const p = JSON.parse(t);
+    const arr = Array.isArray(p.items) ? p.items : [];
+    return arr.map((x: Record<string, unknown>) => ({
+      type: EXTRACT_TYPES.has(String(x?.type)) ? String(x.type) : "aufgabe",
+      title: String(x?.title || "").slice(0, 200),
+      detail: String(x?.detail || "").slice(0, 1000),
+      date: /^\d{4}-\d{2}-\d{2}$/.test(String(x?.date || "")) ? String(x.date) : "",
+      area: String(x?.area || "").slice(0, 80),
+      reason: String(x?.reason || "").slice(0, 300),
+    })).filter((x: ExtractItem) => x.title).slice(0, 20);
+  } catch {
+    return [];
+  }
+}
+
 // Werkstatt: bewertet einen Verkaufs-Beitrag/Vorschlag (eigene Antwort, Einwand-Lösung, Idee) und gibt JSON zurück.
 export function answerReviewSystem(task: string): string {
   return [
