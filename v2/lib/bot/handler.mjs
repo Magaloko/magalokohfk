@@ -33,7 +33,7 @@ async function loadAccess() {
 // bot_users-Helfer
 async function dbUpsertUser(uid, fields) { await db.from("bot_users").upsert({ uid: Number(uid), ...fields }); }
 async function dbRemoveUser(uid) { await db.from("bot_users").delete().eq("uid", Number(uid)); }
-const WEBAPP_URL = process.env.WEBAPP_URL || "https://magalokohfk.vercel.app";
+const WEBAPP_URL = process.env.WEBAPP_URL || "https://magalokohfk-xdnk.vercel.app";
 const AI_KEY = process.env.BOT_AI_KEY || "";
 const WEBHOOK_SECRET = process.env.TG_WEBHOOK_SECRET || "";
 
