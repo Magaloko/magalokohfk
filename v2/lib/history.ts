@@ -65,3 +65,7 @@ export const TASK_FIELDS: FieldSpec[] = [
   { key: "priority", label: "Priorität" }, { key: "impact", label: "Impact" }, { key: "effort", label: "Aufwand" },
   { key: "owner", label: "Verantwortlich" }, { key: "dueDate", label: "Fällig" }, { key: "notes", label: "Notiz" },
 ];
+export const DECISION_FIELDS: FieldSpec[] = [
+  { key: "status", label: "Status" }, { key: "titel", label: "Titel" }, { key: "kategorie", label: "Kategorie" },
+  { key: "frist", label: "Frist" }, { key: "empfehlung", label: "Empfehlung" },
+];

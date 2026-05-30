@@ -6,6 +6,8 @@ import { PageShell } from "@/components/_primitives/page-shell";
 import { Pill } from "@/components/_primitives/card";
 import { DecisionActions } from "@/components/cockpit/decision-editor";
 import { Icon } from "@/components/icon";
+import { RecordTimeline } from "@/components/cockpit/record-timeline";
+import { getRecordHistory, DECISION_FIELDS } from "@/lib/history";
 
 export const dynamic = "force-dynamic";
 
@@ -26,6 +28,7 @@ export default async function DecisionDetail({ params }: { params: Promise<{ id:
 
   const today = new Date().toISOString().slice(0, 10);
   const overdue = d.frist && d.frist < today && d.status !== "entschieden" && d.status !== "verworfen";
+  const history = await getRecordHistory("stephanDecisions", d.id || key, DECISION_FIELDS);
   const extra = Object.entries(d as Record<string, unknown>).filter(
     ([k, v]) => !KNOWN.has(k.toLowerCase()) && typeof v === "string" && v.trim() !== "",
   );
@@ -61,6 +64,7 @@ export default async function DecisionDetail({ params }: { params: Promise<{ id:
           </section>
         ))}
         <DecisionActions id={d.id || key} decision={d} />
+        <RecordTimeline events={history} />
       </div>
     </PageShell>
   );
