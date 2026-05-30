@@ -72,7 +72,7 @@ function MarkeForm({ id, marke, onClose }: { id?: string; marke?: Marke; onClose
       <div className="flex max-h-[72vh] flex-col gap-3 overflow-y-auto pr-1">
         <label className="block">{L("Name *")}<input value={name} onChange={(e) => setName(e.target.value)} className={sel} /></label>
         <label className="block">{L("Philosophie")}<textarea value={philosophie} onChange={(e) => setPhilosophie(e.target.value)} rows={2} className={sel} /></label>
-        <div className="grid grid-cols-3 gap-3">
+        <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
           <label className="block">{L("Land")}<input value={land} onChange={(e) => setLand(e.target.value)} className={sel} /></label>
           <label className="block">{L("Stadt")}<input value={stadt} onChange={(e) => setStadt(e.target.value)} className={sel} /></label>
           <label className="block">{L("Gründung")}<input value={gruendung} onChange={(e) => setGruendung(e.target.value)} className={sel} /></label>

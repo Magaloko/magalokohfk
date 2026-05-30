@@ -81,7 +81,7 @@ export function UserManager({ initial }: { initial: User[] }) {
                 <div>
                   <div className="font-bold">{u.name || "—"} <span className="font-mono text-xs text-muted-2">#{u.uid}</span></div>
                 </div>
-                <div className="flex items-center gap-2">
+                <div className="flex flex-wrap items-center gap-2">
                   <select value={u.role} onChange={(e) => setRole(u.uid, e.target.value)} disabled={busy} className={inp}>
                     <option value="mitarbeiter">Mitarbeiter</option>
                     <option value="admin">Admin</option>

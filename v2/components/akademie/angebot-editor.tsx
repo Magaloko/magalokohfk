@@ -63,7 +63,7 @@ function AngebotForm({ id, angebot, onClose }: { id?: string; angebot?: Angebot;
     <Modal onClose={onClose} title={id ? "Angebot bearbeiten" : "Neues Angebot"}>
       <div className="flex flex-col gap-3">
         <label className="block">{L("Name *")}<input value={f.name || ""} onChange={set("name")} className={sel} /></label>
-        <div className="grid grid-cols-3 gap-3">
+        <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
           <label className="block">{L("Dauer")}<input value={f.dauer || ""} onChange={set("dauer")} className={sel} /></label>
           <label className="block">{L("Preis")}<input value={f.preis || ""} onChange={set("preis")} className={sel} /></label>
           <label className="block">{L("Zielgruppe")}<input value={f.zielgruppe || ""} onChange={set("zielgruppe")} className={sel} /></label>

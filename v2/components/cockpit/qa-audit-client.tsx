@@ -22,7 +22,16 @@ export function QaAuditClient({ items, configured }: { items: QAItem[]; configur
   const [filter, setFilter] = useState<Filter>("all");
   const [results, setResults] = useState<Record<string, Result | "busy" | "err">>({});
   const [copied, setCopied] = useState<string | null>(null);
+  const [applied, setApplied] = useState<Record<string, "busy" | "done" | "err">>({});
   const [batch, setBatch] = useState<{ running: boolean; done: number; total: number }>({ running: false, done: 0, total: 0 });
+
+  async function apply(it: QAItem, value: string) {
+    setApplied((a) => ({ ...a, [it.key]: "busy" }));
+    try {
+      const res = await fetch("/api/qa-audit/apply", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ collection: it.collection, id: it.id, field: it.field, value }) });
+      setApplied((a) => ({ ...a, [it.key]: res.ok ? "done" : "err" }));
+    } catch { setApplied((a) => ({ ...a, [it.key]: "err" })); }
+  }
 
   const flagged = useMemo(() => new Set(items.filter((i) => looksNonGerman(i.text)).map((i) => i.key)), [items]);
   const kiFlagged = useMemo(() => items.filter((i) => { const r = results[i.key]; return r && r !== "busy" && r !== "err" && !r.german; }).length, [items, results]);
@@ -113,14 +122,20 @@ export function QaAuditClient({ items, configured }: { items: QAItem[]; configur
                   {res.issues && <p className="mt-1 text-muted">{res.issues}</p>}
                   {res.fixed && (
                     <div className="mt-2 rounded-lg border border-line bg-surface-2/60 p-2.5">
-                      <div className="mb-1 flex items-center justify-between">
+                      <div className="mb-1 flex flex-wrap items-center justify-between gap-2">
                         <span className="text-[11px] font-bold uppercase tracking-wide text-muted-2">Korrigierte Fassung</span>
-                        <button onClick={() => copy(it.key, res.fixed)} className="inline-flex items-center gap-1 text-[11px] font-semibold text-accent">
-                          <Icon name={copied === it.key ? "check" : "copy"} className="h-3 w-3" />{copied === it.key ? "Kopiert" : "Kopieren"}
-                        </button>
+                        <span className="flex items-center gap-2">
+                          <button onClick={() => copy(it.key, res.fixed)} className="inline-flex items-center gap-1 text-[11px] font-semibold text-accent">
+                            <Icon name={copied === it.key ? "check" : "copy"} className="h-3 w-3" />{copied === it.key ? "Kopiert" : "Kopieren"}
+                          </button>
+                          {applied[it.key] === "done"
+                            ? <span className="inline-flex items-center gap-1 rounded-lg bg-green/15 px-2.5 py-1 text-[11px] font-semibold text-green"><Icon name="check" className="h-3 w-3" />Übernommen</span>
+                            : <button onClick={() => apply(it, res.fixed)} disabled={applied[it.key] === "busy"} className="inline-flex items-center gap-1 rounded-lg bg-accent px-2.5 py-1 text-[11px] font-semibold text-bg disabled:opacity-50"><Icon name="check" className="h-3 w-3" />{applied[it.key] === "busy" ? "Übernehme …" : "Übernehmen"}</button>}
+                        </span>
                       </div>
                       <p className="whitespace-pre-wrap italic">{res.fixed}</p>
-                      <p className="mt-1 text-[11px] text-muted-2">Übernahme im jeweiligen Editor (Akademie) per Einfügen.</p>
+                      {applied[it.key] === "err" && <p className="mt-1 text-[11px] text-red">Übernahme fehlgeschlagen.</p>}
+                      <p className="mt-1 text-[11px] text-muted-2">„Übernehmen" schreibt die Fassung direkt ins Feld „{it.label.split(" · ").pop()}".</p>
                     </div>
                   )}
                 </div>

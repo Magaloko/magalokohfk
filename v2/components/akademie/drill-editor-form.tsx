@@ -68,7 +68,7 @@ function DrillForm({ id, drill, onClose }: { id?: string; drill?: Drill; onClose
     <Modal onClose={onClose} title={id ? "Drill bearbeiten" : "Neuer Drill"}>
       <div className="flex max-h-[72vh] flex-col gap-3 overflow-y-auto pr-1">
         <label className="block">{L("Frage *")}<textarea value={b.frage} onChange={set("frage")} rows={2} className={sel} /></label>
-        <div className="grid grid-cols-3 gap-3">
+        <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
           <label className="block">{L("Marke")}<input value={b.marke} onChange={set("marke")} className={sel} /></label>
           <label className="block">{L("Schwierigkeit")}<input value={b.schwierigkeit} onChange={set("schwierigkeit")} className={sel} /></label>
           <label className="block">{L("Technik")}<input value={b.verkaufstechnik} onChange={set("verkaufstechnik")} className={sel} /></label>
@@ -77,11 +77,11 @@ function DrillForm({ id, drill, onClose }: { id?: string; drill?: Drill; onClose
           <div className="flex flex-col gap-2">
             {opts.map((o, i) => (
               <div key={i} className="rounded-lg border border-line bg-surface-2/40 p-2">
-                <div className="flex items-center gap-2">
+                <div className="flex flex-wrap items-center gap-2">
                   <label className="flex shrink-0 items-center gap-1 text-xs text-muted" title="richtig">
                     <input type="checkbox" checked={o.ist_richtig} onChange={(e) => updOpt(i, { ist_richtig: e.target.checked })} className="accent-green" />richtig
                   </label>
-                  <input value={o.text} onChange={(e) => updOpt(i, { text: e.target.value })} placeholder={`Option ${String.fromCharCode(65 + i)}`} className={`${sel} flex-1`} />
+                  <input value={o.text} onChange={(e) => updOpt(i, { text: e.target.value })} placeholder={`Option ${String.fromCharCode(65 + i)}`} className={`${sel} w-full sm:flex-1`} />
                   <input value={o.punkte} onChange={(e) => updOpt(i, { punkte: e.target.value })} placeholder="Pkt" inputMode="numeric" className={`${sel} w-16`} />
                   <button onClick={() => setOpts(opts.filter((_, j) => j !== i))} className="text-muted-2 hover:text-red" aria-label="entfernen"><Icon name="x" className="h-4 w-4" /></button>
                 </div>

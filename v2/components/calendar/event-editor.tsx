@@ -34,8 +34,8 @@ export function EventEditButton({ event }: { event: CalendarEvent }) {
   }
   return (
     <span className="inline-flex gap-1">
-      <button disabled={busy} onClick={() => setEdit(true)} className="rounded bg-surface-2 px-1.5 py-0.5 text-xs hover:text-ink disabled:opacity-50" aria-label="Bearbeiten"><Icon name="edit" className="h-3 w-3" /></button>
-      <button disabled={busy} onClick={del} className="rounded bg-red/10 px-1.5 py-0.5 text-xs text-red hover:bg-red/20 disabled:opacity-50" aria-label="Löschen"><Icon name="trash" className="h-3 w-3" /></button>
+      <button disabled={busy} onClick={() => setEdit(true)} className="rounded bg-surface-2 px-2 py-1 text-xs hover:text-ink disabled:opacity-50" aria-label="Bearbeiten"><Icon name="edit" className="h-3.5 w-3.5" /></button>
+      <button disabled={busy} onClick={del} className="rounded bg-red/10 px-2 py-1 text-xs text-red hover:bg-red/20 disabled:opacity-50" aria-label="Löschen"><Icon name="trash" className="h-3.5 w-3.5" /></button>
       {edit && <EventForm event={event} onClose={() => setEdit(false)} />}
     </span>
   );
@@ -64,7 +64,7 @@ function EventForm({ event, presetDate, onClose }: { event?: CalendarEvent; pres
     <Modal onClose={onClose} title={event?.id ? "Termin bearbeiten" : "Neuer Termin"}>
       <div className="flex flex-col gap-3">
         <label className="block">{L("Titel *")}<input value={f.title || ""} onChange={set("title")} className={sel} /></label>
-        <div className="grid grid-cols-3 gap-3">
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
           <label className="block">{L("Datum *")}<input type="date" value={f.date || ""} onChange={set("date")} className={sel} /></label>
           <label className="block">{L("Uhrzeit")}<input value={f.time || ""} onChange={set("time")} placeholder="14:00" className={sel} /></label>
           <label className="block">{L("Art")}<select value={f.kind || "Termin"} onChange={set("kind")} className={sel}>{KINDS.map((k) => <option key={k}>{k}</option>)}</select></label>

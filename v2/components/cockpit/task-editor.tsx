@@ -112,7 +112,7 @@ export function Modal({ title, children, onClose }: { title: string; children: R
   return (
     <div className="fixed inset-0 z-50 grid place-items-center p-4" role="dialog" aria-modal="true">
       <div className="absolute inset-0 bg-black/60" onClick={onClose} />
-      <div className="relative w-full max-w-md rounded-2xl border border-line bg-surface p-5 shadow-2xl">
+      <div className="relative max-h-[90vh] w-full max-w-md overflow-y-auto rounded-2xl border border-line bg-surface p-4 shadow-2xl sm:p-5">
         <h3 className="mb-3 text-base font-bold">{title}</h3>
         {children}
       </div>
