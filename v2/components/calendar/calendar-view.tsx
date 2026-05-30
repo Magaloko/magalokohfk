@@ -177,7 +177,7 @@ export function CalendarView({ events, tasks, decisions, kpis, levers, staff, to
     return (
       <div key={`${year}-${month}`} className={cn(framed && "rounded-lg border border-line p-2")}>
         {framed && <div className="mb-1 text-center text-xs font-bold capitalize">{first.toLocaleDateString("de-AT", { month: "long" })}</div>}
-        <div className={cn("grid grid-cols-7 gap-1", size === "lg" && "min-w-[520px]")}>
+        <div className={cn("grid grid-cols-7 gap-1", size === "lg" && "min-w-[480px]")}>
           {size !== "sm" && WD.map((w) => <div key={w} className="px-0.5 py-0.5 text-center text-[10px] font-semibold uppercase text-muted-2">{w}</div>)}
           {cells.map((d) => renderDay(d, { dim: d.getMonth() !== month, size, maxChips, dots }))}
         </div>
