@@ -7,8 +7,15 @@ import type { QAItem } from "@/lib/qa-audit";
 type Result = { german: boolean; issues: string; fixed: string };
 const EN = ["the", "and", "with", "your", "you", "for", "this", "that", "are", "is", "of", "to", "have", "will", "best", "price", "quality", "customer"];
 
-// Schnelle Heuristik: wirkt der Text eher englisch? (Vorfilter, ersetzt keine KI-Prüfung.)
+// Häufige deutsche Wortstämme, bei denen ae/oe/ue/ss fast sicher einen Umlaut/ß ersetzt (mit Wortgrenzen,
+// damit legitime Wörter wie schauen, teuer, neue, OEKO-TEX, individuell NICHT markiert werden).
+// Fängt transliterierte Umlaute, die die Englisch-Heuristik übersieht (z. B. "fuer", "Waechst", "Hoeren").
+const UMLAUT_TL = /\b(?:fuers?|ueber\w*|moeglich\w*|koenn\w*|muess\w*|wuerd\w*|haett\w*|waer\w*|naechst\w*|spaet\w*|frueh\w*|schoen\w*|groess\w*|gross\w*|guenstig\w*|laeng\w*|staerk\w*|waechst|fuehr\w*|daenisch\w*|oekolog\w*|aerzt\w*|geaendert|aender\w*|jaehrig\w*|haelfte|paedagog\w*|bruecke\w*|loesung\w*|hoer\w*|schliess\w*|tuer\w*|buecher|sloejd|[NO]Oe)\b/i;
+
+// Schnelle Heuristik: wirkt der Text sprachlich auffällig — englisch ODER transliterierte Umlaute?
+// Reiner Vorfilter, ersetzt keine KI-Prüfung.
 function looksNonGerman(text: string): boolean {
+  if (UMLAUT_TL.test(text)) return true;
   const words = text.toLowerCase().match(/[a-zäöüß]+/g) || [];
   if (!words.length) return false;
   const hits = new Set(words.filter((w) => EN.includes(w)));
@@ -107,7 +114,7 @@ export function QaAuditClient({ items, configured }: { items: QAItem[]; configur
               <div className="mb-2 flex flex-wrap items-center gap-2">
                 <span className="rounded-full bg-surface-2 px-2.5 py-0.5 text-xs font-semibold text-muted-2">{it.type}</span>
                 <span className="text-sm font-bold">{it.label}</span>
-                {suspect && <span className="rounded-full bg-amber/15 px-2.5 py-0.5 text-xs font-semibold text-amber">evtl. nicht deutsch</span>}
+                {suspect && <span className="rounded-full bg-amber/15 px-2.5 py-0.5 text-xs font-semibold text-amber">Sprache prüfen</span>}
                 <button onClick={() => check(it)} disabled={!configured || res === "busy"} className="ml-auto rounded-lg bg-accent px-3 py-1.5 text-xs font-semibold text-bg disabled:opacity-50">
                   {res === "busy" ? "KI prüft …" : "KI prüfen"}
                 </button>
