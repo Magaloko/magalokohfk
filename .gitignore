@@ -12,8 +12,8 @@ config/*.json
 # === Deploy / Tooling ===
 .vercel/
 .claude/
-audit/
-backups/
+/audit/
+/backups/
 
 # === Große Importe / generierte Inhalte (nicht Teil des Code-Audits) ===
 lernsystem-2026/
