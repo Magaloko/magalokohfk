@@ -35,6 +35,22 @@ export async function getStephanThread(thread = "stephan"): Promise<StephanMessa
   }
 }
 
+// Alle Nachrichten über alle Threads (für die Beziehungs-Timeline + Thread-Liste). Fail-soft -> [].
+export async function getAllStephanMessages(): Promise<StephanMessage[]> {
+  try {
+    const { data, error } = await db()
+      .from("stephan_messages")
+      .select("*")
+      .order("created_at", { ascending: true })
+      .limit(800);
+    if (error || !Array.isArray(data)) return [];
+    return (data as StephanMessage[]).sort((a, b) =>
+      String(a.occurred_at || a.created_at).localeCompare(String(b.occurred_at || b.created_at)));
+  } catch {
+    return [];
+  }
+}
+
 // Liefert die an ein konkretes Objekt (z. B. eine stephanDecision) gekoppelten Nachrichten. Fail-soft -> [].
 export async function getStephanMessagesForRef(refKind: string, refId: string): Promise<StephanMessage[]> {
   if (!refKind || !refId) return [];

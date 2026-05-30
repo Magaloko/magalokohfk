@@ -42,13 +42,35 @@ const errText = (e?: string) =>
               : "Aktion fehlgeschlagen.";
 
 type Decision = { id: string; titel: string };
+type ChatCreatedItem = { kind: string; title: string; href: string; sub: string };
 
 const fmtTime = (iso: string) => {
   try { return new Date(iso).toLocaleString("de-AT", { day: "2-digit", month: "short", hour: "2-digit", minute: "2-digit" }); }
   catch { return iso; }
 };
+const dayLabel = (day: string) => {
+  try { return new Date(day + "T00:00:00").toLocaleDateString("de-AT", { weekday: "short", day: "2-digit", month: "long", year: "numeric" }); }
+  catch { return day; }
+};
+const threadLabel = (t: string) => (t === "stephan" ? "Allgemein" : t);
 
-export function StephanAssist({ configured, thread, openDecisions }: { configured: boolean; thread: StephanMessage[]; openDecisions: Decision[] }) {
+// Nachrichten thread-übergreifend nach Tag gruppieren (neueste Tage zuerst).
+function groupByDay(msgs: StephanMessage[]): { day: string; list: StephanMessage[] }[] {
+  const map = new Map<string, StephanMessage[]>();
+  for (const m of msgs) {
+    const day = String(m.occurred_at || m.created_at).slice(0, 10);
+    const arr = map.get(day) || [];
+    arr.push(m);
+    map.set(day, arr);
+  }
+  return [...map.entries()]
+    .sort((a, b) => b[0].localeCompare(a[0]))
+    .map(([day, list]) => ({ day, list: list.sort((x, y) => String(x.occurred_at || x.created_at).localeCompare(String(y.occurred_at || y.created_at))) }));
+}
+
+export function StephanAssist({ configured, activeThread, threadNames, messages, allMessages, createdItems, openDecisions }: {
+  configured: boolean; activeThread: string; threadNames: string[]; messages: StephanMessage[]; allMessages: StephanMessage[]; createdItems: ChatCreatedItem[]; openDecisions: Decision[];
+}) {
   const router = useRouter();
   const [msg, setMsg] = useState("");        // eingehende Nachricht von Stephan
   const [reply, setReply] = useState("");    // KI-Entwurf
@@ -61,7 +83,7 @@ export function StephanAssist({ configured, thread, openDecisions }: { configure
   const [copied, setCopied] = useState(false);
   const [useStyle, setUseStyle] = useState(true);     // Stil-Lernen (Few-Shot aus eigenen Antworten)
   const [styleUsed, setStyleUsed] = useState<number | null>(null);
-  const outgoingCount = thread.filter((m) => m.direction === "outgoing").length;
+  const outgoingCount = messages.filter((m) => m.direction === "outgoing").length;
 
   // Manuell erfassen (standalone)
   const [manOpen, setManOpen] = useState(false);
@@ -79,10 +101,15 @@ export function StephanAssist({ configured, thread, openDecisions }: { configure
   const [exErr, setExErr] = useState("");
   const [exItems, setExItems] = useState<ExItem[]>([]);
 
-  // Gesprächs-Zusammenfassung (KI)
+  // Gesprächs-Zusammenfassung (KI) + Verlauf-Ansicht
   const [summary, setSummary] = useState("");
   const [sumBusy, setSumBusy] = useState(false);
   const [sumErr, setSumErr] = useState("");
+  const [view, setView] = useState<"thread" | "timeline">("thread");
+
+  const threads = Array.from(new Set([...threadNames, activeThread]));
+  const goThread = (t: string) => router.push(t === "stephan" ? "/cockpit/stephan" : `/cockpit/stephan?thread=${encodeURIComponent(t)}`);
+  const newThread = () => { const n = window.prompt("Name des neuen Themen-Threads:")?.trim(); if (n && n !== activeThread) goThread(n); };
 
   async function run() {
     if (!msg.trim() || busy) return;
@@ -106,6 +133,7 @@ export function StephanAssist({ configured, thread, openDecisions }: { configure
       const r = await fetch("/api/stephan/log", {
         method: "POST", headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
+          thread: activeThread,
           incoming: msg.trim() || undefined,
           outgoing: final.trim(),
           ai_draft: reply || undefined,
@@ -127,6 +155,7 @@ export function StephanAssist({ configured, thread, openDecisions }: { configure
     setManSaving(true); setErr("");
     try {
       const payload: Record<string, unknown> = {
+        thread: activeThread,
         ref_kind: manRef ? "stephanDecisions" : undefined, ref_id: manRef || undefined, occurred_at: manDate || undefined,
       };
       if (manDir === "incoming") payload.incoming = manBody.trim();
@@ -174,10 +203,10 @@ export function StephanAssist({ configured, thread, openDecisions }: { configure
   }
 
   async function runSummary() {
-    if (sumBusy || !thread.length) return;
+    if (sumBusy || !messages.length) return;
     setSumBusy(true); setSumErr(""); setSummary("");
     try {
-      const r = await fetch("/api/stephan/summary", { method: "POST", headers: { "Content-Type": "application/json" }, body: "{}" });
+      const r = await fetch("/api/stephan/summary", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ thread: activeThread }) });
       const j = await r.json().catch(() => ({}));
       if (r.ok && j.summary) setSummary(String(j.summary));
       else setSumErr(errText(j.error));
@@ -189,6 +218,18 @@ export function StephanAssist({ configured, thread, openDecisions }: { configure
 
   return (
     <div className="flex flex-col gap-4">
+      {/* Themen-Threads */}
+      <div className="flex flex-wrap items-center gap-1.5">
+        <span className="mr-1 text-[11px] font-semibold uppercase tracking-wide text-muted-2">Thread:</span>
+        {threads.map((t) => (
+          <button key={t} onClick={() => goThread(t)}
+            className={cn("rounded-full border px-3 py-1 text-xs font-medium transition", t === activeThread ? "border-accent bg-accent/15 text-accent" : "border-line bg-surface-2 text-muted hover:text-ink")}>
+            {threadLabel(t)}
+          </button>
+        ))}
+        <button onClick={newThread} className="rounded-full border border-dashed border-line px-3 py-1 text-xs font-medium text-muted-2 hover:text-ink">+ Neuer Thread</button>
+      </div>
+
       {!configured && (
         <div className="rounded-lg border border-amber/40 bg-amber/10 p-3 text-sm text-amber">
           KI ist nicht konfiguriert (BOT_AI_KEY fehlt) – der Assistent kann derzeit keine Antwort erzeugen. Erfassen & Verlauf funktionieren trotzdem.
@@ -197,7 +238,7 @@ export function StephanAssist({ configured, thread, openDecisions }: { configure
 
       {/* Eingehende Nachricht + KI-Entwurf */}
       <div className="rounded-xl border border-line bg-surface p-4 shadow-sm">
-        <label className="mb-1 block text-[11px] uppercase tracking-wide text-muted-2">Nachricht von Stephan</label>
+        <label className="mb-1 block text-[11px] uppercase tracking-wide text-muted-2">Nachricht von Stephan · Thread: {threadLabel(activeThread)}</label>
         <textarea value={msg} onChange={(e) => setMsg(e.target.value)} rows={5} placeholder="Eingehende Nachricht / Anfrage hier einfügen …" className={sel} />
         <div className="mt-3 flex flex-wrap items-center gap-3">
           <button disabled={busy || !msg.trim() || !configured} onClick={run}
@@ -246,7 +287,7 @@ export function StephanAssist({ configured, thread, openDecisions }: { configure
               <Icon name="send" className="h-4 w-4" />{saving ? "Speichere …" : "Als gesendet speichern"}
             </button>
           </div>
-          <p className="mt-2 text-[11px] text-muted-2">Speichert Stephans Nachricht + deine Endfassung (mit KI-Entwurf zum Vergleich) in den Verlauf.</p>
+          <p className="mt-2 text-[11px] text-muted-2">Speichert in Thread „{threadLabel(activeThread)}": Stephans Nachricht + deine Endfassung (mit KI-Entwurf zum Vergleich).</p>
         </div>
       )}
 
@@ -280,6 +321,7 @@ export function StephanAssist({ configured, thread, openDecisions }: { configure
               <button disabled={manSaving || !manBody.trim()} onClick={saveManual}
                 className="ml-auto rounded-lg bg-accent px-4 py-2 text-sm font-semibold text-bg disabled:opacity-50">{manSaving ? "Speichere …" : "Erfassen"}</button>
             </div>
+            <p className="text-[11px] text-muted-2">→ Thread: {threadLabel(activeThread)}</p>
           </div>
         )}
       </div>
@@ -290,7 +332,7 @@ export function StephanAssist({ configured, thread, openDecisions }: { configure
         <p className="mb-2 text-xs text-muted-2">Erkennt Aufgaben, Ziele, Termine, Entscheidungen und Ideen — du prüfst &amp; übernimmst jede einzeln.</p>
         <div className="mb-2 flex flex-wrap gap-2">
           <button disabled={!msg.trim()} onClick={() => setExSrc(msg)} className="rounded-lg bg-surface-2 px-2.5 py-1 text-xs font-semibold hover:text-ink disabled:opacity-50">← Eingehende Nachricht</button>
-          <button disabled={!thread.length} onClick={() => setExSrc(thread.map((m) => `${m.direction === "incoming" ? "Stephan" : "Ich"}: ${m.body}`).join("\n\n"))} className="rounded-lg bg-surface-2 px-2.5 py-1 text-xs font-semibold hover:text-ink disabled:opacity-50">← Ganzer Verlauf</button>
+          <button disabled={!messages.length} onClick={() => setExSrc(messages.map((m) => `${m.direction === "incoming" ? "Stephan" : "Ich"}: ${m.body}`).join("\n\n"))} className="rounded-lg bg-surface-2 px-2.5 py-1 text-xs font-semibold hover:text-ink disabled:opacity-50">← Ganzer Verlauf</button>
         </div>
         <textarea value={exSrc} onChange={(e) => setExSrc(e.target.value)} rows={4} placeholder="Text einfügen, aus dem Aufgaben/Ziele/Termine/Ideen erkannt werden sollen …" className={sel} />
         <div className="mt-3 flex flex-wrap items-center gap-3">
@@ -333,58 +375,122 @@ export function StephanAssist({ configured, thread, openDecisions }: { configure
         )}
       </div>
 
-      {/* Verlauf */}
+      {/* Verlauf / Timeline */}
       <div className="rounded-xl border border-line bg-surface p-4 shadow-sm">
-        <div className="mb-3 flex items-center justify-between gap-2">
-          <h2 className="flex items-center gap-1.5 text-sm font-bold"><Icon name="chat" className="h-4 w-4 text-muted-2" />Verlauf mit Stephan {thread.length > 0 && <span className="text-xs font-normal text-muted-2">({thread.length})</span>}</h2>
-          {thread.length > 0 && (
-            <button disabled={sumBusy || !configured} onClick={runSummary} className="inline-flex items-center gap-1.5 rounded-lg bg-surface-2 px-3 py-1.5 text-xs font-semibold hover:text-ink disabled:opacity-50">
-              <Icon name="sparkles" className="h-3.5 w-3.5" />{sumBusy ? "Fasse zusammen …" : "Zusammenfassen"}
-            </button>
-          )}
+        <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
+          <h2 className="flex items-center gap-1.5 text-sm font-bold">
+            <Icon name="chat" className="h-4 w-4 text-muted-2" />
+            {view === "thread" ? <>Verlauf — {threadLabel(activeThread)} {messages.length > 0 && <span className="text-xs font-normal text-muted-2">({messages.length})</span>}</> : <>Timeline — alle Threads {allMessages.length > 0 && <span className="text-xs font-normal text-muted-2">({allMessages.length})</span>}</>}
+          </h2>
+          <div className="flex items-center gap-2">
+            <div className="flex gap-1">
+              {(["thread", "timeline"] as const).map((v) => (
+                <button key={v} onClick={() => setView(v)} className={cn("rounded-lg px-2.5 py-1 text-xs font-semibold transition", view === v ? "bg-accent text-bg" : "bg-surface-2 text-muted hover:text-ink")}>
+                  {v === "thread" ? "Dieser Thread" : "Timeline (alle)"}
+                </button>
+              ))}
+            </div>
+            {messages.length > 0 && (
+              <button disabled={sumBusy || !configured} onClick={runSummary} className="inline-flex items-center gap-1.5 rounded-lg bg-surface-2 px-3 py-1.5 text-xs font-semibold hover:text-ink disabled:opacity-50">
+                <Icon name="sparkles" className="h-3.5 w-3.5" />{sumBusy ? "Fasse zusammen …" : "Zusammenfassen"}
+              </button>
+            )}
+          </div>
         </div>
         {sumErr && <p className="mb-2 text-sm text-red">{sumErr}</p>}
         {summary && (
           <div className="mb-3 rounded-lg border border-accent/30 bg-accent/5 p-3">
             <div className="mb-1 flex items-center justify-between">
-              <span className="flex items-center gap-1.5 text-[11px] font-bold uppercase tracking-wide text-muted-2"><Icon name="sparkles" className="h-3.5 w-3.5" />Zusammenfassung</span>
+              <span className="flex items-center gap-1.5 text-[11px] font-bold uppercase tracking-wide text-muted-2"><Icon name="sparkles" className="h-3.5 w-3.5" />Zusammenfassung · {threadLabel(activeThread)}</span>
               <button onClick={() => setSummary("")} className="text-[11px] font-semibold text-muted-2 hover:text-ink">schließen</button>
             </div>
             <div className="whitespace-pre-wrap text-sm leading-relaxed">{summary}</div>
           </div>
         )}
-        {thread.length === 0 ? (
-          <p className="text-sm text-muted-2">Noch kein Verlauf. Entwirf eine Antwort und speichere sie als gesendet – oder erfasse eine Nachricht manuell.</p>
-        ) : (
-          <ul className="flex flex-col gap-2.5">
-            {thread.map((m) => {
-              const mine = m.direction === "outgoing";
-              const titel = decTitel(m.ref_id);
-              return (
-                <li key={m.id} className={cn("max-w-[88%] rounded-xl border p-3", mine ? "ml-auto border-accent/30 bg-accent/5" : "mr-auto border-line bg-surface-2/50")}>
-                  <div className="mb-1 flex items-center gap-2 text-[11px] text-muted-2">
-                    <span className="font-semibold">{mine ? "Du" : "Stephan"}</span>
-                    <span className="inline-flex items-center gap-1"><Icon name="clock" className="h-3 w-3" />{fmtTime(m.occurred_at || m.created_at)}</span>
-                    {m.ref_id && (
-                      <Link href={`/cockpit/entscheidungen/${encodeURIComponent(m.ref_id)}`} className="inline-flex items-center gap-1 rounded-full bg-surface px-2 py-0.5 text-accent hover:underline">
-                        <Icon name="target" className="h-3 w-3" />{titel || "Entscheidung"}
-                      </Link>
+
+        {view === "thread" ? (
+          messages.length === 0 ? (
+            <p className="text-sm text-muted-2">Noch kein Verlauf in „{threadLabel(activeThread)}". Entwirf eine Antwort und speichere sie als gesendet – oder erfasse eine Nachricht manuell.</p>
+          ) : (
+            <ul className="flex flex-col gap-2.5">
+              {messages.map((m) => {
+                const mine = m.direction === "outgoing";
+                const titel = decTitel(m.ref_id);
+                return (
+                  <li key={m.id} className={cn("max-w-[88%] rounded-xl border p-3", mine ? "ml-auto border-accent/30 bg-accent/5" : "mr-auto border-line bg-surface-2/50")}>
+                    <div className="mb-1 flex items-center gap-2 text-[11px] text-muted-2">
+                      <span className="font-semibold">{mine ? "Du" : "Stephan"}</span>
+                      <span className="inline-flex items-center gap-1"><Icon name="clock" className="h-3 w-3" />{fmtTime(m.occurred_at || m.created_at)}</span>
+                      {m.ref_id && (
+                        <Link href={`/cockpit/entscheidungen/${encodeURIComponent(m.ref_id)}`} className="inline-flex items-center gap-1 rounded-full bg-surface px-2 py-0.5 text-accent hover:underline">
+                          <Icon name="target" className="h-3 w-3" />{titel || "Entscheidung"}
+                        </Link>
+                      )}
+                      <button onClick={() => del(m.id)} disabled={!!delId} className="ml-auto inline-flex items-center gap-1 text-muted-2 hover:text-red disabled:opacity-50" aria-label="Eintrag löschen">
+                        <Icon name="trash" className="h-3.5 w-3.5" />
+                      </button>
+                    </div>
+                    <div className="whitespace-pre-wrap text-sm leading-relaxed">{m.body}</div>
+                    {mine && m.ai_draft && m.ai_draft.trim() !== m.body.trim() && (
+                      <details className="mt-2">
+                        <summary className="cursor-pointer text-[11px] font-semibold text-muted-2 hover:text-ink">KI-Entwurf anzeigen (vor deiner Anpassung)</summary>
+                        <div className="mt-1 whitespace-pre-wrap rounded-lg bg-surface-2/60 p-2 text-xs text-muted">{m.ai_draft}</div>
+                      </details>
                     )}
-                    <button onClick={() => del(m.id)} disabled={!!delId} className="ml-auto inline-flex items-center gap-1 text-muted-2 hover:text-red disabled:opacity-50" aria-label="Eintrag löschen">
-                      <Icon name="trash" className="h-3.5 w-3.5" />
-                    </button>
+                  </li>
+                );
+              })}
+            </ul>
+          )
+        ) : (
+          <>
+            {allMessages.length === 0 ? (
+              <p className="text-sm text-muted-2">Noch kein Verlauf erfasst.</p>
+            ) : (
+              <div className="flex flex-col gap-4">
+                {groupByDay(allMessages).map(({ day, list }) => (
+                  <div key={day} className="flex flex-col gap-2">
+                    <div className="text-[11px] font-semibold uppercase tracking-wide text-muted-2">{dayLabel(day)}</div>
+                    {list.map((m) => {
+                      const mine = m.direction === "outgoing";
+                      return (
+                        <div key={m.id} className="flex items-start gap-2">
+                          <span className={cn("mt-2 h-2 w-2 shrink-0 rounded-full", mine ? "bg-accent" : "bg-muted-2")} />
+                          <div className="flex-1 rounded-lg border border-line bg-surface-2/40 p-2.5">
+                            <div className="mb-0.5 flex flex-wrap items-center gap-2 text-[11px] text-muted-2">
+                              <span className="font-semibold text-ink">{mine ? "Du" : "Stephan"}</span>
+                              <span>{fmtTime(m.occurred_at || m.created_at)}</span>
+                              {(m.thread || "stephan") !== "stephan" && <span className="rounded-full bg-surface px-2 py-0.5">{m.thread}</span>}
+                              {m.ref_id && (
+                                <Link href={`/cockpit/entscheidungen/${encodeURIComponent(m.ref_id)}`} className="inline-flex items-center gap-1 rounded-full bg-surface px-2 py-0.5 text-accent hover:underline">
+                                  <Icon name="target" className="h-3 w-3" />{decTitel(m.ref_id) || "Entscheidung"}
+                                </Link>
+                              )}
+                            </div>
+                            <div className="whitespace-pre-wrap text-sm">{m.body}</div>
+                          </div>
+                        </div>
+                      );
+                    })}
                   </div>
-                  <div className="whitespace-pre-wrap text-sm leading-relaxed">{m.body}</div>
-                  {mine && m.ai_draft && m.ai_draft.trim() !== m.body.trim() && (
-                    <details className="mt-2">
-                      <summary className="cursor-pointer text-[11px] font-semibold text-muted-2 hover:text-ink">KI-Entwurf anzeigen (vor deiner Anpassung)</summary>
-                      <div className="mt-1 whitespace-pre-wrap rounded-lg bg-surface-2/60 p-2 text-xs text-muted">{m.ai_draft}</div>
-                    </details>
-                  )}
-                </li>
-              );
-            })}
-          </ul>
+                ))}
+              </div>
+            )}
+            {createdItems.length > 0 && (
+              <div className="mt-4 rounded-lg border border-line bg-surface-2/40 p-3">
+                <h3 className="mb-2 flex items-center gap-1.5 text-[11px] font-bold uppercase tracking-wide text-muted-2"><Icon name="bolt" className="h-3.5 w-3.5" />Aus dem Chat entstanden ({createdItems.length})</h3>
+                <ul className="flex flex-col gap-1.5">
+                  {createdItems.map((c, i) => (
+                    <li key={i} className="flex flex-wrap items-center gap-2 text-sm">
+                      <span className="rounded-full bg-surface px-2 py-0.5 text-[11px] font-semibold text-muted-2">{c.kind}</span>
+                      <Link href={c.href} className="font-medium hover:text-accent">{c.title}</Link>
+                      {c.sub && <span className="text-[11px] text-muted-2">· {c.sub}</span>}
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            )}
+          </>
         )}
       </div>
     </div>

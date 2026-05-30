@@ -25,6 +25,7 @@ export async function POST(req: NextRequest) {
   const outgoing = clip(b?.outgoing);
   if (!incoming && !outgoing) return NextResponse.json({ error: "empty" }, { status: 400 });
 
+  const thread = clip(b?.thread, 60) || "stephan";
   const ref_kind = REF_KINDS.has(String(b?.ref_kind)) ? String(b.ref_kind) : null;
   const ref_id = ref_kind ? clip(b?.ref_id, 200) || null : null;
   const rawDate = String(b?.occurred_at || "");
@@ -35,12 +36,12 @@ export async function POST(req: NextRequest) {
   let inId: string | null = null;
   if (incoming) {
     inId = genId("sm");
-    rows.push({ id: inId, thread: "stephan", direction: "incoming", body: incoming, ref_kind, ref_id, occurred_at, actor });
+    rows.push({ id: inId, thread, direction: "incoming", body: incoming, ref_kind, ref_id, occurred_at, actor });
   }
   if (outgoing) {
     const ai_draft = clip(b?.ai_draft) || null;
     const source = clip(b?.source, 40) || (ai_draft ? "edited_draft" : "pasted");
-    rows.push({ id: genId("sm"), thread: "stephan", direction: "outgoing", body: outgoing, ai_draft, source, reply_to: inId, ref_kind, ref_id, occurred_at, actor });
+    rows.push({ id: genId("sm"), thread, direction: "outgoing", body: outgoing, ai_draft, source, reply_to: inId, ref_kind, ref_id, occurred_at, actor });
   }
 
   const { error } = await db().from("stephan_messages").insert(rows);
