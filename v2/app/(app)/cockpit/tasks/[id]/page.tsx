@@ -28,6 +28,7 @@ export default async function TaskDetail({ params }: { params: Promise<{ id: str
         <section className="rounded-xl border border-line bg-surface p-4 shadow-sm">
           <div className="flex flex-wrap gap-2">
             <Pill tone={isTaskOpen(t) ? "amber" : "green"}>{t.status || "offen"}</Pill>
+            {t.phase && <Pill tone="accent">Phase: {t.phase}</Pill>}
             {t.priority && <Pill tone="red">Prio: {t.priority}</Pill>}
             {t.impact && <Pill tone="accent">Impact: {t.impact}</Pill>}
             {t.effort && <Pill>Aufwand: {t.effort}</Pill>}

@@ -12,12 +12,12 @@ const LEVELS = ["", "hoch", "mittel", "niedrig"];
 const COL = "levers";
 const sel = "w-full rounded-lg border border-line bg-surface-2 px-3 py-2 text-sm text-ink outline-none focus:border-accent";
 
-type Form = { title: string; area: string; phase: string; status: string; expectedImpactEur: string; effortHours: string; confidence: string; risk: string; description: string; startDate: string; finishDate: string };
+type Form = { title: string; area: string; phase: string; status: string; expectedImpactEur: string; effortHours: string; confidence: string; risk: string; description: string; notes: string; startDate: string; finishDate: string };
 const toForm = (l?: Lever): Form => ({
   title: l?.title || "", area: l?.area || "", phase: l?.phase || "", status: l?.status || "Backlog",
   expectedImpactEur: l?.expectedImpactEur != null ? String(l.expectedImpactEur) : "",
   effortHours: l?.effortHours != null ? String(l.effortHours) : "",
-  confidence: l?.confidence || "", risk: l?.risk || "", description: (l as any)?.description || "",
+  confidence: l?.confidence || "", risk: l?.risk || "", description: (l as any)?.description || "", notes: (l as any)?.notes || "",
   startDate: l?.startDate || "", finishDate: l?.finishDate || "",
 });
 
@@ -106,6 +106,7 @@ function LeverForm({ id, lever, onClose }: { id?: string; lever?: Lever; onClose
           <label className="block">{L("Ziel / Ende")}<input type="date" value={f.finishDate} onChange={set("finishDate")} className={sel} /></label>
         </div>
         <label className="block">{L("Beschreibung")}<textarea value={f.description} onChange={set("description")} rows={3} className={sel} /></label>
+        <label className="block">{L("Notiz")}<textarea value={f.notes} onChange={set("notes")} rows={2} className={sel} /></label>
         {err && <p className="text-sm text-red">{err}</p>}
         <div className="flex justify-end gap-2">
           <button onClick={onClose} className="rounded-lg bg-surface-2 px-4 py-2 text-sm font-semibold">Abbrechen</button>

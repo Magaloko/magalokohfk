@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { requireAdmin } from "@/lib/auth-helpers";
 import { getCockpitData, leverScore, formatEur, isTaskOpen, isLeverActive, sortedWeeks } from "@/lib/cockpit";
+import { getRecentActivity } from "@/lib/history";
 import { getProgress, levelInfo, emptyProgress } from "@/lib/progress";
 import { PATHS } from "@/lib/paths";
 import { PageShell } from "@/components/_primitives/page-shell";
@@ -14,6 +15,12 @@ const pretty = (k: string) => k.replace(/_/g, " ").replace(/([a-z])([A-Z])/g, "$
 type Tone = "accent" | "amber" | "red" | "green" | "teal" | "muted";
 const toneDot: Record<Tone, string> = { accent: "bg-accent", amber: "bg-amber", red: "bg-red", green: "bg-green", teal: "bg-teal", muted: "bg-muted-2" };
 const eKind: Record<string, Tone> = { Termin: "accent", Erinnerung: "teal", Deadline: "red", Block: "muted" };
+function relTime(ms: number): string {
+  const diff = Date.now() - ms;
+  const d = Math.floor(diff / 86400000); if (d > 0) return `vor ${d} T`;
+  const h = Math.floor(diff / 3600000); if (h > 0) return `vor ${h} h`;
+  const m = Math.floor(diff / 60000); return m > 0 ? `vor ${m} min` : "gerade eben";
+}
 
 export default async function HeutePage() {
   const sess = await requireAdmin();
@@ -21,6 +28,7 @@ export default async function HeutePage() {
   const dateLabel = new Date().toLocaleDateString("de-AT", { weekday: "long", day: "numeric", month: "long", year: "numeric" });
 
   const { tasks, levers, weeklyKpis, decisions, calendarEvents } = await getCockpitData();
+  const activity = await getRecentActivity(6);
   const progress = (await getProgress(sess.email)) || emptyProgress(sess.email);
   const lvl = levelInfo(progress.xp);
   const pathsDone = PATHS.filter((p) => (progress.stats.paths?.[p.id]?.length || 0) >= p.steps.length).length;
@@ -138,6 +146,20 @@ export default async function HeutePage() {
             ) : <Empty>Noch keine KPIs.</Empty>}
           </Section>
         </div>
+
+        <Section titleIcon="clock" title="Letzte Aktivität" href="/cockpit/aktivitaet">
+          {activity.length ? (
+            <ul className="flex flex-col">
+              {activity.map((a, i) => (
+                <li key={i} className="flex items-center gap-3 border-b border-line/60 py-2 text-sm last:border-0">
+                  <span className="shrink-0 rounded-full bg-surface-2 px-2 py-0.5 text-[11px] font-semibold text-muted-2">{a.type}</span>
+                  <Link href={a.href} className="min-w-0 flex-1 truncate font-medium hover:text-accent">{a.title}</Link>
+                  <span className="shrink-0 text-xs text-muted-2">{a.kind === "created" ? "neu" : "geänd."}{a.by ? ` · ${a.by}` : ""} · {relTime(a.at)}</span>
+                </li>
+              ))}
+            </ul>
+          ) : <Empty>Noch keine Aktivität erfasst.</Empty>}
+        </Section>
       </div>
     </PageShell>
   );

@@ -62,9 +62,9 @@ export default async function CockpitOverview() {
       <h2 className="mb-2 mt-7 flex items-center gap-1.5 text-xs font-bold uppercase tracking-wide text-muted-2"><Icon name="handshake" className="h-3.5 w-3.5" /> Umsetzungslead — was Stephan von mir braucht</h2>
       <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
         <Lead href="/cockpit/entscheidungen" icon="compass" label="Offene Entscheidungen" value={openDecisions.length} />
-        <Lead href="/cockpit/umsetzung" icon="key" label="Offene Zugänge" value={zugaenge} />
-        <Lead href="/cockpit/umsetzung" icon="alert" label="Technische Blocker" value={blocker} danger />
-        <Lead href="/cockpit/umsetzung" icon="check" label="Wartet auf Freigabe" value={freigaben} />
+        <Lead href="/cockpit/umsetzung?typ=Zugang" icon="key" label="Offene Zugänge" value={zugaenge} />
+        <Lead href="/cockpit/umsetzung?typ=Blocker" icon="alert" label="Technische Blocker" value={blocker} danger />
+        <Lead href="/cockpit/umsetzung?typ=Freigabe" icon="check" label="Wartet auf Freigabe" value={freigaben} />
       </div>
 
       {/* Wochen-Briefing */}

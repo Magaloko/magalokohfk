@@ -42,17 +42,38 @@ function makeEinwandQ(einw: Einwand[], weak: Weak, only?: Set<string>): Q | null
   return { type: "einwand", label: "Einwand", frage: `Kunde sagt: „${t.einwand}"\n\nWelche Antwort ist am besten?`, opts, muster: t.beweis ? t.beweis.slice(0, 160) : undefined, itemKey: `einwand:${t.id || ""}` };
 }
 function makeMarkenQ(marken: Marke[], weak: Weak, only?: Set<string>): Q | null {
-  const all = marken.filter((m) => m.herkunft?.land);
-  if (all.length < 4) return null;
-  const pool = only ? all.filter((m) => only.has(`marken:${m.id || ""}`)) : all;
+  const named = marken.filter((m) => m.name);
+  if (named.length < 4) return null;
+  const pool = only ? named.filter((m) => only.has(`marken:${m.id || ""}`)) : named;
   if (!pool.length) return null;
   const t = pickWeighted(pool, (x) => `marken:${x.id || ""}`, weak);
-  const laender = [...new Set(all.map((m) => m.herkunft!.land!))];
-  const wrong = shuffle(laender.filter((l) => l !== t.herkunft!.land)).slice(0, 3);
-  if (wrong.length < 3) return null;
-  const opts = shuffle([{ text: t.herkunft!.land!, correct: true, feedback: `${t.name} kommt aus ${t.herkunft!.land}` },
-    ...wrong.map((l) => ({ text: l, correct: false, feedback: `${t.name} kommt aus ${t.herkunft!.land}.` }))]);
-  return { type: "marken", label: "Marke", frage: `Aus welchem Land kommt die Marke ${t.name}?`, opts, muster: t.philosophie ? `„${t.philosophie.slice(0, 120)}"` : undefined, itemKey: `marken:${t.id || ""}` };
+  const key = `marken:${t.id || ""}`;
+  const others = named.filter((m) => m !== t);
+  const heroName = (h: string | { name?: string }) => (typeof h === "string" ? h : h?.name || "");
+
+  // Frage-Varianten je nach Datenlage (Herkunft / USP / Hero-Produkt) — mehr Lernwert als nur Herkunftsland.
+  const variants: Array<() => Q | null> = [];
+  if (t.herkunft?.land) variants.push(() => {
+    const laender = [...new Set(named.map((m) => m.herkunft?.land).filter((l): l is string => !!l && l !== t.herkunft!.land))];
+    if (laender.length < 3) return null;
+    const opts = shuffle([{ text: t.herkunft!.land!, correct: true, feedback: `${t.name} kommt aus ${t.herkunft!.land}.` },
+      ...shuffle(laender).slice(0, 3).map((l) => ({ text: l, correct: false, feedback: `${t.name} kommt aus ${t.herkunft!.land}.` }))]);
+    return { type: "marken", label: "Marke · Herkunft", frage: `Aus welchem Land kommt die Marke ${t.name}?`, opts, muster: t.philosophie ? `„${t.philosophie.slice(0, 120)}"` : undefined, itemKey: key };
+  });
+  const usp = (t.usps || []).find((u) => typeof u === "string" && u.trim().length >= 8);
+  if (usp) variants.push(() => {
+    const opts = shuffle([{ text: t.name!, correct: true, feedback: `Das ist ein USP von ${t.name}.` },
+      ...shuffle(others).slice(0, 3).map((m) => ({ text: m.name!, correct: false, feedback: `Das ist ein USP von ${t.name}.` }))]);
+    return { type: "marken", label: "Marke · USP", frage: `Welche Marke wirbt mit: „${usp.slice(0, 140)}"?`, opts, itemKey: key };
+  });
+  const hero = (t.hero_produkte || []).map(heroName).find((h) => h && h.trim().length >= 2);
+  if (hero) variants.push(() => {
+    const opts = shuffle([{ text: t.name!, correct: true, feedback: `„${hero}" gehört zu ${t.name}.` },
+      ...shuffle(others).slice(0, 3).map((m) => ({ text: m.name!, correct: false, feedback: `„${hero}" gehört zu ${t.name}.` }))]);
+    return { type: "marken", label: "Marke · Produkt", frage: `Zu welcher Marke gehört „${hero}"?`, opts, itemKey: key };
+  });
+  if (!variants.length) return null;
+  return pick(variants)();
 }
 
 export function QuizRunner({ drills, einwaende, marken, n = 5, onClose, recordType = "quiz", title, focusWeak = false }: { drills: Drill[]; einwaende: Einwand[]; marken: Marke[]; n?: number; onClose: () => void; recordType?: TrainingType; title?: string; focusWeak?: boolean }) {

@@ -64,7 +64,7 @@ function TaskForm({ id, task, onClose }: { id?: string; task?: Task; onClose: ()
   const router = useRouter();
   const [f, setF] = useState<Task>({
     title: task?.title || "", area: task?.area || "", phase: task?.phase || "", status: task?.status || "Backlog",
-    priority: task?.priority || "", owner: task?.owner || "", dueDate: task?.dueDate || "", notes: task?.notes || "",
+    priority: task?.priority || "", impact: task?.impact || "", effort: task?.effort || "", owner: task?.owner || "", dueDate: task?.dueDate || "", notes: task?.notes || "",
   });
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState("");
@@ -89,6 +89,8 @@ function TaskForm({ id, task, onClose }: { id?: string; task?: Task; onClose: ()
           <Field label="Phase (Stephan-Plan)"><select value={f.phase} onChange={set("phase")} className={selCls}><option value="">—</option>{PHASE_KEYS.map((p) => <option key={p}>{p}</option>)}</select></Field>
           <Field label="Status"><select value={f.status} onChange={set("status")} className={selCls}>{STATUSES.map((s) => <option key={s}>{s}</option>)}</select></Field>
           <Field label="Priorität"><select value={f.priority} onChange={set("priority")} className={selCls}>{PRIOS.map((p) => <option key={p} value={p}>{p || "—"}</option>)}</select></Field>
+          <Input label="Impact" value={f.impact || ""} onChange={set("impact")} placeholder="z. B. hoch / €5.000" />
+          <Input label="Aufwand" value={f.effort || ""} onChange={set("effort")} placeholder="z. B. 2h / mittel" />
           <Input label="Owner" value={f.owner || ""} onChange={set("owner")} />
         </div>
         <Input label="Fällig (YYYY-MM-DD)" value={f.dueDate || ""} onChange={set("dueDate")} placeholder="2026-05-31" />

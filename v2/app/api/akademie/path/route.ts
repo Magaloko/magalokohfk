@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getSession } from "@/lib/session";
+import { allowedAreas, AKADEMIE_AREAS } from "@/lib/auth-helpers";
 import { recordPathStep } from "@/lib/progress";
 import { getPath } from "@/lib/paths";
 
@@ -15,6 +16,12 @@ export async function POST(req: NextRequest) {
 
   const path = getPath(String(body?.pathId || ""));
   if (!path) return NextResponse.json({ error: "bad_path" }, { status: 400 });
+
+  // Bereichs-Gate: Pfad nur buchbar, wenn alle referenzierten Akademie-Bereiche freigeschaltet sind
+  // (verhindert XP-Farming in nicht freigeschalteten Bereichen).
+  const areas = path.steps.map((s) => /\/akademie\/([a-z]+)/.exec(s.href)?.[1]).filter((a): a is string => !!a && (AKADEMIE_AREAS as readonly string[]).includes(a));
+  const allowed = allowedAreas(sess) as string[];
+  if (areas.some((a) => !allowed.includes(a))) return NextResponse.json({ error: "forbidden_area" }, { status: 403 });
   const step = Math.round(Number(body?.step));
   if (!Number.isInteger(step) || step < 0 || step >= path.steps.length) return NextResponse.json({ error: "bad_step" }, { status: 400 });
 

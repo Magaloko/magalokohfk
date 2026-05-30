@@ -13,7 +13,7 @@ export const dynamic = "force-dynamic";
 const Back = <Link href="/cockpit/hebel" className="rounded-lg bg-surface-2 px-3 py-1.5 text-sm font-semibold text-muted hover:text-ink">← Hebel</Link>;
 
 // Zusatzfelder generisch anzeigen (z. B. Beschreibung/Notizen), ohne die bekannten doppelt zu listen.
-const KNOWN = new Set(["id", "title", "area", "status", "expectedimpacteur", "efforthours", "confidence", "risk"]);
+const KNOWN = new Set(["id", "title", "area", "phase", "status", "expectedimpacteur", "efforthours", "confidence", "risk"]);
 
 export default async function HebelDetail({ params }: { params: Promise<{ id: string }> }) {
   await requireAdmin();
@@ -36,6 +36,7 @@ export default async function HebelDetail({ params }: { params: Promise<{ id: st
         <section className="rounded-xl border border-line bg-surface p-4 shadow-sm">
           <div className="flex flex-wrap gap-2">
             <Pill tone={l.status === "Live" ? "green" : l.status === "Verworfen" ? "muted" : "accent"}>{l.status || "—"}</Pill>
+            {l.phase && <Pill tone="accent">Phase: {l.phase}</Pill>}
             {l.confidence && <Pill tone="teal">Confidence: {l.confidence}</Pill>}
             {l.risk && <Pill tone="amber">Risiko: {l.risk}</Pill>}
           </div>
