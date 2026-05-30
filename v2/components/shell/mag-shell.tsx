@@ -43,7 +43,7 @@ export function MagShell({ role, superAdmin = false, children }: { role: string;
   );
 
   return (
-    <div className="flex min-h-screen">
+    <div className="flex min-h-[var(--tg-vh,100vh)]">
       {/* Desktop-Sidebar */}
       <aside className="hidden w-60 shrink-0 border-r border-line bg-surface md:block">
         <div className="flex items-center gap-2 px-4 py-5">
@@ -73,7 +73,7 @@ export function MagShell({ role, superAdmin = false, children }: { role: string;
           <button onClick={() => setOpen(true)} aria-label="Menü"><Icon name="menu" className="h-6 w-6" /></button>
           <span className="font-extrabold">MAGALOKO</span>
         </header>
-        <main className="min-w-0 flex-1">{children}</main>
+        <main className="min-w-0 flex-1 pb-[env(safe-area-inset-bottom)]">{children}</main>
       </div>
     </div>
   );

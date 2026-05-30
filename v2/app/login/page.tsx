@@ -18,7 +18,7 @@ export default function LoginPage() {
       const init: string = tg?.initData || "";
       if (!init) return false;
       done = true;
-      try { tg.ready(); } catch { /* ignore */ }
+      try { tg.ready(); tg.expand?.(); } catch { /* ignore */ }
       setMsg("Telegram-Login läuft …");
       fetch("/api/tg-auth", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ initData: init }) })
         .then((r) => { if (r.ok) location.href = "/"; else setMsg("Kein Zugriff — bitte bei Mago melden."); })

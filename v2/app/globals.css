@@ -27,6 +27,9 @@
 html { font-size: 17px; }
 @media (max-width: 380px) { html { font-size: 16px; } } /* sehr kleine Phones: kein Überlauf */
 
+/* Nutzbare Höhe: in Telegram setzt TgBoot --tg-vh auf die exakte Mini-App-Höhe; sonst 100dvh. */
+:root { --tg-vh: 100dvh; }
+
 html, body {
   background: var(--color-bg);
   color: var(--color-ink);
