@@ -11,6 +11,8 @@ export type Stats = {
   weak?: Record<string, number>; // itemKey ("drill:<id>" …) -> Fehlversuch-Gewicht (Spaced Repetition)
   paths?: Record<string, number[]>; // pathId -> erledigte Schritt-Indizes (Lernpfade)
   pathsAwarded?: string[]; // bereits mit Abschluss-Bonus belohnte Pfade
+  proposals?: number; // eingereichte Werkstatt-Vorschläge
+  proposalsAccepted?: number; // angenommene Vorschläge
 };
 
 export type Progress = {
@@ -37,6 +39,8 @@ export const BADGES: Badge[] = [
   { id: "roleplayer", icon: "masks", label: "Rollenspieler", hint: "Erstes KI-Rollenspiel bewertet" },
   { id: "marathon", icon: "user", label: "Marathon", hint: "25 Trainings abgeschlossen" },
   { id: "scholar", icon: "academy", label: "Gelehrte:r", hint: "2000 XP erreicht" },
+  { id: "contributor", icon: "bulb", label: "Mitdenker", hint: "Ersten Werkstatt-Vorschlag eingereicht" },
+  { id: "innovator", icon: "star", label: "Ideengeber", hint: "Ein Vorschlag wurde angenommen" },
 ];
 
 const XP_PER_LEVEL = 400;
@@ -59,6 +63,8 @@ function normStats(s: unknown): Stats {
     weak: (o.weak && typeof o.weak === "object" ? o.weak : {}) as Record<string, number>,
     paths: (o.paths && typeof o.paths === "object" ? o.paths : {}) as Record<string, number[]>,
     pathsAwarded: Array.isArray(o.pathsAwarded) ? (o.pathsAwarded as string[]) : [],
+    proposals: Number(o.proposals) || 0,
+    proposalsAccepted: Number(o.proposalsAccepted) || 0,
   };
 }
 
@@ -113,6 +119,8 @@ function earnedBadges(p: Progress): string[] {
   if ((p.stats.byType.rollenspiel || 0) >= 1) out.push("roleplayer");
   if (p.sessions_count >= 25) out.push("marathon");
   if (p.xp >= 2000) out.push("scholar");
+  if ((p.stats.proposals || 0) >= 1) out.push("contributor");
+  if ((p.stats.proposalsAccepted || 0) >= 1) out.push("innovator");
   return out;
 }
 
@@ -231,6 +239,30 @@ export async function recordPathStep(
 
 export function badgesByIds(ids: string[]): Badge[] {
   return ids.map((id) => BADGES.find((b) => b.id === id)).filter((b): b is Badge => !!b);
+}
+
+// Werkstatt-Gamification: XP fürs Einreichen (+10) bzw. für einen angenommenen Vorschlag (+50, an den Autor).
+export async function recordWerkstatt(userKey: string, display: string, kind: "submit" | "accepted"): Promise<{ ok: boolean; xpGain: number; newBadges: Badge[] }> {
+  const prev = (await getProgress(userKey)) || emptyProgress(userKey, display);
+  const xpGain = kind === "accepted" ? 50 : 10;
+  const stats: Stats = {
+    ...prev.stats,
+    proposals: (prev.stats.proposals || 0) + (kind === "submit" ? 1 : 0),
+    proposalsAccepted: (prev.stats.proposalsAccepted || 0) + (kind === "accepted" ? 1 : 0),
+  };
+  const next: Progress = { ...prev, display: display || prev.display || "Du", xp: prev.xp + xpGain, stats };
+  const allEarned = earnedBadges(next);
+  const newBadgeIds = allEarned.filter((b) => !prev.badges.includes(b));
+  next.badges = [...new Set([...prev.badges, ...allEarned])];
+  try {
+    const { error } = await db().from("akademie_progress").upsert({
+      user_key: next.user_key, display: next.display, xp: next.xp, sessions_count: next.sessions_count,
+      streak: next.streak, best_streak: next.best_streak, last_active: next.last_active,
+      badges: next.badges, stats: next.stats, updated_at: new Date().toISOString(),
+    }, { onConflict: "user_key" });
+    if (error) return { ok: false, xpGain, newBadges: badgesByIds(newBadgeIds) };
+  } catch { return { ok: false, xpGain, newBadges: badgesByIds(newBadgeIds) }; }
+  return { ok: true, xpGain, newBadges: badgesByIds(newBadgeIds) };
 }
 
 export type LeaderEntry = { rank: number; label: string; xp: number; level: number; me: boolean };

@@ -3,6 +3,7 @@ import { getSession } from "@/lib/session";
 import { rateLimit } from "@/lib/rate-limit";
 import { callAiChat, answerReviewSystem, parseReview, aiConfigured } from "@/lib/ai";
 import { createProposal, toPublic, TYPE_LABEL, type ProposalType } from "@/lib/proposals";
+import { recordWerkstatt } from "@/lib/progress";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -36,5 +37,6 @@ export async function POST(req: NextRequest) {
 
   const p = await createProposal({ author_key: sess.email, author_name: "Mitarbeiter", type, title, content, target, ai_review });
   if (!p) return NextResponse.json({ error: "save_failed" }, { status: 500 });
-  return NextResponse.json({ ok: true, proposal: toPublic(p, sess.email) });
+  const reward = await recordWerkstatt(sess.email, "Du", "submit"); // +10 XP fürs Einreichen
+  return NextResponse.json({ ok: true, proposal: toPublic(p, sess.email), xpGain: reward.xpGain, newBadges: reward.newBadges });
 }

@@ -3,6 +3,7 @@ import { getSession } from "@/lib/session";
 import { isAdmin } from "@/lib/auth-helpers";
 import { getProposal, decideProposal, toPublic, type ProposalStatus } from "@/lib/proposals";
 import { createItem } from "@/lib/cockpit-write";
+import { recordWerkstatt } from "@/lib/progress";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -35,5 +36,11 @@ export async function POST(req: NextRequest) {
   const finalStatus: ProposalStatus = merged ? "merged" : decision;
   const updated = await decideProposal(id, finalStatus, sess.email);
   if (!updated) return NextResponse.json({ error: "save_failed" }, { status: 500 });
+
+  // +50 XP an den Autor, wenn der Vorschlag erstmals (aus „discussion") angenommen wird.
+  if (p.status === "discussion" && (decision === "approved" || decision === "adapted") && p.author_key) {
+    await recordWerkstatt(p.author_key, "Mitarbeiter", "accepted");
+  }
+
   return NextResponse.json({ ok: true, proposal: toPublic(updated, sess.email), merged });
 }

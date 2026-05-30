@@ -61,6 +61,7 @@ export function NewProposal({ prefill, onClose, onDone }: { prefill?: { type?: P
   const [content, setContent] = useState(prefill?.content || "");
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState("");
+  const [done, setDone] = useState("");
 
   async function save() {
     if (!title.trim()) { setErr("Titel fehlt."); return; }
@@ -68,7 +69,8 @@ export function NewProposal({ prefill, onClose, onDone }: { prefill?: { type?: P
     try {
       const r = await fetch("/api/werkstatt/create", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ type, title, content }) });
       const j = await r.json().catch(() => ({}));
-      if (r.ok && j.ok) onDone(); else setErr(j.error === "empty" ? "Titel fehlt." : "Speichern fehlgeschlagen.");
+      if (r.ok && j.ok) { setDone(`Eingereicht${j.xpGain ? ` · +${j.xpGain} XP` : ""}`); setTimeout(onDone, 1200); return; }
+      setErr(j.error === "empty" ? "Titel fehlt." : j.error === "rate_limited" ? "Zu viele Anfragen – kurz warten." : "Speichern fehlgeschlagen.");
     } catch { setErr("Verbindungsfehler."); }
     setBusy(false);
   }
@@ -86,9 +88,10 @@ export function NewProposal({ prefill, onClose, onDone }: { prefill?: { type?: P
         <label className="block">{L(type === "einwand" ? "Deine Antwort / Lösung" : "Inhalt")}<textarea value={content} onChange={(e) => setContent(e.target.value)} rows={6} className={sel} /></label>
         <p className="text-[11px] text-muted-2">Die KI prüft deinen Vorschlag automatisch und gibt Feedback. Einwand-Antworten können bei Annahme in die Einwände-Bibliothek übernommen werden.</p>
         {err && <p className="text-sm text-red">{err}</p>}
+        {done && <p className="flex items-center gap-1.5 rounded-lg bg-green/10 px-3 py-2 text-sm font-semibold text-green"><Icon name="party" className="h-4 w-4" />{done}</p>}
         <div className="flex justify-end gap-2">
           <button onClick={onClose} className="rounded-lg bg-surface-2 px-4 py-2 text-sm font-semibold">Abbrechen</button>
-          <button disabled={busy} onClick={save} className="rounded-lg bg-accent px-4 py-2 text-sm font-semibold text-bg disabled:opacity-50">{busy ? "Prüfe & speichere …" : "Einreichen"}</button>
+          <button disabled={busy || !!done} onClick={save} className="rounded-lg bg-accent px-4 py-2 text-sm font-semibold text-bg disabled:opacity-50">{done ? "✓" : busy ? "Prüfe & speichere …" : "Einreichen"}</button>
         </div>
       </div>
     </Modal>
