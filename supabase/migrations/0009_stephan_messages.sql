@@ -2,6 +2,8 @@
 -- Korpus gesendeter Antworten (Grundlage fuer spaeteres Stil-Lernen).
 -- Append-lastiger Log in eigener Tabelle (nicht in app_state, das sonst bei jedem
 -- Cockpit-Write komplett neu geschrieben wuerde). Muster wie public.proposals.
+-- Idempotent & selbstheilend: ergaenzt fehlende Spalten, falls die Tabelle aus einer
+-- frueheren (schlankeren) Fassung bereits existiert.
 
 create table if not exists public.stephan_messages (
   id          text primary key,
@@ -17,6 +19,13 @@ create table if not exists public.stephan_messages (
   actor       text,                              -- session.email des Erfassers
   created_at  timestamptz not null default now()
 );
+
+-- Falls die Tabelle aus einer frueheren Fassung schon existiert: fehlende Spalten ergaenzen (nullable -> immer sicher).
+alter table public.stephan_messages add column if not exists source      text;
+alter table public.stephan_messages add column if not exists reply_to    text;
+alter table public.stephan_messages add column if not exists ref_kind    text;
+alter table public.stephan_messages add column if not exists ref_id      text;
+alter table public.stephan_messages add column if not exists occurred_at timestamptz;
 
 create index if not exists stephan_messages_thread_idx on public.stephan_messages (thread, created_at);
 create index if not exists stephan_messages_ref_idx    on public.stephan_messages (ref_kind, ref_id);
