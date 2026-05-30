@@ -34,6 +34,9 @@ export function StephanAssist({ configured, thread, openDecisions }: { configure
   const [saving, setSaving] = useState(false);
   const [err, setErr] = useState("");
   const [copied, setCopied] = useState(false);
+  const [useStyle, setUseStyle] = useState(true);     // Stil-Lernen (Few-Shot aus eigenen Antworten)
+  const [styleUsed, setStyleUsed] = useState<number | null>(null);
+  const outgoingCount = thread.filter((m) => m.direction === "outgoing").length;
 
   // Manuell erfassen (standalone)
   const [manOpen, setManOpen] = useState(false);
@@ -47,11 +50,11 @@ export function StephanAssist({ configured, thread, openDecisions }: { configure
 
   async function run() {
     if (!msg.trim() || busy) return;
-    setBusy(true); setErr(""); setReply(""); setCopied(false);
+    setBusy(true); setErr(""); setReply(""); setCopied(false); setStyleUsed(null);
     try {
-      const r = await fetch("/api/stephan-assist", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ message: msg }) });
+      const r = await fetch("/api/stephan-assist", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ message: msg, useStyle }) });
       const j = await r.json().catch(() => ({}));
-      if (r.ok && j.reply) { setReply(String(j.reply)); setFinal(String(j.reply)); }
+      if (r.ok && j.reply) { setReply(String(j.reply)); setFinal(String(j.reply)); setStyleUsed(typeof j.styleCount === "number" ? j.styleCount : null); }
       else setErr(errText(j.error));
     } catch { setErr("Verbindungsfehler."); }
     setBusy(false);
@@ -131,14 +134,18 @@ export function StephanAssist({ configured, thread, openDecisions }: { configure
             {busy ? "Suche in MAGALOKO …" : "Antwort entwerfen"}
           </button>
           {(msg.trim() || reply) && !busy && <button onClick={() => { setMsg(""); setReply(""); setFinal(""); setErr(""); }} className="text-xs font-semibold text-muted-2 hover:text-ink">Leeren</button>}
-          <span className="text-xs text-muted-2">Antwort basiert ausschließlich auf MAGALOKO-Daten.</span>
+          <label className="inline-flex cursor-pointer items-center gap-1.5 text-xs text-muted-2" title="Die KI ahmt deinen Schreibstil aus früheren Antworten nach (Fakten bleiben aus den MAGALOKO-Daten).">
+            <input type="checkbox" checked={useStyle} onChange={(e) => setUseStyle(e.target.checked)} className="accent-accent" />
+            Meinen Stil verwenden <span>{outgoingCount > 0 ? `(${outgoingCount} erfasst)` : "(noch keine Beispiele)"}</span>
+          </label>
+          <span className="text-xs text-muted-2">Fakten ausschließlich aus MAGALOKO-Daten.</span>
         </div>
         {err && <p className="mt-2 text-sm text-red">{err}</p>}
 
         {reply && (
           <div className="mt-4 rounded-lg border border-line bg-surface-2/50 p-3">
             <div className="mb-1 flex items-center justify-between">
-              <span className="flex items-center gap-1.5 text-[11px] font-bold uppercase tracking-wide text-muted-2"><Icon name="chat" className="h-3.5 w-3.5" />KI-Entwurf</span>
+              <span className="flex items-center gap-1.5 text-[11px] font-bold uppercase tracking-wide text-muted-2"><Icon name="chat" className="h-3.5 w-3.5" />KI-Entwurf{styleUsed && styleUsed > 0 ? <span className="ml-1 normal-case text-accent">· Stil aus {styleUsed} {styleUsed === 1 ? "Nachricht" : "Nachrichten"}</span> : null}</span>
               <button onClick={copy} className="flex items-center gap-1.5 rounded-lg bg-surface px-3 py-1.5 text-xs font-semibold hover:text-ink">
                 <Icon name={copied ? "check" : "copy"} className="h-3.5 w-3.5" />{copied ? "Kopiert" : "Kopieren"}
               </button>

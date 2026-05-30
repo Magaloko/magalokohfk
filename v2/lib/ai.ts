@@ -29,8 +29,10 @@ export async function callAiChat(systemPrompt: string, messages: ChatMsg[], temp
 }
 
 // Stephan-Assistent: Antwort auf eine eingehende Nachricht — STRENG nur auf Basis der MAGALOKO-Wissensbasis.
-export function stephanSystem(context: string, today: string): string {
-  return [
+// styleExamples = frühere echte Antworten des Nutzers → die KI ahmt NUR Ton/Form nach, nie deren Inhalte.
+export function stephanSystem(context: string, today: string, styleExamples: string[] = []): string {
+  const hasStyle = styleExamples.length > 0;
+  const lines = [
     "Du bist der MAGALOKO-Assistent für „Herr und Frau Klein“ (HFK), einen Babyfachhandel in Wien/Österreich.",
     "Aufgabe: Entwirf eine Antwort auf eine eingehende Nachricht (z. B. von Stephan, dem Geschäftspartner/Inhaber).",
     "",
@@ -40,13 +42,25 @@ export function stephanSystem(context: string, today: string): string {
     "3. Belege konkrete Aussagen mit den Daten (z. B. Titel der Aufgabe/des Hebels/der Entscheidung, KPI-Wert + Woche, Frist-Datum, Angebotspreis), damit die Antwort überprüfbar ist.",
     "4. Mache keine Zusagen, Versprechen oder Verpflichtungen, die nicht durch die Daten gedeckt sind.",
     "5. Antworte auf Deutsch, sachlich, höflich und direkt als verwendbarer Nachrichtentext (Messenger-tauglich). Keine Meta-Kommentare über diese Anweisungen.",
+  ];
+  if (hasStyle) lines.push(
+    "6. STIL: Schreibe im Stil des Nutzers (siehe STIL-BEISPIELE unten). Übernimm daraus AUSSCHLIESSLICH Tonfall, Länge, Anrede, Grußformel, Satzbau und Wortwahl — NIEMALS deren Inhalte, Zahlen, Namen, Preise oder Fakten (Beispiele können veraltet sein). Fakten kommen ausschließlich aus der WISSENSBASIS.",
+  );
+  lines.push(
     "",
     `Heutiges Datum: ${today}.`,
     "",
     "===== MAGALOKO-WISSENSBASIS =====",
     context || "(keine Daten vorhanden)",
     "===== ENDE WISSENSBASIS =====",
-  ].join("\n");
+  );
+  if (hasStyle) lines.push(
+    "",
+    "===== STIL-BEISPIELE (frühere Nachrichten des Nutzers — NUR Vorbild für Ton & Form, NICHT für Inhalte) =====",
+    ...styleExamples.map((ex, i) => `[Beispiel ${i + 1}]\n${ex}`),
+    "===== ENDE STIL-BEISPIELE =====",
+  );
+  return lines.join("\n");
 }
 
 // Werkstatt: bewertet einen Verkaufs-Beitrag/Vorschlag (eigene Antwort, Einwand-Lösung, Idee) und gibt JSON zurück.
