@@ -25,7 +25,7 @@ export async function POST(req: NextRequest) {
   if (!QA_FIELDS[collection]?.includes(field)) return NextResponse.json({ error: "bad_target" }, { status: 400 });
   if (!id || !value) return NextResponse.json({ error: "empty" }, { status: 400 });
 
-  const r = await patchItem(collection, id, { [field]: value });
+  const r = await patchItem(collection, id, { [field]: value }, sess.email);
   if (!r.ok) return NextResponse.json({ error: r.error || "save_failed" }, { status: r.error === "noop" ? 404 : 500 });
   return NextResponse.json({ ok: true, updatedAt: r.updatedAt });
 }

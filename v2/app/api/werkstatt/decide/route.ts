@@ -28,7 +28,7 @@ export async function POST(req: NextRequest) {
 
   let merged = false;
   if ((decision === "approved" || decision === "adapted") && p.type === "einwand" && p.target === "salesObjections" && title) {
-    const r = await createItem("salesObjections", { einwand: title, antwort: content }, "obj");
+    const r = await createItem("salesObjections", { einwand: title, antwort: content }, "obj", sess.email);
     merged = r.ok;
   }
 

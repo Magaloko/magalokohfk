@@ -1,8 +1,29 @@
 import { db, STATE_ID } from "./supabase-server";
 
 export type HistoryChange = { label: string; from: string; to: string };
-export type HistoryEvent = { at: number; kind: "created" | "changed"; changes: HistoryChange[] };
+export type HistoryEvent = { at: number; kind: "created" | "changed"; changes: HistoryChange[]; by?: string };
 export type FieldSpec = { key: string; label: string };
+
+// Rohe Actor-Kennungen (session.email) zu lesbaren, DSGVO-schonenden Labels auflösen.
+async function resolveActors(actors: Set<string>): Promise<Record<string, string>> {
+  const map: Record<string, string> = {};
+  const uids: number[] = [];
+  for (const a of actors) {
+    if (a === "web:admin") map[a] = "Admin";
+    else if (a === "system" || a === "v2-cockpit") map[a] = "System";
+    else { const m = /tg:(\d+)/.exec(a); if (m) { uids.push(Number(m[1])); map[a] = "Mitarbeiter"; } else map[a] = a; }
+  }
+  if (uids.length) {
+    try {
+      const { data } = await db().from("bot_users").select("uid, name, role").in("uid", uids);
+      for (const r of (data || []) as any[]) {
+        const nm = r.name || (r.role === "admin" ? "Admin" : "Mitarbeiter");
+        for (const a of actors) if (a.includes(`tg:${r.uid}`)) map[a] = nm;
+      }
+    } catch { /* best-effort */ }
+  }
+  return map;
+}
 
 // Container wie die Reads auflösen (workspaces.hfk.data bevorzugt, sonst top-level).
 function container(d: any): Record<string, any> {
@@ -26,29 +47,36 @@ function fmt(v: unknown): string {
 // Baut die Änderungs-Historie eines Datensatzes aus den state_history-Snapshots (alt) + aktuellem Stand.
 export async function getRecordHistory(collection: string, id: string, fields: FieldSpec[]): Promise<HistoryEvent[]> {
   try {
-    const snaps = await db().from("state_history").select("updated_at, data").order("updated_at", { ascending: true }).limit(120);
+    const snaps = await db().from("state_history").select("updated_at, data, actor").order("updated_at", { ascending: true }).limit(120);
     const cur = await db().from("app_state").select("data, updated_at").eq("id", STATE_ID).maybeSingle();
 
-    const versions: { at: number; item: Record<string, any> | undefined }[] = [];
-    for (const s of (snaps.data || [])) versions.push({ at: Number((s as any).updated_at) || 0, item: findItem((s as any).data, collection, id) });
-    versions.push({ at: Number(cur.data?.updated_at) || Date.now(), item: findItem(cur.data?.data, collection, id) });
+    const versions: { at: number; item: Record<string, any> | undefined; actor?: string }[] = [];
+    for (const s of (snaps.data || [])) versions.push({ at: Number((s as any).updated_at) || 0, item: findItem((s as any).data, collection, id), actor: (s as any).actor || undefined });
+    versions.push({ at: Number(cur.data?.updated_at) || Date.now(), item: findItem(cur.data?.data, collection, id), actor: undefined });
 
-    const events: HistoryEvent[] = [];
+    // Roh-Events sammeln; der Verursacher einer Änderung steht auf dem VORHERIGEN Snapshot (dieser Write hat ihn geschrieben).
+    type Raw = { at: number; kind: "created" | "changed"; changes: HistoryChange[]; actor?: string };
+    const raw: Raw[] = [];
     let prev: Record<string, any> | undefined;
     let first = true;
+    let lastActor: string | undefined;
     for (const v of versions) {
       const item = v.item;
+      const by = lastActor; // Actor, der DIESE Version erzeugt hat
       if (item && !prev) {
-        // taucht (wieder) auf — „angelegt“ nur, wenn nicht schon in der allerersten Version vorhanden
-        if (!first) events.push({ at: v.at, kind: "created", changes: [] });
+        if (!first) raw.push({ at: v.at, kind: "created", changes: [], actor: by });
       } else if (item && prev) {
         const changes: HistoryChange[] = [];
         for (const f of fields) if (fmt(prev[f.key]) !== fmt(item[f.key])) changes.push({ label: f.label, from: fmt(prev[f.key]), to: fmt(item[f.key]) });
-        if (changes.length) events.push({ at: v.at, kind: "changed", changes });
+        if (changes.length) raw.push({ at: v.at, kind: "changed", changes, actor: by });
       }
       prev = item;
       first = false;
+      lastActor = v.actor;
     }
+
+    const labels = await resolveActors(new Set(raw.map((r) => r.actor).filter((a): a is string => !!a)));
+    const events: HistoryEvent[] = raw.map((r) => ({ at: r.at, kind: r.kind, changes: r.changes, by: r.actor ? labels[r.actor] : undefined }));
     return events.reverse(); // neueste zuerst
   } catch { return []; }
 }

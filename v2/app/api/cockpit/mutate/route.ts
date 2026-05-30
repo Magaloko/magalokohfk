@@ -73,15 +73,15 @@ export async function POST(req: NextRequest) {
   if (struct) {
     if (body.action === "delete") {
       if (!body.id) return NextResponse.json({ error: "no_id" }, { status: 400 });
-      const r = await deleteItem(collection, String(body.id));
+      const r = await deleteItem(collection, String(body.id), sess.email);
       return finish(r);
     }
     if (body.action === "create" || body.action === "replace") {
       const item = struct.fn(body.action === "create" ? body.item : body.item);
       if (!String(item[struct.required] || "").trim()) return NextResponse.json({ error: "empty" }, { status: 400 });
       const r = body.action === "create"
-        ? await createItem(collection, item, struct.prefix)
-        : (body.id ? await replaceItem(collection, String(body.id), item) : { ok: false, error: "no_id" as const });
+        ? await createItem(collection, item, struct.prefix, sess.email)
+        : (body.id ? await replaceItem(collection, String(body.id), item, sess.email) : { ok: false, error: "no_id" as const });
       return finish(r);
     }
     return NextResponse.json({ error: "bad_action" }, { status: 400 });
@@ -94,20 +94,20 @@ export async function POST(req: NextRequest) {
   if (body.action === "create") {
     const item = clean(body.item);
     if (!Object.keys(item).length) return NextResponse.json({ error: "empty" }, { status: 400 });
-    res = await createItem(collection, item, prefix);
+    res = await createItem(collection, item, prefix, sess.email);
   } else if (body.action === "update") {
     if (!body.id) return NextResponse.json({ error: "no_id" }, { status: 400 });
     const patch = clean(body.patch);
     if (!Object.keys(patch).length) return NextResponse.json({ error: "empty" }, { status: 400 });
-    res = await patchItem(collection, String(body.id), patch);
+    res = await patchItem(collection, String(body.id), patch, sess.email);
   } else if (body.action === "replace") {
     if (!body.id) return NextResponse.json({ error: "no_id" }, { status: 400 });
     const item = clean(body.item);
     if (!Object.keys(item).length) return NextResponse.json({ error: "empty" }, { status: 400 });
-    res = await replaceItem(collection, String(body.id), item);
+    res = await replaceItem(collection, String(body.id), item, sess.email);
   } else if (body.action === "delete") {
     if (!body.id) return NextResponse.json({ error: "no_id" }, { status: 400 });
-    res = await deleteItem(collection, String(body.id));
+    res = await deleteItem(collection, String(body.id), sess.email);
   } else {
     return NextResponse.json({ error: "bad_action" }, { status: 400 });
   }

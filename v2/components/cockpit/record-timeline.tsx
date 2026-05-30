@@ -15,7 +15,7 @@ export function RecordTimeline({ events }: { events: HistoryEvent[] }) {
           {events.map((e, i) => (
             <li key={i} className="relative">
               <span className={`absolute -left-[21px] top-1.5 h-2.5 w-2.5 rounded-full ring-2 ring-surface ${e.kind === "created" ? "bg-green" : "bg-accent"}`} />
-              <div className="text-[11px] uppercase tracking-wide text-muted-2">{fmtAt(e.at)}</div>
+              <div className="text-[11px] uppercase tracking-wide text-muted-2">{fmtAt(e.at)}{e.by ? <span className="normal-case"> · von {e.by}</span> : null}</div>
               {e.kind === "created" ? (
                 <div className="mt-0.5 text-sm font-semibold text-green">Angelegt</div>
               ) : (

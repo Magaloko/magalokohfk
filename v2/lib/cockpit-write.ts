@@ -18,10 +18,10 @@ function antiWipe(current: any, incoming: any): string | null {
   return null;
 }
 
-async function snapshot(old: any, updatedAt: number) {
+async function snapshot(old: any, updatedAt: number, actor?: string) {
   try {
     if (old && typeof old === "object") {
-      await db().from("state_history").insert({ updated_at: Number(updatedAt) || 0, client_id: "v2-cockpit", data: old });
+      await db().from("state_history").insert({ updated_at: Number(updatedAt) || 0, client_id: "v2-cockpit", data: old, actor: actor || "system" });
     }
   } catch { /* best-effort */ }
 }
@@ -39,6 +39,7 @@ export type MutateResult = { ok: boolean; error?: string; updatedAt?: number };
 export async function mutateCollection(
   collection: string,
   fn: (items: any[]) => any[] | null,
+  actor?: string,
 ): Promise<MutateResult> {
   for (let attempt = 0; attempt < 3; attempt++) {
     const cur = await db().from("app_state").select("data, updated_at").eq("id", STATE_ID).maybeSingle();
@@ -58,7 +59,7 @@ export async function mutateCollection(
     const wiped = antiWipe(old, data);
     if (wiped) return { ok: false, error: "anti-wipe" };
 
-    await snapshot(old, oldUpdatedAt);
+    await snapshot(old, oldUpdatedAt, actor);
 
     const upd = await db().from("app_state")
       .update({ data, updated_at: newUpdatedAt })
@@ -82,35 +83,35 @@ function locate(items: any[], idOrIdx: string): number {
   return -1;
 }
 
-export async function createItem(collection: string, item: Record<string, unknown>, idPrefix: string): Promise<MutateResult> {
+export async function createItem(collection: string, item: Record<string, unknown>, idPrefix: string, actor?: string): Promise<MutateResult> {
   const withId = { id: genId(idPrefix), ...item };
-  return mutateCollection(collection, (items) => [withId, ...items]);
+  return mutateCollection(collection, (items) => [withId, ...items], actor);
 }
 
-export async function patchItem(collection: string, idOrIdx: string, patch: Record<string, unknown>): Promise<MutateResult> {
+export async function patchItem(collection: string, idOrIdx: string, patch: Record<string, unknown>, actor?: string): Promise<MutateResult> {
   return mutateCollection(collection, (items) => {
     const i = locate(items, idOrIdx);
     if (i < 0) return null;
     items[i] = { ...items[i], ...patch };
     return items;
-  });
+  }, actor);
 }
 
 // Ersetzt ein Item vollständig (id bleibt erhalten) — z. B. für KPIs mit dynamischen Metriken.
-export async function replaceItem(collection: string, idOrIdx: string, item: Record<string, unknown>): Promise<MutateResult> {
+export async function replaceItem(collection: string, idOrIdx: string, item: Record<string, unknown>, actor?: string): Promise<MutateResult> {
   return mutateCollection(collection, (items) => {
     const i = locate(items, idOrIdx);
     if (i < 0) return null;
     items[i] = { id: items[i]?.id, ...item };
     return items;
-  });
+  }, actor);
 }
 
-export async function deleteItem(collection: string, idOrIdx: string): Promise<MutateResult> {
+export async function deleteItem(collection: string, idOrIdx: string, actor?: string): Promise<MutateResult> {
   return mutateCollection(collection, (items) => {
     const i = locate(items, idOrIdx);
     if (i < 0) return null;
     items.splice(i, 1);
     return items;
-  });
+  }, actor);
 }
