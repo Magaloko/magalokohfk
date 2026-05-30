@@ -79,6 +79,11 @@ export function StephanAssist({ configured, thread, openDecisions }: { configure
   const [exErr, setExErr] = useState("");
   const [exItems, setExItems] = useState<ExItem[]>([]);
 
+  // Gesprächs-Zusammenfassung (KI)
+  const [summary, setSummary] = useState("");
+  const [sumBusy, setSumBusy] = useState(false);
+  const [sumErr, setSumErr] = useState("");
+
   async function run() {
     if (!msg.trim() || busy) return;
     setBusy(true); setErr(""); setReply(""); setCopied(false); setStyleUsed(null);
@@ -166,6 +171,18 @@ export function StephanAssist({ configured, thread, openDecisions }: { configure
     const r = await cockpitMutate(buildMutate(it));
     editItem(i, { _status: r.ok ? "done" : "err" });
     if (r.ok) router.refresh();
+  }
+
+  async function runSummary() {
+    if (sumBusy || !thread.length) return;
+    setSumBusy(true); setSumErr(""); setSummary("");
+    try {
+      const r = await fetch("/api/stephan/summary", { method: "POST", headers: { "Content-Type": "application/json" }, body: "{}" });
+      const j = await r.json().catch(() => ({}));
+      if (r.ok && j.summary) setSummary(String(j.summary));
+      else setSumErr(errText(j.error));
+    } catch { setSumErr("Verbindungsfehler."); }
+    setSumBusy(false);
   }
 
   const decTitel = (id?: string | null) => openDecisions.find((d) => d.id === id)?.titel;
@@ -318,7 +335,24 @@ export function StephanAssist({ configured, thread, openDecisions }: { configure
 
       {/* Verlauf */}
       <div className="rounded-xl border border-line bg-surface p-4 shadow-sm">
-        <h2 className="mb-3 flex items-center gap-1.5 text-sm font-bold"><Icon name="chat" className="h-4 w-4 text-muted-2" />Verlauf mit Stephan {thread.length > 0 && <span className="text-xs font-normal text-muted-2">({thread.length})</span>}</h2>
+        <div className="mb-3 flex items-center justify-between gap-2">
+          <h2 className="flex items-center gap-1.5 text-sm font-bold"><Icon name="chat" className="h-4 w-4 text-muted-2" />Verlauf mit Stephan {thread.length > 0 && <span className="text-xs font-normal text-muted-2">({thread.length})</span>}</h2>
+          {thread.length > 0 && (
+            <button disabled={sumBusy || !configured} onClick={runSummary} className="inline-flex items-center gap-1.5 rounded-lg bg-surface-2 px-3 py-1.5 text-xs font-semibold hover:text-ink disabled:opacity-50">
+              <Icon name="sparkles" className="h-3.5 w-3.5" />{sumBusy ? "Fasse zusammen …" : "Zusammenfassen"}
+            </button>
+          )}
+        </div>
+        {sumErr && <p className="mb-2 text-sm text-red">{sumErr}</p>}
+        {summary && (
+          <div className="mb-3 rounded-lg border border-accent/30 bg-accent/5 p-3">
+            <div className="mb-1 flex items-center justify-between">
+              <span className="flex items-center gap-1.5 text-[11px] font-bold uppercase tracking-wide text-muted-2"><Icon name="sparkles" className="h-3.5 w-3.5" />Zusammenfassung</span>
+              <button onClick={() => setSummary("")} className="text-[11px] font-semibold text-muted-2 hover:text-ink">schließen</button>
+            </div>
+            <div className="whitespace-pre-wrap text-sm leading-relaxed">{summary}</div>
+          </div>
+        )}
         {thread.length === 0 ? (
           <p className="text-sm text-muted-2">Noch kein Verlauf. Entwirf eine Antwort und speichere sie als gesendet – oder erfasse eine Nachricht manuell.</p>
         ) : (

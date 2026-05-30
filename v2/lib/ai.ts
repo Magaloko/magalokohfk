@@ -84,6 +84,20 @@ export function extractSystem(today: string): string {
   ].join("\n");
 }
 
+// Fasst den Stephan-Gesprächsverlauf zusammen — ausschließlich auf Basis des übergebenen Transkripts.
+export function summarySystem(): string {
+  return [
+    "Du fasst ein Gespräch zwischen dem Nutzer („Ich“) und Stephan (Geschäftspartner/Inhaber von HFK – Herr und Frau Klein, Wien/Österreich) zusammen.",
+    "Stütze dich AUSSCHLIESSLICH auf den übergebenen Gesprächsverlauf. Erfinde nichts, ergänze keine Annahmen.",
+    "Gib eine kompakte deutsche Zusammenfassung in Stichpunkten mit genau diesen Abschnitten (lass einen Abschnitt weg, wenn dazu nichts vorliegt):",
+    "Worum geht es",
+    "Vereinbarungen / Beschlüsse",
+    "Offene Punkte / zu entscheiden",
+    "Nächste Schritte",
+    "Knapp und sachlich. Keine Meta-Kommentare über diese Anweisung.",
+  ].join("\n");
+}
+
 export type ExtractItem = { type: string; title: string; detail: string; date: string; area: string; reason: string };
 const EXTRACT_TYPES = new Set(["aufgabe", "ziel", "entscheidung", "termin", "idee"]);
 export function parseExtract(raw: string): ExtractItem[] {

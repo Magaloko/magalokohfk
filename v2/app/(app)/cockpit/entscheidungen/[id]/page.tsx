@@ -6,8 +6,10 @@ import { PageShell } from "@/components/_primitives/page-shell";
 import { Pill } from "@/components/_primitives/card";
 import { DecisionActions } from "@/components/cockpit/decision-editor";
 import { Icon } from "@/components/icon";
+import { cn } from "@/lib/cn";
 import { RecordTimeline } from "@/components/cockpit/record-timeline";
 import { getRecordHistory, DECISION_FIELDS } from "@/lib/history";
+import { getStephanMessagesForRef } from "@/lib/stephan-thread";
 
 export const dynamic = "force-dynamic";
 
@@ -29,6 +31,7 @@ export default async function DecisionDetail({ params }: { params: Promise<{ id:
   const today = new Date().toISOString().slice(0, 10);
   const overdue = d.frist && d.frist < today && d.status !== "entschieden" && d.status !== "verworfen";
   const history = await getRecordHistory("stephanDecisions", d.id || key, DECISION_FIELDS);
+  const convo = await getStephanMessagesForRef("stephanDecisions", d.id || key);
   const extra = Object.entries(d as Record<string, unknown>).filter(
     ([k, v]) => !KNOWN.has(k.toLowerCase()) && typeof v === "string" && v.trim() !== "",
   );
@@ -64,6 +67,28 @@ export default async function DecisionDetail({ params }: { params: Promise<{ id:
           </section>
         ))}
         <DecisionActions id={d.id || key} decision={d} />
+        {convo.length > 0 && (
+          <section className="rounded-xl border border-line bg-surface p-4 shadow-sm">
+            <div className="mb-3 flex items-center justify-between gap-2">
+              <h2 className="flex items-center gap-1.5 text-xs font-bold uppercase tracking-wide text-muted-2"><Icon name="chat" className="h-3.5 w-3.5" />Gespräch mit Stephan ({convo.length})</h2>
+              <Link href="/cockpit/stephan" className="text-xs font-semibold text-accent hover:underline">→ Stephan-Assistent</Link>
+            </div>
+            <ul className="flex flex-col gap-2.5">
+              {convo.map((m) => {
+                const mine = m.direction === "outgoing";
+                return (
+                  <li key={m.id} className={cn("max-w-[88%] rounded-xl border p-3", mine ? "ml-auto border-accent/30 bg-accent/5" : "mr-auto border-line bg-surface-2/50")}>
+                    <div className="mb-1 flex items-center gap-2 text-[11px] text-muted-2">
+                      <span className="font-semibold">{mine ? "Du" : "Stephan"}</span>
+                      <span>{new Date(m.occurred_at || m.created_at).toLocaleString("de-AT", { day: "2-digit", month: "short", hour: "2-digit", minute: "2-digit" })}</span>
+                    </div>
+                    <div className="whitespace-pre-wrap text-sm leading-relaxed">{m.body}</div>
+                  </li>
+                );
+              })}
+            </ul>
+          </section>
+        )}
         <RecordTimeline events={history} />
       </div>
     </PageShell>
