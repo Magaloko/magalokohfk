@@ -9,18 +9,18 @@ export type KanbanCard = { id: string; title: string; status: string; href?: str
 
 const headTone = (s: string) => {
   const v = s.toLowerCase();
-  if (v.includes("live") || v.includes("erledigt")) return "text-green";
+  if (v.includes("live") || v.includes("erledigt") || v.includes("entschieden")) return "text-green";
   if (v.includes("verworfen")) return "text-muted-2";
   if (v.includes("arbeit")) return "text-amber";
-  if (v.includes("warte") || v.includes("block")) return "text-amber";
-  if (v.includes("geplant")) return "text-accent";
+  if (v.includes("warte") || v.includes("block") || v.includes("offen")) return "text-amber";
+  if (v.includes("geplant") || v.includes("vorbereitet")) return "text-accent";
   return "text-muted-2";
 };
 const borderTone = (s: string) => {
   const v = s.toLowerCase();
-  if (v.includes("live") || v.includes("erledigt")) return "border-green/50";
-  if (v.includes("arbeit")) return "border-amber/50";
-  if (v.includes("geplant")) return "border-accent/40";
+  if (v.includes("live") || v.includes("erledigt") || v.includes("entschieden")) return "border-green/50";
+  if (v.includes("arbeit") || v.includes("offen")) return "border-amber/50";
+  if (v.includes("geplant") || v.includes("vorbereitet")) return "border-accent/40";
   return "border-line";
 };
 
