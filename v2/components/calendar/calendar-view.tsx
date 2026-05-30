@@ -1,5 +1,5 @@
 "use client";
-import { useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { cn } from "@/lib/cn";
@@ -61,7 +61,16 @@ export function CalendarView({ events, tasks, decisions, kpis, levers, staff, to
   const [busy, setBusy] = useState(false);
   const [over, setOver] = useState<string | null>(null);
   const [layers, setLayers] = useState<Set<string>>(() => new Set(LAYERS.map((l) => l.id)));
+  const [narrow, setNarrow] = useState(false); // schmale Screens (Handy / Telegram-Mini-App)
   const dragRef = useRef<(Drag & { from: string }) | null>(null);
+
+  useEffect(() => {
+    const mq = window.matchMedia("(max-width: 639px)");
+    const on = () => setNarrow(mq.matches);
+    on();
+    mq.addEventListener("change", on);
+    return () => mq.removeEventListener("change", on);
+  }, []);
 
   const { byDate, spanByDate } = useMemo(() => {
     const byDate: Record<string, Item[]> = {};
@@ -186,11 +195,11 @@ export function CalendarView({ events, tasks, decisions, kpis, levers, staff, to
   }
 
   // --- Tage-Streifen (für Arbeitswoche / 2 Wochen) ---
-  function dayStrip(days: Date[], header: string[], cols: 5 | 7, maxChips: number) {
+  function dayStrip(days: Date[], header: string[], cols: 5 | 7, maxChips: number, dots = false) {
     return (
       <div className={cn("grid gap-1", cols === 5 ? "grid-cols-5 sm:min-w-[460px]" : "grid-cols-7 sm:min-w-[560px]")}>
         {header.map((w) => <div key={w} className="px-1 py-1 text-center text-[11px] font-semibold uppercase text-muted-2">{w}</div>)}
-        {days.map((d) => renderDay(d, { size: "lg", maxChips }))}
+        {days.map((d) => renderDay(d, { size: "lg", maxChips, dots }))}
       </div>
     );
   }
@@ -212,14 +221,15 @@ export function CalendarView({ events, tasks, decisions, kpis, levers, staff, to
   let periodLabel = "";
   if (view === "week") {
     const mo = startOfWeek(anchor);
-    body = dayStrip(Array.from({ length: 5 }, (_, i) => addDays(mo, i)), WD.slice(0, 5), 5, 4);
+    body = dayStrip(Array.from({ length: 5 }, (_, i) => addDays(mo, i)), WD.slice(0, 5), 5, narrow ? 2 : 4);
     periodLabel = `${fmt(mo, { day: "numeric", month: "short" })} – ${fmt(addDays(mo, 4), { day: "numeric", month: "short", year: "numeric" })}`;
   } else if (view === "2weeks") {
     const mo = startOfWeek(anchor);
-    body = dayStrip(Array.from({ length: 14 }, (_, i) => addDays(mo, i)), WD, 7, 3);
+    body = dayStrip(Array.from({ length: 14 }, (_, i) => addDays(mo, i)), WD, 7, narrow ? 0 : 3, narrow);
     periodLabel = `${fmt(mo, { day: "numeric", month: "short" })} – ${fmt(addDays(mo, 13), { day: "numeric", month: "short", year: "numeric" })}`;
   } else if (view === "month") {
-    body = monthBlock(anchor.getFullYear(), anchor.getMonth(), "lg", 2);
+    // Handy: kompakte Punkte-Darstellung (Details per Tipp); Desktop: Text-Kürzel.
+    body = narrow ? monthBlock(anchor.getFullYear(), anchor.getMonth(), "md", 0, true) : monthBlock(anchor.getFullYear(), anchor.getMonth(), "lg", 2);
     periodLabel = fmt(new Date(anchor.getFullYear(), anchor.getMonth(), 1), { month: "long", year: "numeric" });
   } else if (view === "quarter") {
     const b = new Date(anchor.getFullYear(), anchor.getMonth(), 1);
