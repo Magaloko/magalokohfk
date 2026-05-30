@@ -32,7 +32,7 @@ export async function POST(req: NextRequest) {
     ]);
     const messages: ChatMsg[] = [{
       role: "user",
-      content: `Eingehende Nachricht:\n"""\n${message}\n"""\n\nEntwirf eine Antwort – ausschließlich auf Basis der VEKTRA-Wissensbasis. Was nicht belegt ist, ausdrücklich als fehlend kennzeichnen.`,
+      content: `Eingehende Nachricht von Stephan (Auftraggeber):\n"""\n${message}\n"""\n\nEntwirf in Magos Namen eine Antwort an Stephan – ausschließlich auf Basis der VEKTRA-Wissensbasis. Was nicht belegt ist, ausdrücklich als fehlend kennzeichnen.`,
     }];
     // Niedrige Temperatur für maximale Zuverlässigkeit/Faktentreue.
     const reply = await callAiChat(stephanSystem(context, today, styleExamples, profile?.profile || ""), messages, 0.2);

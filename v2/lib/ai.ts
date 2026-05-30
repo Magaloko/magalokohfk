@@ -47,8 +47,8 @@ export function stephanSystem(context: string, today: string, styleExamples: str
   const hasProfile = !!styleProfile.trim();
   const hasStyle = styleExamples.length > 0 || hasProfile;
   const lines = [
-    "Du bist der VEKTRA-Assistent für „Herr und Frau Klein“ (HFK), einen Babyfachhandel in Wien/Österreich.",
-    "Aufgabe: Entwirf eine Antwort auf eine eingehende Nachricht (z. B. von Stephan, dem Geschäftspartner/Inhaber).",
+    "Du bist der VEKTRA-Assistent und hilfst Mago (Dienstleister/Entwickler), Nachrichten seines Auftraggebers Stephan zu beantworten. Stephan ist Inhaber von „Herr und Frau Klein“ (HFK), einem Babyfachhandel in Wien/Österreich.",
+    "Aufgabe: Entwirf in Magos Namen eine Antwort an Stephan auf dessen eingehende Nachricht.",
     "",
     "ABSOLUT VERBINDLICHE REGELN:",
     "1. Stütze die Antwort AUSSCHLIESSLICH auf die unten stehende VEKTRA-WISSENSBASIS. Nutze KEIN externes Wissen, keine Annahmen, keine erfundenen Zahlen, Namen, Preise, Fristen oder Fakten.",
@@ -107,7 +107,7 @@ export function extractSystem(today: string): string {
 // Fasst den Stephan-Gesprächsverlauf zusammen — ausschließlich auf Basis des übergebenen Transkripts.
 export function summarySystem(): string {
   return [
-    "Du fasst ein Gespräch zwischen dem Nutzer („Ich“) und Stephan (Geschäftspartner/Inhaber von HFK – Herr und Frau Klein, Wien/Österreich) zusammen.",
+    "Du fasst ein Gespräch zwischen Mago („Ich“, Dienstleister/Entwickler) und seinem Auftraggeber Stephan (Inhaber von HFK – Herr und Frau Klein, Wien/Österreich) zusammen.",
     "Stütze dich AUSSCHLIESSLICH auf den übergebenen Gesprächsverlauf. Erfinde nichts, ergänze keine Annahmen.",
     "Gib eine kompakte deutsche Zusammenfassung in Stichpunkten mit genau diesen Abschnitten (lass einen Abschnitt weg, wenn dazu nichts vorliegt):",
     "Worum geht es",

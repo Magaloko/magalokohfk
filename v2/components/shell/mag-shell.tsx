@@ -12,7 +12,8 @@ const HUBS: Hub[] = [
   { href: "/akademie", label: "Akademie", icon: "academy" },
   { href: "/cockpilot", label: "Cockpilot", icon: "sparkles" },
   { href: "/werkstatt", label: "Werkstatt", icon: "bulb" },
-  { href: "/cockpit", label: "Cockpit", icon: "cockpit", adminOnly: true },
+  { href: "/cockpit", label: "Umsetzung", icon: "cockpit", adminOnly: true },
+  { href: "/mago", label: "Mago · privat", icon: "briefcase", superOnly: true },
   { href: "/einstellungen", label: "Einstellungen", icon: "settings", superOnly: true },
 ];
 

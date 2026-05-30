@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getSession } from "@/lib/session";
-import { isAdmin } from "@/lib/auth-helpers";
+import { isAdmin, isSuperAdmin } from "@/lib/auth-helpers";
 import { createItem, patchItem, replaceItem, deleteItem } from "@/lib/cockpit-write";
 import { STRUCTURED } from "@/lib/struct-sanitize";
 
@@ -10,14 +10,20 @@ export const maxDuration = 30;
 
 // Sammlungen mit festem Feld-Schema (Strings + optional numerische Felder).
 const SPEC: Record<string, { fields: string[]; numeric?: string[]; prefix: string }> = {
-  tasks: { fields: ["title", "area", "status", "priority", "impact", "effort", "owner", "dueDate", "notes"], prefix: "t" },
+  tasks: { fields: ["title", "area", "phase", "status", "priority", "impact", "effort", "owner", "dueDate", "notes"], prefix: "t" },
   stephanDecisions: { fields: ["titel", "status", "kategorie", "frist", "empfehlung"], prefix: "d" },
   levers: { fields: ["title", "area", "status", "confidence", "risk", "description", "notes", "startDate", "finishDate"], numeric: ["expectedImpactEur", "effortHours"], prefix: "l" },
   calendarEvents: { fields: ["title", "date", "time", "kind", "notes"], prefix: "ev" },
+  umsetzungItems: { fields: ["typ", "titel", "status", "wer", "phase", "datum", "notiz"], prefix: "ums" },
   // Akademie-Inhalte (flach) — admin-only Pflege
   salesObjections: { fields: ["einwand", "kategorie", "antwort", "beweis"], prefix: "obj" },
   consultingServices: { fields: ["name", "dauer", "preis", "zielgruppe", "inhalt", "ergebnis"], prefix: "svc" },
   salesPersonas: { fields: ["name", "avatar", "alter", "kontext", "zitat", "einwaendeTypisch", "schmerzpunkte", "werte", "budget"], prefix: "p" },
+  // Magos privater Bereich (super-admin-only — siehe Gate in POST)
+  magoLog: { fields: ["datum", "titel", "kategorie", "status", "bezug", "beschreibung"], prefix: "mlog" },
+  magoBewertung: { fields: ["datum", "phase", "stimmung", "notiz", "offenePunkte"], numeric: ["score"], prefix: "mbew" },
+  magoZeit: { fields: ["datum", "taetigkeit", "bezug", "notiz"], numeric: ["stunden", "satz"], prefix: "mzeit" },
+  magoMeilensteine: { fields: ["titel", "phase", "status", "datumZiel", "datumAbnahme", "notiz"], prefix: "mms" },
 };
 const DYNAMIC = new Set(["weeklyKpis"]); // dynamische Metrik-Felder
 const KPI_PREFIX = "kpi";
@@ -64,6 +70,8 @@ export async function POST(req: NextRequest) {
   try { body = await req.json(); } catch { return NextResponse.json({ error: "bad_request" }, { status: 400 }); }
 
   const collection = body?.collection || "";
+  // Magos privater Bereich darf nur der Super-Admin (Mago) schreiben.
+  if (collection.startsWith("mago") && !isSuperAdmin(sess)) return NextResponse.json({ error: "forbidden" }, { status: 403 });
   const spec = SPEC[collection];
   const isDyn = DYNAMIC.has(collection);
   const struct = STRUCTURED[collection];

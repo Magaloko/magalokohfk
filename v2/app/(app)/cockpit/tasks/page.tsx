@@ -37,6 +37,7 @@ export default async function TasksPage() {
   const cols: Column<Task>[] = [
     { key: "title", label: "Aufgabe", render: (r) => <Link href={href(r)} className="font-medium text-ink hover:text-accent">{r.title}</Link> },
     { key: "area", label: "Bereich", hideOnMobile: true, render: (r) => <span className="text-muted">{r.area || "—"}</span> },
+    { key: "phase", label: "Phase", render: (r) => (r.phase ? <Pill tone="accent">{r.phase}</Pill> : <span className="text-muted-2">—</span>) },
     { key: "prio", label: "Prio", hideOnMobile: true, render: (r) => (r.priority ? <Pill tone={prioTone(r.priority)}>{r.priority}</Pill> : <span className="text-muted-2">—</span>) },
     { key: "owner", label: "Owner", hideOnMobile: true, render: (r) => <span className="text-muted">{r.owner || "—"}</span> },
     { key: "due", label: "Fällig", align: "right", hideOnMobile: true, render: (r) => <span className="font-mono text-xs text-muted-2">{r.dueDate || "—"}</span> },

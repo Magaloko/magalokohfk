@@ -4,6 +4,7 @@ import { useRouter } from "next/navigation";
 import { cockpitMutate, errText } from "./mutate";
 import { Icon } from "@/components/icon";
 import type { Task } from "@/lib/cockpit";
+import { PHASE_KEYS } from "@/lib/phases";
 
 const STATUSES = ["Backlog", "In Arbeit", "Warte", "Erledigt"];
 const PRIOS = ["", "hoch", "mittel", "niedrig"];
@@ -62,7 +63,7 @@ export function TaskActions({ id, task }: { id: string; task: Task }) {
 function TaskForm({ id, task, onClose }: { id?: string; task?: Task; onClose: () => void }) {
   const router = useRouter();
   const [f, setF] = useState<Task>({
-    title: task?.title || "", area: task?.area || "", status: task?.status || "Backlog",
+    title: task?.title || "", area: task?.area || "", phase: task?.phase || "", status: task?.status || "Backlog",
     priority: task?.priority || "", owner: task?.owner || "", dueDate: task?.dueDate || "", notes: task?.notes || "",
   });
   const [busy, setBusy] = useState(false);
@@ -85,6 +86,7 @@ function TaskForm({ id, task, onClose }: { id?: string; task?: Task; onClose: ()
         <Input label="Titel *" value={f.title || ""} onChange={set("title")} />
         <div className="grid grid-cols-2 gap-3">
           <Input label="Bereich" value={f.area || ""} onChange={set("area")} />
+          <Field label="Phase (Stephan-Plan)"><select value={f.phase} onChange={set("phase")} className={selCls}><option value="">—</option>{PHASE_KEYS.map((p) => <option key={p}>{p}</option>)}</select></Field>
           <Field label="Status"><select value={f.status} onChange={set("status")} className={selCls}>{STATUSES.map((s) => <option key={s}>{s}</option>)}</select></Field>
           <Field label="Priorität"><select value={f.priority} onChange={set("priority")} className={selCls}>{PRIOS.map((p) => <option key={p} value={p}>{p || "—"}</option>)}</select></Field>
           <Input label="Owner" value={f.owner || ""} onChange={set("owner")} />

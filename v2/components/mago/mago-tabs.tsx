@@ -3,22 +3,14 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { cn } from "@/lib/cn";
 import { Icon } from "@/components/icon";
+import { MAGO_MODULES } from "@/lib/mago-config";
 
 const TABS = [
-  { href: "/cockpit", icon: "cockpit", label: "Übersicht" },
-  { href: "/cockpit/strategie", icon: "globe", label: "Strategie" },
-  { href: "/cockpit/umsetzung", icon: "handshake", label: "Umsetzung" },
-  { href: "/cockpit/briefing", icon: "send", label: "Briefing" },
-  { href: "/cockpit/tasks", icon: "check", label: "Tasks" },
-  { href: "/cockpit/hebel", icon: "lever", label: "Hebel" },
-  { href: "/cockpit/kpis", icon: "kpi", label: "KPIs" },
-  { href: "/cockpit/entscheidungen", icon: "compass", label: "Entscheidungen" },
-  { href: "/cockpit/aktivitaet", icon: "clock", label: "Aktivität" },
-  { href: "/cockpit/stephan", icon: "chat", label: "Stephan-Assistent" },
-  { href: "/cockpit/audit", icon: "check", label: "Q&A-Audit" },
+  { href: "/mago", icon: "briefcase", label: "Übersicht" },
+  ...MAGO_MODULES.map((m) => ({ href: m.route, icon: m.icon, label: m.label })),
 ];
 
-export function CockpitTabs() {
+export function MagoTabs() {
   const pathname = usePathname();
   return (
     <div className="sticky top-0 z-10 border-b border-line bg-bg/80 backdrop-blur">
