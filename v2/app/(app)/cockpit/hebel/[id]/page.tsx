@@ -5,6 +5,8 @@ import { getCockpitData, leverScore, formatEur, type Lever } from "@/lib/cockpit
 import { PageShell } from "@/components/_primitives/page-shell";
 import { Pill } from "@/components/_primitives/card";
 import { LeverActions } from "@/components/cockpit/lever-editor";
+import { RecordTimeline } from "@/components/cockpit/record-timeline";
+import { getRecordHistory, LEVER_FIELDS } from "@/lib/history";
 
 export const dynamic = "force-dynamic";
 
@@ -23,6 +25,7 @@ export default async function HebelDetail({ params }: { params: Promise<{ id: st
   if (!l) notFound();
 
   const score = Math.round(leverScore(l));
+  const history = await getRecordHistory("levers", l.id || key, LEVER_FIELDS);
   const extra = Object.entries(l as Record<string, unknown>).filter(
     ([k, v]) => !KNOWN.has(k.toLowerCase()) && typeof v === "string" && v.trim() !== "",
   );
@@ -50,6 +53,7 @@ export default async function HebelDetail({ params }: { params: Promise<{ id: st
           </section>
         ))}
         <LeverActions id={l.id || key} lever={l} />
+        <RecordTimeline events={history} />
       </div>
     </PageShell>
   );

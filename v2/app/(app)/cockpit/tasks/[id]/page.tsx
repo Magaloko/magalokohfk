@@ -5,6 +5,8 @@ import { getCockpitData, isTaskOpen, type Task } from "@/lib/cockpit";
 import { PageShell } from "@/components/_primitives/page-shell";
 import { Pill } from "@/components/_primitives/card";
 import { TaskActions } from "@/components/cockpit/task-editor";
+import { RecordTimeline } from "@/components/cockpit/record-timeline";
+import { getRecordHistory, TASK_FIELDS } from "@/lib/history";
 
 export const dynamic = "force-dynamic";
 
@@ -18,6 +20,7 @@ export default async function TaskDetail({ params }: { params: Promise<{ id: str
   let t: Task | undefined = tasks.find((x) => x.id && x.id === key);
   if (!t && /^\d+$/.test(key)) t = tasks[Number(key)];
   if (!t) notFound();
+  const history = await getRecordHistory("tasks", t.id || key, TASK_FIELDS);
 
   return (
     <PageShell title={t.title || "Aufgabe"} subtitle={t.area || undefined} action={Back}>
@@ -42,6 +45,7 @@ export default async function TaskDetail({ params }: { params: Promise<{ id: str
           </section>
         )}
         <TaskActions id={t.id || key} task={t} />
+        <RecordTimeline events={history} />
       </div>
     </PageShell>
   );
