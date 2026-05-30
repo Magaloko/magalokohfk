@@ -293,7 +293,7 @@ async function sendMenu(chatId, userId) {
   if (areas.includes("personas")) btns.push({ text: "👤 Persona", callback_data: "menu|persona" });
   if (allowedQuizTypes(userId).length) { btns.push({ text: "🎯 Quiz", callback_data: "menu|quiz" }); btns.push({ text: "☀️ Tagesaufgabe", callback_data: "menu|tagesaufgabe" }); }
   btns.push({ text: "📊 Score", callback_data: "menu|score" });
-  btns.push({ text: "📚 Lehren", callback_data: "menu|lern" });
+  if (isAdmin(userId)) btns.push({ text: "📚 Lehren", callback_data: "menu|lern" });
   btns.push({ text: "🧠 Copilot", callback_data: "menu|copilot" });
   const rows = []; for (let i = 0; i < btns.length; i += 3) rows.push(btns.slice(i, i + 3));
   if (isAdmin(userId)) { rows.push([{ text: "📱 Cockpit", web_app: { url: WEBAPP_URL + "/heute" } }, { text: "👔 Stephan", web_app: { url: WEBAPP_URL + "/cockpit/stephan" } }]); rows.push([{ text: "⚙️ Admin", callback_data: "admin|panel" }]); }
@@ -440,6 +440,13 @@ function buildContext(question, ws) {
 }
 async function cmdFrag(chatId, question, from) {
   if (!question.trim()) return send(chatId, "🤖 <b>Frag mich etwas über HFK!</b>\n\nz.B. „Was sind offene Tasks?“ oder „Was weiß ich über Liewood?“\n\n<i>Oder schreib die Frage direkt ohne /frag.</i>");
+  // Einfacher Anti-Spam-Throttle (min. 5 s zwischen KI-Fragen je Nutzer).
+  const fragUid = from?.id;
+  if (fragUid) {
+    const s = await getSess(fragUid); const now = Date.now();
+    if (now - (Number(s.lastFrag) || 0) < 5000) return send(chatId, "⏳ Bitte ein paar Sekunden zwischen den KI-Fragen warten.");
+    await patchSess(fragUid, { lastFrag: now });
+  }
   await tgApi("sendChatAction", { chat_id: chatId, action: "typing" });
   try {
     const ws = await loadFullState(); if (!ws) throw new Error("State nicht verfügbar");
@@ -763,7 +770,7 @@ async function handleUpdate(u) {
     if (data === "menu|persona") return cmdPersonaMenu(cid);
     if (data === "menu|rollenspiel") return cmdRollenspiel(cid);
     if (data === "menu|score") return cmdScore(cid, uid, tgUserName(cbq.from));
-    if (data === "menu|lern") return cmdLern(cid, "", null);
+    if (data === "menu|lern") return isAdmin(uid) ? cmdLern(cid, "", null) : send(cid, "🔒 Lehren ist nur für Admins.");
     if (data.startsWith("brand|")) return cmdMarke(cid, data.slice(6));
     if (data.startsWith("einwand|")) return cmdEinwand(cid, data.slice(8));
     if (data.startsWith("persona|")) return cmdPersona(cid, data.slice(8));

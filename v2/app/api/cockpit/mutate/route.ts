@@ -37,7 +37,8 @@ function cleanFixed(spec: { fields: string[]; numeric?: string[] }, input: unkno
     out[f] = String(o[f]).slice(0, 4000);
   }
   for (const f of spec.numeric || []) {
-    if (o[f] === undefined || o[f] === null || o[f] === "") continue;
+    if (o[f] === undefined || o[f] === null) continue;
+    if (o[f] === "") { out[f] = null; continue; } // explizit leeren (Feld zurücksetzen) erlauben
     const n = Number(o[f]);
     if (Number.isFinite(n)) out[f] = n;
   }

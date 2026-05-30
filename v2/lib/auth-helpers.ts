@@ -23,6 +23,10 @@ export function isSuperAdmin(sess: Session | null): boolean {
   // … oder der Eigentümer per Admin-Passwort (web:admin). Reguläre Admins/Codes zählen NICHT.
   return sess.email === "web:admin";
 }
+// Ist diese (Telegram-)UID ein Super-Admin laut Env-Allowlist? (z. B. zum Schutz vor Selbst-Lockout)
+export function isSuperAdminUid(uid: number): boolean {
+  return Number.isInteger(uid) && SUPER_ADMIN_IDS.includes(Number(uid));
+}
 export async function requireSuperAdmin(): Promise<Session> {
   const sess = await requireUser();
   if (!isSuperAdmin(sess)) redirect("/heute");

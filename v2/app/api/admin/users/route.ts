@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getSession } from "@/lib/session";
-import { isSuperAdmin, AKADEMIE_AREAS } from "@/lib/auth-helpers";
+import { isSuperAdmin, isSuperAdminUid, AKADEMIE_AREAS } from "@/lib/auth-helpers";
 import { randomBytes } from "node:crypto";
 import { db } from "@/lib/supabase-server";
 import { webCodeHash } from "@/lib/auth-crypto";
@@ -45,6 +45,7 @@ export async function POST(req: NextRequest) {
     }
     if (action === "setRole") {
       const role = b?.role === "admin" ? "admin" : "mitarbeiter";
+      if (role === "mitarbeiter" && isSuperAdminUid(uid)) return NextResponse.json({ error: "Ein Super-Admin kann nicht herabgestuft werden." }, { status: 409 });
       await db().from("bot_users").update({ role }).eq("uid", uid);
       return NextResponse.json({ ok: true });
     }
@@ -63,6 +64,7 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ ok: true, code }); // Klartext nur einmal zurückgeben
     }
     if (action === "remove") {
+      if (isSuperAdminUid(uid)) return NextResponse.json({ error: "Ein Super-Admin kann nicht entfernt werden." }, { status: 409 });
       await db().from("bot_users").delete().eq("uid", uid);
       return NextResponse.json({ ok: true });
     }

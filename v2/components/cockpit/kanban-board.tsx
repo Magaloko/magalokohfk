@@ -1,5 +1,5 @@
 "use client";
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { cn } from "@/lib/cn";
@@ -31,6 +31,9 @@ export function KanbanBoard({ collection, statuses, cards }: { collection: strin
   const [busy, setBusy] = useState(false);
   const [over, setOver] = useState<string | null>(null);
   const dragRef = useRef<{ id: string; from: string } | null>(null);
+
+  // Nach router.refresh() neue Server-Props übernehmen (sonst zeigt das Board veralteten lokalen Stand).
+  useEffect(() => { setItems(cards); }, [cards]);
 
   const colOf = (s: string) => (statuses.includes(s) ? s : statuses[0]);
 
