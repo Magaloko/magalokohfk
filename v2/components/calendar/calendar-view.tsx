@@ -177,7 +177,7 @@ export function CalendarView({ events, tasks, decisions, kpis, levers, staff, to
     return (
       <div key={`${year}-${month}`} className={cn(framed && "rounded-lg border border-line p-2")}>
         {framed && <div className="mb-1 text-center text-xs font-bold capitalize">{first.toLocaleDateString("de-AT", { month: "long" })}</div>}
-        <div className={cn("grid grid-cols-7 gap-1", size === "lg" && "min-w-[480px]")}>
+        <div className={cn("grid grid-cols-7 gap-1", size === "lg" && "sm:min-w-[480px]")}>
           {size !== "sm" && WD.map((w) => <div key={w} className="px-0.5 py-0.5 text-center text-[10px] font-semibold uppercase text-muted-2">{w}</div>)}
           {cells.map((d) => renderDay(d, { dim: d.getMonth() !== month, size, maxChips, dots }))}
         </div>
@@ -188,7 +188,7 @@ export function CalendarView({ events, tasks, decisions, kpis, levers, staff, to
   // --- Tage-Streifen (für Arbeitswoche / 2 Wochen) ---
   function dayStrip(days: Date[], header: string[], cols: 5 | 7, maxChips: number) {
     return (
-      <div className={cn("grid gap-1", cols === 5 ? "grid-cols-5 min-w-[460px]" : "grid-cols-7 min-w-[560px]")}>
+      <div className={cn("grid gap-1", cols === 5 ? "grid-cols-5 sm:min-w-[460px]" : "grid-cols-7 sm:min-w-[560px]")}>
         {header.map((w) => <div key={w} className="px-1 py-1 text-center text-[11px] font-semibold uppercase text-muted-2">{w}</div>)}
         {days.map((d) => renderDay(d, { size: "lg", maxChips }))}
       </div>
