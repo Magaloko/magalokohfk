@@ -28,9 +28,12 @@ export async function POST(req: NextRequest) {
   const content = (body?.content != null ? String(body.content) : p.content).trim().slice(0, 6000);
 
   let merged = false;
-  if ((decision === "approved" || decision === "adapted") && p.type === "einwand" && p.target === "salesObjections" && title) {
+  const wantsMerge = (decision === "approved" || decision === "adapted") && p.type === "einwand" && p.target === "salesObjections" && !!title;
+  if (wantsMerge) {
     const r = await createItem("salesObjections", { einwand: title, antwort: content }, "obj", sess.email);
-    merged = r.ok;
+    // Übernahme fehlgeschlagen → Status NICHT ändern (Vorschlag bleibt in Diskussion, wiederholbar).
+    if (!r.ok) return NextResponse.json({ error: "Übernahme in die Einwand-Bibliothek fehlgeschlagen — bitte erneut versuchen." }, { status: 409 });
+    merged = true;
   }
 
   const finalStatus: ProposalStatus = merged ? "merged" : decision;

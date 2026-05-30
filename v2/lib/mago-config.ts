@@ -4,6 +4,8 @@
 // Hier wird die Arbeit/Zusammenarbeit FÜR Stephan von MAGO selbst erfasst, bewertet und
 // protokolliert — getrennt von der eigentlichen Umsetzung (Cockpit).
 
+import { PHASE_KEYS } from "./phases";
+
 export type MagoFieldType = "text" | "textarea" | "date" | "select" | "number";
 
 export type MagoField = {
@@ -81,7 +83,7 @@ export const MAGO_MODULES: MagoModule[] = [
     subtitle: "Phasen & Abnahmen gegen Stephans Roadmap",
     fields: [
       { key: "titel", label: "Titel", type: "text", required: true, inList: true },
-      { key: "phase", label: "Phase", type: "select", options: ["Foundation", "Treasury", "Einkaufssystem", "VIPA & SeBo", "VEKTRA", "Future Scope"], inList: true },
+      { key: "phase", label: "Phase", type: "select", options: PHASE_KEYS, inList: true },
       { key: "status", label: "Status", type: "select", options: ["Geplant", "Erreicht", "Abgenommen"], inList: true },
       { key: "datumZiel", label: "Ziel-Datum", type: "date", inList: true, placeholder: "2026-09-30" },
       { key: "datumAbnahme", label: "Abnahme-Datum", type: "date" },

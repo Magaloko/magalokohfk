@@ -310,7 +310,7 @@ function denyModule(chatId, modLabel) { return send(chatId, `🔒 <b>${modLabel}
 
 async function cmdMarkenMenu(chatId) {
   const d = await loadData(); if (!d.marken.length) return send(chatId, "Keine Marken geladen.", BACK_KB);
-  const btns = d.marken.map((m) => ({ text: m.name, callback_data: `brand|${(m.id || m.name).slice(0, 60)}` }));
+  const btns = d.marken.map((m) => ({ text: m.name, callback_data: `brand|${String(m.id || m.name || "").slice(0, 60)}` }));
   const rows = []; for (let i = 0; i < btns.length; i += 2) rows.push(btns.slice(i, i + 2)); rows.push([{ text: "⬅️ Menü", callback_data: "menu|main" }]);
   return tgApi("sendMessage", { chat_id: chatId, text: "🏷️ <b>Welche Marke?</b>", parse_mode: "HTML", reply_markup: { inline_keyboard: rows } });
 }
@@ -324,7 +324,7 @@ async function cmdEinwandMenu(chatId) {
 }
 async function cmdPersonaMenu(chatId) {
   const d = await loadData(); if (!d.personas.length) return send(chatId, "Keine Personas geladen.", BACK_KB);
-  const btns = d.personas.map((p) => ({ text: p.name, callback_data: `persona|${(p.id || p.name).slice(0, 60)}` }));
+  const btns = d.personas.map((p) => ({ text: p.name, callback_data: `persona|${String(p.id || p.name || "").slice(0, 60)}` }));
   const rows = []; for (let i = 0; i < btns.length; i += 2) rows.push(btns.slice(i, i + 2)); rows.push([{ text: "⬅️ Menü", callback_data: "menu|main" }]);
   return tgApi("sendMessage", { chat_id: chatId, text: "👤 <b>Welche Persona?</b>", parse_mode: "HTML", reply_markup: { inline_keyboard: rows } });
 }
@@ -396,14 +396,14 @@ async function cmdPersona(chatId, arg) {
   await send(chatId, txt.slice(0, 4000), BACK_KB);
 }
 async function cmdScore(chatId, userId, userName) {
-  const mine = (await loadScores()).filter((s) => s.uid === Number(userId) && s.type === "drill");
-  if (!mine.length) return send(chatId, "Noch keine Drills absolviert. /drill starten!");
+  const mine = (await loadScores()).filter((s) => s.uid === Number(userId) && (s.type === "drill" || (typeof s.type === "string" && s.type.startsWith("quiz"))));
+  if (!mine.length) return send(chatId, "Noch keine Übungen absolviert. /drill oder /quiz starten!");
   const total = mine.length, correct = mine.filter((s) => s.correct).length, pct = Math.round((correct / total) * 100);
   const byMarke = {};
   mine.forEach((s) => { const m = s.marke || "allgemein"; byMarke[m] = byMarke[m] || { total: 0, correct: 0 }; byMarke[m].total++; if (s.correct) byMarke[m].correct++; });
   let streak = 0; for (let i = mine.length - 1; i >= 0; i--) { if (mine[i].correct) streak++; else break; }
   const markeLines = Object.entries(byMarke).sort((a, b) => b[1].total - a[1].total).slice(0, 8).map(([m, s]) => `  ${esc(m)}: ${s.correct}/${s.total} (${Math.round(s.correct / s.total * 100)}%)`).join("\n");
-  await send(chatId, `<b>📊 Dein Score, ${esc(userName)}</b>\n\nDrills gesamt: <b>${total}</b>\nRichtig: <b>${correct}</b> (${pct}%)\nAktuelle Serie: <b>${streak}</b> ${streak >= 3 ? "🔥" : ""}\n\n<b>Nach Marke:</b>\n${markeLines}`, BACK_KB);
+  await send(chatId, `<b>📊 Dein Score, ${esc(userName)}</b>\n\nAntworten gesamt: <b>${total}</b>\nRichtig: <b>${correct}</b> (${pct}%)\nAktuelle Serie: <b>${streak}</b> ${streak >= 3 ? "🔥" : ""}\n\n<b>Nach Marke:</b>\n${markeLines}`, BACK_KB);
 }
 async function cmdRollenspiel(chatId) {
   const d = await loadData(); if (!d.roleplays.length) return send(chatId, "Keine Rollenspiele verfügbar.");

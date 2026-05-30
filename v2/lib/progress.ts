@@ -173,6 +173,7 @@ export async function recordResult(
   const best_streak = Math.max(prev.best_streak, streak);
 
   const stats: Stats = {
+    ...prev.stats, // WICHTIG: paths/pathsAwarded/proposals/proposalsAccepted erhalten (sonst Datenverlust)
     perfects: prev.stats.perfects + (pct === 100 ? 1 : 0),
     totalCorrect: prev.stats.totalCorrect + score,
     totalAnswered: prev.stats.totalAnswered + total,

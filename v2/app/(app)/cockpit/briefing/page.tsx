@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { getCockpitData, isTaskOpen } from "@/lib/cockpit";
 import { getMagoData } from "@/lib/mago";
+import { requireAdmin, isSuperAdmin } from "@/lib/auth-helpers";
 import { UMSETZUNGS_BLOECKE } from "@/lib/phases";
 import { PageShell } from "@/components/_primitives/page-shell";
 import { Icon } from "@/components/icon";
@@ -17,12 +18,16 @@ function thisWeek(d?: unknown): boolean {
 }
 
 export default async function BriefingPage() {
-  const [c, m] = await Promise.all([getCockpitData(), getMagoData()]);
+  const sess = await requireAdmin();
+  const superAdmin = isSuperAdmin(sess);
+  const [c, m] = await Promise.all([getCockpitData(), superAdmin ? getMagoData() : Promise.resolve(null)]);
   const today = new Date().toISOString().slice(0, 10);
 
-  const erledigt = (m.protokoll || [])
-    .filter((p) => ["Geliefert", "Abgenommen"].includes(String(p.status || "")) && thisWeek(p.datum))
-    .map((p) => String(p.titel || "")).filter(Boolean);
+  // "Erledigt diese Woche": für Mago (Super-Admin) aus dem privaten Liefer-Protokoll;
+  // für reguläre Admins aus erledigten Umsetzungs-Punkten (kein Zugriff auf Mago-Privates).
+  const erledigt = superAdmin
+    ? (m?.protokoll || []).filter((p) => ["Geliefert", "Abgenommen"].includes(String(p.status || "")) && thisWeek(p.datum)).map((p) => String(p.titel || "")).filter(Boolean)
+    : (c.umsetzung || []).filter((x) => String(x.status || "") === "erledigt" && thisWeek(x.datum)).map((x) => String(x.titel || "")).filter(Boolean);
 
   const byTyp = (typ: string) => (c.umsetzung || []).filter((x) => x.typ === typ && (x.status || "offen") !== "erledigt");
   const blocker = byTyp("Blocker"), zugaenge = byTyp("Zugang"), freigaben = byTyp("Freigabe"), abstimmung = byTyp("Abstimmung"), risiko = byTyp("Risiko");
@@ -33,7 +38,7 @@ export default async function BriefingPage() {
   const naechste = focus ? openTasks.filter((t) => focus.phaseKeys.includes(String(t.phase || ""))).map((t) => String(t.title || "")).filter(Boolean).slice(0, 4) : [];
 
   const sections: { icon: string; title: string; items: string[]; empty: string }[] = [
-    { icon: "check", title: "Erledigt diese Woche", items: erledigt, empty: "Diese Woche noch nichts protokolliert." },
+    { icon: "check", title: "Erledigt diese Woche", items: erledigt, empty: "Diese Woche noch nichts als erledigt erfasst." },
     { icon: "target", title: "Aktueller Fokus / nächster Schritt", items: focus ? [`${focus.label} (Schritt ${focus.step})`, ...naechste] : [], empty: "Kein Fokus — Tasks einer Phase zuordnen." },
     { icon: "alert", title: "Blocker", items: blocker.map((b) => `${b.titel}${b.wer ? ` (${b.wer})` : ""}`), empty: "Keine Blocker." },
     { icon: "compass", title: "Entscheidung von dir nötig", items: [...entsch.map((d) => String(d.titel || "")), ...freigaben.map((f) => `Freigabe: ${f.titel}`)].filter(Boolean), empty: "Keine offenen Entscheidungen." },

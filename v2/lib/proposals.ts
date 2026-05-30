@@ -69,31 +69,40 @@ export async function createProposal(input: {
 }
 
 export async function voteProposal(id: string, userKey: string, value: number): Promise<Proposal | null> {
-  const p = await getProposal(id);
-  if (!p) return null;
-  const votes = { ...p.votes };
-  if (value === 0) delete votes[userKey];
-  else votes[userKey] = value > 0 ? 1 : -1;
-  return updateRow(id, { votes });
+  return mutateProposal(id, (p) => {
+    const votes = { ...p.votes };
+    if (value === 0) delete votes[userKey];
+    else votes[userKey] = value > 0 ? 1 : -1;
+    return { votes };
+  });
 }
 
 export async function addComment(id: string, userKey: string, userName: string, body: string): Promise<Proposal | null> {
-  const p = await getProposal(id);
-  if (!p) return null;
-  const comment: Comment = { id: genId("c"), user_key: userKey, user_name: userName || "Mitarbeiter", body: body.slice(0, 2000), at: new Date().toISOString() };
-  const comments = [...p.comments, comment].slice(-200);
-  return updateRow(id, { comments });
+  return mutateProposal(id, (p) => {
+    const comment: Comment = { id: genId("c"), user_key: userKey, user_name: userName || "Mitarbeiter", body: body.slice(0, 2000), at: new Date().toISOString() };
+    return { comments: [...p.comments, comment].slice(-200) };
+  });
 }
 
 export async function decideProposal(id: string, status: ProposalStatus, deciderKey: string): Promise<Proposal | null> {
-  return updateRow(id, { status, decided_by: deciderKey, decided_at: new Date().toISOString() });
+  return mutateProposal(id, () => ({ status, decided_by: deciderKey, decided_at: new Date().toISOString() }));
 }
 
-async function updateRow(id: string, patch: Record<string, unknown>): Promise<Proposal | null> {
-  try {
-    const { data, error } = await db().from("proposals")
-      .update({ ...patch, updated_at: new Date().toISOString() }).eq("id", id).select("*").maybeSingle();
-    if (error || !data) return null;
-    return norm(data as Record<string, unknown>);
-  } catch { return null; }
+// Optimistisches Update mit Retry (timestamptz-Guard auf updated_at) — verhindert Lost-Updates
+// bei parallelem Voten/Kommentieren. fn() liefert das Patch-Objekt (oder null = kein Write).
+async function mutateProposal(id: string, fn: (p: Proposal) => Record<string, unknown> | null): Promise<Proposal | null> {
+  for (let attempt = 0; attempt < 4; attempt++) {
+    const { data: cur, error } = await db().from("proposals").select("*").eq("id", id).maybeSingle();
+    if (error || !cur) return null;
+    const raw = cur as Record<string, unknown>;
+    const patch = fn(norm(raw));
+    if (patch === null) return norm(raw);
+    let q = db().from("proposals").update({ ...patch, updated_at: new Date().toISOString() }).eq("id", id);
+    if (raw.updated_at != null) q = q.eq("updated_at", raw.updated_at as string);
+    const { data, error: e2 } = await q.select("*");
+    if (e2) return null;
+    if (data && data.length) return norm(data[0] as Record<string, unknown>);
+    // 0 Zeilen → jemand anderes hat zwischenzeitlich geschrieben → neu lesen & erneut versuchen
+  }
+  return null; // Konflikt nach Retries
 }
