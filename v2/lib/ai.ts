@@ -28,10 +28,24 @@ export async function callAiChat(systemPrompt: string, messages: ChatMsg[], temp
   return String(t);
 }
 
+// Leitet aus echten Nachrichten ein kompaktes, wiederverwendbares Stil-Profil ab (Phase 2b).
+export function styleProfileSystem(): string {
+  return [
+    "Analysiere die folgenden echten Nachrichten EINES Nutzers und beschreibe seinen Schreibstil kompakt.",
+    "Ziel: ein wiederverwendbares Stil-Profil, an dem sich ein Assistent orientiert, um in der Stimme des Nutzers zu schreiben.",
+    "Erfasse AUSSCHLIESSLICH Stil/Form, KEINE Inhalte/Fakten/Namen/Zahlen:",
+    "- Anrede & Grußformel (z. B. „Servus“, „LG“), Du/Sie",
+    "- Tonfall (locker/sachlich/direkt), typische Länge der Nachrichten",
+    "- Satzbau, Aufzählungen, Emoji- und Satzzeichen-Nutzung, typische Wörter/Floskeln",
+    "Antworte auf Deutsch in max. 6 kurzen Stichpunkten. Zitiere keine Beispiele, keine Meta-Kommentare.",
+  ].join("\n");
+}
+
 // Stephan-Assistent: Antwort auf eine eingehende Nachricht — STRENG nur auf Basis der MAGALOKO-Wissensbasis.
-// styleExamples = frühere echte Antworten des Nutzers → die KI ahmt NUR Ton/Form nach, nie deren Inhalte.
-export function stephanSystem(context: string, today: string, styleExamples: string[] = []): string {
-  const hasStyle = styleExamples.length > 0;
+// styleProfile (kompakt) + styleExamples (frische Beispiele) → die KI ahmt NUR Ton/Form nach, nie deren Inhalte.
+export function stephanSystem(context: string, today: string, styleExamples: string[] = [], styleProfile = ""): string {
+  const hasProfile = !!styleProfile.trim();
+  const hasStyle = styleExamples.length > 0 || hasProfile;
   const lines = [
     "Du bist der MAGALOKO-Assistent für „Herr und Frau Klein“ (HFK), einen Babyfachhandel in Wien/Österreich.",
     "Aufgabe: Entwirf eine Antwort auf eine eingehende Nachricht (z. B. von Stephan, dem Geschäftspartner/Inhaber).",
@@ -44,7 +58,7 @@ export function stephanSystem(context: string, today: string, styleExamples: str
     "5. Antworte auf Deutsch, sachlich, höflich und direkt als verwendbarer Nachrichtentext (Messenger-tauglich). Keine Meta-Kommentare über diese Anweisungen.",
   ];
   if (hasStyle) lines.push(
-    "6. STIL: Schreibe im Stil des Nutzers (siehe STIL-BEISPIELE unten). Übernimm daraus AUSSCHLIESSLICH Tonfall, Länge, Anrede, Grußformel, Satzbau und Wortwahl — NIEMALS deren Inhalte, Zahlen, Namen, Preise oder Fakten (Beispiele können veraltet sein). Fakten kommen ausschließlich aus der WISSENSBASIS.",
+    "6. STIL: Schreibe im Stil des Nutzers (siehe STIL-PROFIL und/oder STIL-BEISPIELE unten). Übernimm daraus AUSSCHLIESSLICH Tonfall, Länge, Anrede, Grußformel, Satzbau und Wortwahl — NIEMALS Inhalte, Zahlen, Namen, Preise oder Fakten (können veraltet sein). Fakten kommen ausschließlich aus der WISSENSBASIS.",
   );
   lines.push(
     "",
@@ -54,7 +68,13 @@ export function stephanSystem(context: string, today: string, styleExamples: str
     context || "(keine Daten vorhanden)",
     "===== ENDE WISSENSBASIS =====",
   );
-  if (hasStyle) lines.push(
+  if (hasProfile) lines.push(
+    "",
+    "===== STIL-PROFIL (so schreibt der Nutzer — NUR Ton & Form übernehmen) =====",
+    styleProfile.trim(),
+    "===== ENDE STIL-PROFIL =====",
+  );
+  if (styleExamples.length > 0) lines.push(
     "",
     "===== STIL-BEISPIELE (frühere Nachrichten des Nutzers — NUR Vorbild für Ton & Form, NICHT für Inhalte) =====",
     ...styleExamples.map((ex, i) => `[Beispiel ${i + 1}]\n${ex}`),

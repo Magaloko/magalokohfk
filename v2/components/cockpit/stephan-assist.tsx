@@ -43,6 +43,9 @@ const errText = (e?: string) =>
 
 type Decision = { id: string; titel: string };
 type ChatCreatedItem = { kind: string; title: string; href: string; sub: string };
+type StyleProfile = { profile: string; built_from: number; updated_at: string };
+
+const fmtDay = (iso: string) => { try { return new Date(iso).toLocaleDateString("de-AT", { day: "2-digit", month: "short", year: "numeric" }); } catch { return iso; } };
 
 const fmtTime = (iso: string) => {
   try { return new Date(iso).toLocaleString("de-AT", { day: "2-digit", month: "short", hour: "2-digit", minute: "2-digit" }); }
@@ -68,8 +71,8 @@ function groupByDay(msgs: StephanMessage[]): { day: string; list: StephanMessage
     .map(([day, list]) => ({ day, list: list.sort((x, y) => String(x.occurred_at || x.created_at).localeCompare(String(y.occurred_at || y.created_at))) }));
 }
 
-export function StephanAssist({ configured, activeThread, threadNames, messages, allMessages, createdItems, openDecisions }: {
-  configured: boolean; activeThread: string; threadNames: string[]; messages: StephanMessage[]; allMessages: StephanMessage[]; createdItems: ChatCreatedItem[]; openDecisions: Decision[];
+export function StephanAssist({ configured, activeThread, threadNames, messages, allMessages, createdItems, openDecisions, styleProfile }: {
+  configured: boolean; activeThread: string; threadNames: string[]; messages: StephanMessage[]; allMessages: StephanMessage[]; createdItems: ChatCreatedItem[]; openDecisions: Decision[]; styleProfile: StyleProfile | null;
 }) {
   const router = useRouter();
   const [msg, setMsg] = useState("");        // eingehende Nachricht von Stephan
@@ -81,9 +84,16 @@ export function StephanAssist({ configured, activeThread, threadNames, messages,
   const [saving, setSaving] = useState(false);
   const [err, setErr] = useState("");
   const [copied, setCopied] = useState(false);
-  const [useStyle, setUseStyle] = useState(true);     // Stil-Lernen (Few-Shot aus eigenen Antworten)
+  const [useStyle, setUseStyle] = useState(true);     // Stil-Lernen (Profil + Few-Shot)
   const [styleUsed, setStyleUsed] = useState<number | null>(null);
+  const [styleProfUsed, setStyleProfUsed] = useState(false);
   const outgoingCount = messages.filter((m) => m.direction === "outgoing").length;
+  const outgoingTotal = allMessages.filter((m) => m.direction === "outgoing").length;
+
+  // Persistentes Stil-Profil (Phase 2b)
+  const [profBusy, setProfBusy] = useState(false);
+  const [profErr, setProfErr] = useState("");
+  const [profOpen, setProfOpen] = useState(false);
 
   // Manuell erfassen (standalone)
   const [manOpen, setManOpen] = useState(false);
@@ -113,11 +123,11 @@ export function StephanAssist({ configured, activeThread, threadNames, messages,
 
   async function run() {
     if (!msg.trim() || busy) return;
-    setBusy(true); setErr(""); setReply(""); setCopied(false); setStyleUsed(null);
+    setBusy(true); setErr(""); setReply(""); setCopied(false); setStyleUsed(null); setStyleProfUsed(false);
     try {
       const r = await fetch("/api/stephan-assist", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ message: msg, useStyle }) });
       const j = await r.json().catch(() => ({}));
-      if (r.ok && j.reply) { setReply(String(j.reply)); setFinal(String(j.reply)); setStyleUsed(typeof j.styleCount === "number" ? j.styleCount : null); }
+      if (r.ok && j.reply) { setReply(String(j.reply)); setFinal(String(j.reply)); setStyleUsed(typeof j.styleCount === "number" ? j.styleCount : null); setStyleProfUsed(!!j.styleProfile); }
       else setErr(errText(j.error));
     } catch { setErr("Verbindungsfehler."); }
     setBusy(false);
@@ -214,6 +224,18 @@ export function StephanAssist({ configured, activeThread, threadNames, messages,
     setSumBusy(false);
   }
 
+  async function runProfile() {
+    if (profBusy) return;
+    setProfBusy(true); setProfErr("");
+    try {
+      const r = await fetch("/api/stephan/style", { method: "POST", headers: { "Content-Type": "application/json" }, body: "{}" });
+      const j = await r.json().catch(() => ({}));
+      if (r.ok) router.refresh();
+      else setProfErr(errText(j.error));
+    } catch { setProfErr("Verbindungsfehler."); }
+    setProfBusy(false);
+  }
+
   const decTitel = (id?: string | null) => openDecisions.find((d) => d.id === id)?.titel;
 
   return (
@@ -257,7 +279,7 @@ export function StephanAssist({ configured, activeThread, threadNames, messages,
         {reply && (
           <div className="mt-4 rounded-lg border border-line bg-surface-2/50 p-3">
             <div className="mb-1 flex items-center justify-between">
-              <span className="flex items-center gap-1.5 text-[11px] font-bold uppercase tracking-wide text-muted-2"><Icon name="chat" className="h-3.5 w-3.5" />KI-Entwurf{styleUsed && styleUsed > 0 ? <span className="ml-1 normal-case text-accent">· Stil aus {styleUsed} {styleUsed === 1 ? "Nachricht" : "Nachrichten"}</span> : null}</span>
+              <span className="flex items-center gap-1.5 text-[11px] font-bold uppercase tracking-wide text-muted-2"><Icon name="chat" className="h-3.5 w-3.5" />KI-Entwurf{styleProfUsed ? <span className="ml-1 normal-case text-accent">· Stil-Profil{styleUsed && styleUsed > 0 ? ` + ${styleUsed} Beispiele` : ""}</span> : styleUsed && styleUsed > 0 ? <span className="ml-1 normal-case text-accent">· Stil aus {styleUsed} {styleUsed === 1 ? "Nachricht" : "Nachrichten"}</span> : null}</span>
               <button onClick={copy} className="flex items-center gap-1.5 rounded-lg bg-surface px-3 py-1.5 text-xs font-semibold hover:text-ink">
                 <Icon name={copied ? "check" : "copy"} className="h-3.5 w-3.5" />{copied ? "Kopiert" : "Kopieren"}
               </button>
@@ -322,6 +344,37 @@ export function StephanAssist({ configured, activeThread, threadNames, messages,
                 className="ml-auto rounded-lg bg-accent px-4 py-2 text-sm font-semibold text-bg disabled:opacity-50">{manSaving ? "Speichere …" : "Erfassen"}</button>
             </div>
             <p className="text-[11px] text-muted-2">→ Thread: {threadLabel(activeThread)}</p>
+          </div>
+        )}
+      </div>
+
+      {/* Stil-Profil (Phase 2b) */}
+      <div className="rounded-xl border border-line bg-surface p-4 shadow-sm">
+        <button onClick={() => setProfOpen((v) => !v)} className="flex w-full items-center justify-between text-left">
+          <span className="flex items-center gap-1.5 text-sm font-semibold">
+            <Icon name="sparkles" className="h-4 w-4 text-muted-2" />Stil-Profil
+            {styleProfile
+              ? <span className="text-xs font-normal text-muted-2">· aus {styleProfile.built_from} Nachrichten · {fmtDay(styleProfile.updated_at)}</span>
+              : <span className="text-xs font-normal text-muted-2">· noch keins</span>}
+          </span>
+          <span className="text-xs text-muted-2">{profOpen ? "schließen" : "öffnen"}</span>
+        </button>
+        {profOpen && (
+          <div className="mt-3 flex flex-col gap-3">
+            <p className="text-xs text-muted-2">Ein kompaktes Profil deines Schreibstils spart Tokens beim Entwerfen (statt vieler Volltext-Beispiele) und hält die Stimme stabil. Aktualisiere es, wenn du viele neue Antworten erfasst hast.</p>
+            {styleProfile
+              ? <div className="whitespace-pre-wrap rounded-lg border border-line bg-surface-2/50 p-3 text-sm leading-relaxed">{styleProfile.profile}</div>
+              : <p className="text-sm text-muted-2">{outgoingTotal > 0 ? `Aus deinen ${outgoingTotal} erfassten Antworten erstellbar.` : "Noch keine gesendeten Antworten erfasst — Profil ab der ersten erfassten Antwort möglich."}</p>}
+            {styleProfile && outgoingTotal > styleProfile.built_from && (
+              <p className="text-[11px] text-amber">{outgoingTotal - styleProfile.built_from} neue Antworten seit dem letzten Update.</p>
+            )}
+            <div className="flex flex-wrap items-center gap-3">
+              <button disabled={profBusy || !configured || outgoingTotal === 0} onClick={runProfile}
+                className="inline-flex items-center gap-1.5 rounded-lg bg-accent px-4 py-2 text-sm font-semibold text-bg disabled:opacity-50">
+                <Icon name="sparkles" className="h-4 w-4" />{profBusy ? "Erstelle …" : styleProfile ? "Stil-Profil aktualisieren" : "Stil-Profil erstellen"}
+              </button>
+              {profErr && <span className="text-sm text-red">{profErr}</span>}
+            </div>
           </div>
         )}
       </div>
