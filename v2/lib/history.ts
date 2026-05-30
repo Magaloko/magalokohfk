@@ -97,3 +97,54 @@ export const DECISION_FIELDS: FieldSpec[] = [
   { key: "status", label: "Status" }, { key: "titel", label: "Titel" }, { key: "kategorie", label: "Kategorie" },
   { key: "frist", label: "Frist" }, { key: "empfehlung", label: "Empfehlung" },
 ];
+
+// === Org-weiter Aktivitäts-Feed (alle Hebel/Tasks/Entscheidungen) ===
+export type ActivityItem = { at: number; by?: string; type: string; title: string; href: string; kind: "created" | "changed"; changes: HistoryChange[] };
+
+const ACT_CONF = [
+  { collection: "levers", type: "Hebel", titleKey: "title", path: "hebel", fields: LEVER_FIELDS },
+  { collection: "tasks", type: "Task", titleKey: "title", path: "tasks", fields: TASK_FIELDS },
+  { collection: "stephanDecisions", type: "Entscheidung", titleKey: "titel", path: "entscheidungen", fields: DECISION_FIELDS },
+];
+
+function byId(data: any, collection: string): Record<string, Record<string, any>> {
+  const arr = container(data)?.[collection];
+  const map: Record<string, Record<string, any>> = {};
+  if (Array.isArray(arr)) for (const it of arr) if (it && it.id != null) map[String(it.id)] = it;
+  return map;
+}
+
+export async function getRecentActivity(limit = 40): Promise<ActivityItem[]> {
+  try {
+    const snaps = await db().from("state_history").select("updated_at, data, actor").order("updated_at", { ascending: true }).limit(120);
+    const cur = await db().from("app_state").select("data, updated_at").eq("id", STATE_ID).maybeSingle();
+    const versions: { at: number; data: any; actor?: string }[] = [];
+    for (const s of (snaps.data || [])) versions.push({ at: Number((s as any).updated_at) || 0, data: (s as any).data, actor: (s as any).actor || undefined });
+    versions.push({ at: Number(cur.data?.updated_at) || Date.now(), data: cur.data?.data, actor: undefined });
+
+    const out: (ActivityItem & { _actor?: string })[] = [];
+    for (let i = 0; i + 1 < versions.length; i++) {
+      const A = versions[i], B = versions[i + 1];
+      const by = A.actor; // der Write, der B erzeugt hat, hat A gesnapshottet
+      for (const cfg of ACT_CONF) {
+        const a = byId(A.data, cfg.collection), b = byId(B.data, cfg.collection);
+        for (const id of Object.keys(b)) {
+          const item = b[id], prev = a[id];
+          const href = `/cockpit/${cfg.path}/${encodeURIComponent(id)}`;
+          const title = fmt(item[cfg.titleKey]) || cfg.type;
+          if (!prev) {
+            out.push({ at: B.at, type: cfg.type, title, href, kind: "created", changes: [], _actor: by });
+          } else {
+            const changes: HistoryChange[] = [];
+            for (const f of cfg.fields) if (fmt(prev[f.key]) !== fmt(item[f.key])) changes.push({ label: f.label, from: fmt(prev[f.key]), to: fmt(item[f.key]) });
+            if (changes.length) out.push({ at: B.at, type: cfg.type, title, href, kind: "changed", changes, _actor: by });
+          }
+        }
+      }
+    }
+    out.sort((x, y) => y.at - x.at);
+    const top = out.slice(0, limit);
+    const labels = await resolveActors(new Set(top.map((e) => e._actor).filter((a): a is string => !!a)));
+    return top.map(({ _actor, ...e }) => ({ ...e, by: _actor ? labels[_actor] : undefined }));
+  } catch { return []; }
+}

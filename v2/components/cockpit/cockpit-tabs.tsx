@@ -10,6 +10,7 @@ const TABS = [
   { href: "/cockpit/hebel", icon: "lever", label: "Hebel" },
   { href: "/cockpit/kpis", icon: "kpi", label: "KPIs" },
   { href: "/cockpit/entscheidungen", icon: "compass", label: "Entscheidungen" },
+  { href: "/cockpit/aktivitaet", icon: "clock", label: "Aktivität" },
   { href: "/cockpit/stephan", icon: "chat", label: "Stephan-Assistent" },
   { href: "/cockpit/audit", icon: "check", label: "Q&A-Audit" },
 ];
