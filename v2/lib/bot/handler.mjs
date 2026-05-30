@@ -155,14 +155,33 @@ function makeEinwandQ(einwaende, chooser = pick) {
   return { type: "einwand_mc", label: "💬 Einwand", itemId: target.id || target.einwand || "", frage: `💬 <b>Einwand-Training</b>\n\nKunde sagt:\n<i>„${esc(target.einwand)}"</i>\n\n<b>Welche Antwort ist am besten?</b>`, opts, muster: target.beweis ? `\n💡 ${esc(target.beweis.slice(0, 150))}` : "" };
 }
 function makeMarkenQ(marken, chooser = pick) {
-  const pool = marken.filter((m) => m.herkunft?.land);
-  if (pool.length < 4) return null;
-  const target = chooser(pool);
-  const allLaender = [...new Set(pool.map((m) => m.herkunft.land))];
-  const wrongLaender = shuffleArr(allLaender.filter((l) => l !== target.herkunft.land)).slice(0, 3);
-  if (wrongLaender.length < 3) return null;
-  const opts = shuffleArr([{ text: target.herkunft.land, correct: true, feedback: `✓ ${esc(target.name)} kommt aus ${esc(target.herkunft.land)}${target.herkunft.gruendung ? ` (gegr. ${esc(String(target.herkunft.gruendung))})` : ""}` }, ...wrongLaender.map((l) => ({ text: l, correct: false, feedback: `✗ ${esc(target.name)} kommt aus ${esc(target.herkunft.land)}.` }))]);
-  return { type: "marken_quiz", label: "🏷 Marke", itemId: target.id || target.name || "", frage: `🏷 <b>Marken-Quiz</b>\n\nAus welchem Land kommt <b>${esc(target.name)}</b>?\n<i>${esc((target.philosophie || "").slice(0, 60))}</i>`, opts, muster: target.philosophie ? `\n<i>„${esc(target.philosophie.slice(0, 120))}"</i>` : "" };
+  const named = marken.filter((m) => m.name);
+  if (named.length < 4) return null;
+  const target = chooser(named);
+  const others = named.filter((m) => m !== target);
+  const heroName = (h) => (typeof h === "string" ? h : (h && h.name) || "");
+  const id = target.id || target.name || "";
+  // Frage-Varianten je nach Datenlage (Herkunft / USP / Hero-Produkt) — mehr Lernwert.
+  const variants = [];
+  if (target.herkunft?.land) variants.push(() => {
+    const laender = [...new Set(named.map((m) => m.herkunft?.land).filter((l) => l && l !== target.herkunft.land))];
+    if (laender.length < 3) return null;
+    const opts = shuffleArr([{ text: target.herkunft.land, correct: true, feedback: `✓ ${esc(target.name)} kommt aus ${esc(target.herkunft.land)}${target.herkunft.gruendung ? ` (gegr. ${esc(String(target.herkunft.gruendung))})` : ""}` }, ...shuffleArr(laender).slice(0, 3).map((l) => ({ text: l, correct: false, feedback: `✗ ${esc(target.name)} kommt aus ${esc(target.herkunft.land)}.` }))]);
+    return { type: "marken_quiz", label: "🏷 Marke", itemId: id, frage: `🏷 <b>Marken-Quiz</b>\n\nAus welchem Land kommt <b>${esc(target.name)}</b>?`, opts, muster: target.philosophie ? `\n<i>„${esc(target.philosophie.slice(0, 120))}"</i>` : "" };
+  });
+  const usp = (target.usps || []).find((u) => typeof u === "string" && u.trim().length >= 8);
+  if (usp) variants.push(() => {
+    const opts = shuffleArr([{ text: target.name, correct: true, feedback: `✓ Das ist ein USP von ${esc(target.name)}.` }, ...shuffleArr(others).slice(0, 3).map((m) => ({ text: m.name, correct: false, feedback: `✗ Das ist ein USP von ${esc(target.name)}.` }))]);
+    return { type: "marken_quiz", label: "🏷 Marke", itemId: id, frage: `🏷 <b>Marken-Quiz</b>\n\nWelche Marke wirbt mit:\n<i>„${esc(usp.slice(0, 140))}"</i>`, opts, muster: "" };
+  });
+  const hero = (target.hero_produkte || []).map(heroName).find((h) => h && h.trim().length >= 2);
+  if (hero) variants.push(() => {
+    const opts = shuffleArr([{ text: target.name, correct: true, feedback: `✓ „${esc(hero)}" gehört zu ${esc(target.name)}.` }, ...shuffleArr(others).slice(0, 3).map((m) => ({ text: m.name, correct: false, feedback: `✗ „${esc(hero)}" gehört zu ${esc(target.name)}.` }))]);
+    return { type: "marken_quiz", label: "🏷 Marke", itemId: id, frage: `🏷 <b>Marken-Quiz</b>\n\nZu welcher Marke gehört <b>${esc(hero)}</b>?`, opts, muster: "" };
+  });
+  if (!variants.length) return null;
+  for (const v of shuffleArr(variants)) { const q = v(); if (q) return q; }
+  return null;
 }
 
 // === Adaptiv + Spaced Repetition (pur) ===

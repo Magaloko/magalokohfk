@@ -1,4 +1,5 @@
 import { db } from "./supabase-server";
+import { PATHS, getPath } from "./paths";
 
 export type TrainingType = "drill" | "quiz" | "szenario" | "rollenspiel" | "challenge";
 
@@ -142,6 +143,19 @@ function updateWeak(prev: Record<string, number> | undefined, results?: { key: s
   return Object.fromEntries(entries);
 }
 
+// Lernpfad-Kopplung: ein auto-Schritt gilt als erfüllt, sobald ein passendes Training absolviert wurde
+// (byType-Zähler > 0); Schritte ohne auto werden manuell abgehakt (stats.paths).
+function pathStepDone(step: { auto?: TrainingType[] }, idx: number, manual: Set<number>, byType: Stats["byType"]): boolean {
+  if (step.auto && step.auto.length) return step.auto.some((t) => (byType?.[t] || 0) >= 1);
+  return manual.has(idx);
+}
+function pathComplete(pathId: string, stats: Stats): boolean {
+  const p = getPath(pathId);
+  if (!p || !p.steps.length) return false;
+  const manual = new Set<number>(stats.paths?.[pathId] || []);
+  return p.steps.every((s, i) => pathStepDone(s, i, manual, stats.byType));
+}
+
 export type RecordResult = {
   ok: boolean;
   xpGain: number;
@@ -182,10 +196,16 @@ export async function recordResult(
     weak: updateWeak(prev.stats.weak, input.itemResults),
   };
 
+  // Lernpfad-Kopplung: durch dieses Training komplettierte Pfade einmalig mit +60 belohnen.
+  const awardedPaths = new Set<string>(stats.pathsAwarded || []);
+  let pathBonus = 0;
+  for (const p of PATHS) if (!awardedPaths.has(p.id) && pathComplete(p.id, stats)) { awardedPaths.add(p.id); pathBonus += 60; }
+  stats.pathsAwarded = [...awardedPaths];
+
   const next: Progress = {
     user_key: userKey,
     display: display || prev.display || "Du",
-    xp: prev.xp + xpGain,
+    xp: prev.xp + xpGain + pathBonus,
     sessions_count: prev.sessions_count + 1,
     streak, best_streak,
     last_active: today,
@@ -223,7 +243,8 @@ export async function recordPathStep(
 
   const awarded = new Set<string>(prev.stats.pathsAwarded || []);
   let xpGain = 0, justCompleted = false;
-  if (steps.length >= totalSteps && totalSteps > 0 && !awarded.has(pathId)) { awarded.add(pathId); xpGain = 60; justCompleted = true; }
+  // Vollständigkeit kombiniert: manuelle (Lese-)Schritte + auto-Schritte (durch Training erfüllt).
+  if (!awarded.has(pathId) && pathComplete(pathId, { ...prev.stats, paths })) { awarded.add(pathId); xpGain = 60; justCompleted = true; }
 
   const stats: Stats = { ...prev.stats, paths, pathsAwarded: [...awarded] };
   const next: Progress = { ...prev, display: display || prev.display, xp: prev.xp + xpGain, stats };
