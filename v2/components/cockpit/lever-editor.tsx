@@ -5,15 +5,16 @@ import { cockpitMutate, errText } from "./mutate";
 import { Modal } from "./task-editor";
 import { Icon } from "@/components/icon";
 import type { Lever } from "@/lib/cockpit";
+import { PHASE_KEYS } from "@/lib/phases";
 
 const STATUSES = ["Backlog", "Geplant", "In Arbeit", "Live", "Verworfen"];
 const LEVELS = ["", "hoch", "mittel", "niedrig"];
 const COL = "levers";
 const sel = "w-full rounded-lg border border-line bg-surface-2 px-3 py-2 text-sm text-ink outline-none focus:border-accent";
 
-type Form = { title: string; area: string; status: string; expectedImpactEur: string; effortHours: string; confidence: string; risk: string; description: string; startDate: string; finishDate: string };
+type Form = { title: string; area: string; phase: string; status: string; expectedImpactEur: string; effortHours: string; confidence: string; risk: string; description: string; startDate: string; finishDate: string };
 const toForm = (l?: Lever): Form => ({
-  title: l?.title || "", area: l?.area || "", status: l?.status || "Backlog",
+  title: l?.title || "", area: l?.area || "", phase: l?.phase || "", status: l?.status || "Backlog",
   expectedImpactEur: l?.expectedImpactEur != null ? String(l.expectedImpactEur) : "",
   effortHours: l?.effortHours != null ? String(l.effortHours) : "",
   confidence: l?.confidence || "", risk: l?.risk || "", description: (l as any)?.description || "",
@@ -95,6 +96,7 @@ function LeverForm({ id, lever, onClose }: { id?: string; lever?: Lever; onClose
         <label className="block">{L("Titel *")}<input value={f.title} onChange={set("title")} className={sel} /></label>
         <div className="grid grid-cols-2 gap-3">
           <label className="block">{L("Bereich")}<input value={f.area} onChange={set("area")} className={sel} /></label>
+          <label className="block">{L("Phase (Stephan-Plan)")}<select value={f.phase} onChange={set("phase")} className={sel}><option value="">—</option>{PHASE_KEYS.map((p) => <option key={p}>{p}</option>)}</select></label>
           <label className="block">{L("Status")}<select value={f.status} onChange={set("status")} className={sel}>{STATUSES.map((s) => <option key={s}>{s}</option>)}</select></label>
           <label className="block">{L("Impact € / Jahr")}<input value={f.expectedImpactEur} onChange={set("expectedImpactEur")} inputMode="numeric" placeholder="50000" className={sel} /></label>
           <label className="block">{L("Aufwand (h)")}<input value={f.effortHours} onChange={set("effortHours")} inputMode="numeric" placeholder="16" className={sel} /></label>

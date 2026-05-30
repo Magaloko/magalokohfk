@@ -24,6 +24,7 @@ export default async function HebelPage() {
   const cols: Column<Lever>[] = [
     { key: "title", label: "Hebel", render: (r) => <Link href={href(r)} className="font-medium text-ink hover:text-accent">{r.title}</Link> },
     { key: "area", label: "Bereich", hideOnMobile: true, render: (r) => <span className="text-muted">{r.area || "—"}</span> },
+    { key: "phase", label: "Phase", hideOnMobile: true, render: (r) => (r.phase ? <Pill tone="accent">{r.phase}</Pill> : <span className="text-muted-2">—</span>) },
     { key: "impact", label: "Impact/J", align: "right", render: (r) => <span className="font-mono font-semibold text-green">{formatEur(r.expectedImpactEur)}</span> },
     { key: "effort", label: "Aufwand", align: "right", hideOnMobile: true, render: (r) => <span className="font-mono text-muted-2">{r.effortHours ? `${r.effortHours}h` : "—"}</span> },
     { key: "roi", label: "ROI-Score", align: "right", hideOnMobile: true, render: (r) => <span className="font-mono text-muted">{Math.round(leverScore(r)).toLocaleString("de-AT")}</span> },
