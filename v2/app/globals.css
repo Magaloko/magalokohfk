@@ -37,6 +37,10 @@ html, body {
   line-height: 1.6;
   -webkit-font-smoothing: antialiased;
   text-rendering: optimizeLegibility;
+  /* Telegram-Mini-App: kein horizontaler Versatz/Überlauf auf Seitenebene
+     (interne Scroll-Container wie der Kalender bleiben davon unberührt). */
+  max-width: 100%;
+  overflow-x: hidden;
 }
 
 * { border-color: var(--color-line); }
