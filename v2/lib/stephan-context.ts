@@ -1,7 +1,8 @@
 import { getCockpitData, formatEur } from "./cockpit";
 import { getAkademieData } from "./akademie";
+import { strategySummaryText } from "./strategy";
 
-// Baut eine kompakte, token-begrenzte Wissensbasis aus ALLEN MAGALOKO-Daten.
+// Baut eine kompakte, token-begrenzte Wissensbasis aus ALLEN VEKTRA-Daten.
 // Dient als alleinige Faktenquelle für den Stephan-Assistenten (keine Halluzination).
 
 const cut = (s: unknown, n = 300) => { const t = String(s ?? "").trim(); return t.length > n ? t.slice(0, n) + "…" : t; };
@@ -12,6 +13,9 @@ export async function buildStephanContext(): Promise<string> {
   const [c, a] = await Promise.all([getCockpitData(), getAkademieData()]);
   const today = new Date().toISOString().slice(0, 10);
   const out: string[] = [];
+
+  // Stephans Strategie (MasterMind) zuerst — damit Fragen zu Roadmap/Zielen/Werkzeugen belegbar sind.
+  out.push("## MASTERMIND-STRATEGIE (Plan von Stephan — verbindliche Grundlage)\n" + strategySummaryText());
 
   const tasks = c.tasks.slice(0, 80);
   if (tasks.length) out.push("## AUFGABEN\n" + tasks.map((t) => "- " + line(

@@ -297,7 +297,7 @@ async function sendMenu(chatId, userId) {
   btns.push({ text: "🧠 Copilot", callback_data: "menu|copilot" });
   const rows = []; for (let i = 0; i < btns.length; i += 3) rows.push(btns.slice(i, i + 3));
   if (isAdmin(userId)) { rows.push([{ text: "📱 Cockpit", web_app: { url: WEBAPP_URL + "/heute" } }, { text: "👔 Stephan", web_app: { url: WEBAPP_URL + "/cockpit/stephan" } }]); rows.push([{ text: "⚙️ Admin", callback_data: "admin|panel" }]); }
-  return tgApi("sendMessage", { chat_id: chatId, text: "<b>🎯 MAGALOKO</b> — Was möchtest du tun?", parse_mode: "HTML", reply_markup: { inline_keyboard: rows } });
+  return tgApi("sendMessage", { chat_id: chatId, text: "<b>🎯 VEKTRA</b> — Was möchtest du tun?", parse_mode: "HTML", reply_markup: { inline_keyboard: rows } });
 }
 async function cmdStart(chatId, userId) {
   const lines = ["🎓 <b>HFK Verkaufs-Akademie</b>", "", "Trainiere Produktwissen & Verkauf — direkt im Chat.", "", "<b>🎯 Training:</b>", "/drill — Zufalls-Quiz", "/quiz — Gemischtes Quiz (z.B. <code>/quiz 7</code>)", "/tagesaufgabe — Tägliche Challenge ☀️", "/marke <i>LIEWOOD</i> · /einwand <i>preis</i> · /persona <i>anna</i>", "/rollenspiel · /score · /lern", "/check — Wissens-Check · /fortschritt — Skill-Profil", "", "<b>🧠 Microsoft Copilot:</b>", "/copilot — Hilfe & Schritt-für-Schritt zu Outlook, Excel, Word, Teams"];
@@ -448,7 +448,7 @@ async function cmdFrag(chatId, question, from) {
     const learningsContext = relevant.length ? `\n\n⚠️ KORREKTUREN (haben Vorrang):\n${relevant.map((l) => `• ${l.topic}: ${l.correction}`).join("\n")}` : "";
     const messages = [
       { role: "system", content: "Du bist Mago, KI-Assistent für HFK (Babyfachhandel Wien/Österreich). Antworte auf Deutsch, präzise, Telegram-HTML (<b>,<i>,<code>), kein Markdown. Nutze ⚠️ KORREKTUREN mit höchster Priorität. Erfinde nichts. Max 400 Wörter." },
-      { role: "user", content: context ? `MAGALOKO-Kontext:\n${context}${learningsContext}\n\n---\nFrage von ${esc(tgUserName(from))}: ${question}` : `${learningsContext}\n\nFrage: ${question}` }
+      { role: "user", content: context ? `VEKTRA-Kontext:\n${context}${learningsContext}\n\n---\nFrage von ${esc(tgUserName(from))}: ${question}` : `${learningsContext}\n\nFrage: ${question}` }
     ];
     const answer = await callAI(messages);
     for (let i = 0; i < answer.length; i += 4000) await send(chatId, answer.slice(i, i + 4000));

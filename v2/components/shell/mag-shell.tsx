@@ -47,8 +47,8 @@ export function MagShell({ role, superAdmin = false, children }: { role: string;
       {/* Desktop-Sidebar */}
       <aside className="hidden w-60 shrink-0 border-r border-line bg-surface md:block">
         <div className="flex items-center gap-2 px-4 py-5">
-          <div className="grid h-9 w-9 place-items-center rounded-lg bg-accent/20 font-extrabold text-accent">M</div>
-          <div><div className="text-sm font-extrabold">MAGALOKO</div><div className="text-xs text-muted-2">{isAdmin ? "Admin" : "Akademie"}</div></div>
+          <div className="grid h-9 w-9 place-items-center rounded-lg bg-accent/20 font-extrabold text-accent">V</div>
+          <div><div className="text-sm font-extrabold">VEKTRA</div><div className="text-xs text-muted-2">{isAdmin ? "Admin" : "Akademie"}</div></div>
         </div>
         {Nav}
       </aside>
@@ -59,7 +59,7 @@ export function MagShell({ role, superAdmin = false, children }: { role: string;
           <div className="absolute inset-0 bg-black/50" onClick={() => setOpen(false)} />
           <aside className="absolute left-0 top-0 h-full w-72 border-r border-line bg-surface">
             <div className="flex items-center justify-between px-4 py-5">
-              <span className="font-extrabold">MAGALOKO</span>
+              <span className="font-extrabold">VEKTRA</span>
               <button onClick={() => setOpen(false)} aria-label="Schließen" className="text-muted-2"><Icon name="x" className="h-5 w-5" /></button>
             </div>
             {Nav}
@@ -71,7 +71,7 @@ export function MagShell({ role, superAdmin = false, children }: { role: string;
         {/* Topbar (mobil) */}
         <header className="flex items-center gap-3 border-b border-line bg-surface px-4 py-3 md:hidden">
           <button onClick={() => setOpen(true)} aria-label="Menü"><Icon name="menu" className="h-6 w-6" /></button>
-          <span className="font-extrabold">MAGALOKO</span>
+          <span className="font-extrabold">VEKTRA</span>
         </header>
         <main className="min-w-0 flex-1 pb-[env(safe-area-inset-bottom)]">{children}</main>
       </div>

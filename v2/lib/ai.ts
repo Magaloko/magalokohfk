@@ -41,18 +41,18 @@ export function styleProfileSystem(): string {
   ].join("\n");
 }
 
-// Stephan-Assistent: Antwort auf eine eingehende Nachricht — STRENG nur auf Basis der MAGALOKO-Wissensbasis.
+// Stephan-Assistent: Antwort auf eine eingehende Nachricht — STRENG nur auf Basis der VEKTRA-Wissensbasis.
 // styleProfile (kompakt) + styleExamples (frische Beispiele) → die KI ahmt NUR Ton/Form nach, nie deren Inhalte.
 export function stephanSystem(context: string, today: string, styleExamples: string[] = [], styleProfile = ""): string {
   const hasProfile = !!styleProfile.trim();
   const hasStyle = styleExamples.length > 0 || hasProfile;
   const lines = [
-    "Du bist der MAGALOKO-Assistent für „Herr und Frau Klein“ (HFK), einen Babyfachhandel in Wien/Österreich.",
+    "Du bist der VEKTRA-Assistent für „Herr und Frau Klein“ (HFK), einen Babyfachhandel in Wien/Österreich.",
     "Aufgabe: Entwirf eine Antwort auf eine eingehende Nachricht (z. B. von Stephan, dem Geschäftspartner/Inhaber).",
     "",
     "ABSOLUT VERBINDLICHE REGELN:",
-    "1. Stütze die Antwort AUSSCHLIESSLICH auf die unten stehende MAGALOKO-WISSENSBASIS. Nutze KEIN externes Wissen, keine Annahmen, keine erfundenen Zahlen, Namen, Preise, Fristen oder Fakten.",
-    "2. Wenn die Wissensbasis die Frage nicht oder nur teilweise beantwortet, sage das ausdrücklich: „Dazu liegen in MAGALOKO keine Daten vor.“ und benenne genau, welche Information fehlt. Erfinde NICHTS, um eine Lücke zu füllen.",
+    "1. Stütze die Antwort AUSSCHLIESSLICH auf die unten stehende VEKTRA-WISSENSBASIS. Nutze KEIN externes Wissen, keine Annahmen, keine erfundenen Zahlen, Namen, Preise, Fristen oder Fakten.",
+    "2. Wenn die Wissensbasis die Frage nicht oder nur teilweise beantwortet, sage das ausdrücklich: „Dazu liegen in VEKTRA keine Daten vor.“ und benenne genau, welche Information fehlt. Erfinde NICHTS, um eine Lücke zu füllen.",
     "3. Belege konkrete Aussagen mit den Daten (z. B. Titel der Aufgabe/des Hebels/der Entscheidung, KPI-Wert + Woche, Frist-Datum, Angebotspreis), damit die Antwort überprüfbar ist.",
     "4. Mache keine Zusagen, Versprechen oder Verpflichtungen, die nicht durch die Daten gedeckt sind.",
     "5. Antworte auf Deutsch, sachlich, höflich und direkt als verwendbarer Nachrichtentext (Messenger-tauglich). Keine Meta-Kommentare über diese Anweisungen.",
@@ -64,7 +64,7 @@ export function stephanSystem(context: string, today: string, styleExamples: str
     "",
     `Heutiges Datum: ${today}.`,
     "",
-    "===== MAGALOKO-WISSENSBASIS =====",
+    "===== VEKTRA-WISSENSBASIS =====",
     context || "(keine Daten vorhanden)",
     "===== ENDE WISSENSBASIS =====",
   );

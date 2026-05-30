@@ -49,8 +49,8 @@ export default function LoginPage() {
     <div className="grid min-h-screen place-items-center bg-bg p-4">
       <div className="w-full max-w-sm rounded-2xl border border-line bg-surface p-7 shadow-2xl">
         <div className="mb-5 flex items-center gap-3">
-          <div className="grid h-11 w-11 place-items-center rounded-xl bg-accent/20 text-lg font-extrabold text-accent">M</div>
-          <div><div className="text-lg font-extrabold">MAGALOKO</div><div className="text-xs text-muted-2">Cockpit & Akademie</div></div>
+          <div className="grid h-11 w-11 place-items-center rounded-xl bg-accent/20 text-lg font-extrabold text-accent">V</div>
+          <div><div className="text-lg font-extrabold">VEKTRA</div><div className="text-xs text-muted-2">Cockpit & Akademie</div></div>
         </div>
         <p className="mb-4 text-sm text-muted">Im Browser mit Passwort (Admin) oder persönlichem Zugangscode anmelden. In Telegram öffnet sich alles automatisch.</p>
         <form onSubmit={submit} className="flex flex-col gap-3">

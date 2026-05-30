@@ -17,6 +17,15 @@ export default async function CockpitOverview() {
 
   return (
     <PageShell icon="cockpit" title="Cockpit" subtitle="Tasks · Hebel · KPIs · Entscheidungen — dein Steuerstand">
+      <Link href="/cockpit/strategie" className="mb-3 flex items-center gap-3 rounded-xl border border-accent/30 bg-accent/5 p-4 shadow-sm transition hover:border-accent">
+        <span className="grid h-10 w-10 shrink-0 place-items-center rounded-lg bg-accent/15 text-accent"><Icon name="compass" className="h-5 w-5" /></span>
+        <span className="min-w-0 flex-1">
+          <span className="block text-sm font-bold">Strategie & Roadmap</span>
+          <span className="block text-xs text-muted-2">MasterMind — Stephans Plan: Werkzeuge, Roadmap & Ziele bis 2028</span>
+        </span>
+        <Icon name="arrow-right" className="h-4 w-4 shrink-0 text-accent" />
+      </Link>
+
       <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
         <Stat href="/cockpit/tasks" icon="check" label="Offene Tasks" value={openTasks.length} sub={`${tasks.length} gesamt`} />
         <Stat href="/cockpit/hebel" icon="lever" label="Aktive Hebel" value={levers.filter(isLeverActive).length} sub={`${levers.length} gesamt`} />
