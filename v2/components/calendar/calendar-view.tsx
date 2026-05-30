@@ -235,11 +235,11 @@ export function CalendarView({ events, tasks, decisions, kpis, levers, staff, to
     const b = new Date(anchor.getFullYear(), anchor.getMonth(), 1);
     const months = [0, 1, 2].map((o) => new Date(b.getFullYear(), b.getMonth() + o, 1));
     // Handy: kompakte Punkte-Übersicht, 3 Monate gestapelt (Bearbeiten über das Tages-Detail).
-    // Desktop: jeder Monat in voller Breite untereinander → lesbare Einträge + Drag & Drop.
-    // (3-spaltig nebeneinander waren die Zellen zu schmal, um Einträge zu lesen oder zu verschieben.)
+    // Desktop: jeder Monat in voller Breite untereinander → Zellen ~98px breit, Einträge lesbar + Drag & Drop.
+    // "md" (nur nötige Wochen, kürzere Reihen) hält es kompakt; nebeneinander wären die Zellen ~46px → abgeschnitten.
     body = narrow
       ? <div className="flex flex-col gap-4">{months.map((m) => monthBlock(m.getFullYear(), m.getMonth(), "md", 0, true, true))}</div>
-      : <div className="flex flex-col gap-5">{months.map((m) => monthBlock(m.getFullYear(), m.getMonth(), "lg", 3, false, true))}</div>;
+      : <div className="flex flex-col gap-4">{months.map((m) => monthBlock(m.getFullYear(), m.getMonth(), "md", 2, false, true))}</div>;
     periodLabel = `${fmt(b, { month: "short" })} – ${fmt(new Date(b.getFullYear(), b.getMonth() + 2, 1), { month: "short", year: "numeric" })}`;
   } else {
     body = <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">{Array.from({ length: 12 }, (_, m) => monthBlock(anchor.getFullYear(), m, "sm", 0, true, true))}</div>;
