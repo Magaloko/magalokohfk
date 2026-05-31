@@ -23,7 +23,7 @@ export const PATHS: LearnPath[] = [
     desc: "Produktwissen, das im Verkaufsgespräch überzeugt.",
     steps: [
       { title: "Marken-Bibel lesen", hint: "Herkunft, USPs, Hero-Produkte", href: "/akademie/marken" },
-      { title: "Drill-Training", hint: "Marken-Drills üben", href: "/akademie/drills", auto: ["drill", "quiz"] },
+      { title: "Drill-Training", hint: "Marken-Drills üben", href: "/akademie/drills", auto: ["drill"] },
       { title: "Wissen testen", hint: "Quick-Quiz", href: "/akademie/drills", auto: ["quiz"] },
     ],
   },

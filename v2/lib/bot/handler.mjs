@@ -43,7 +43,19 @@ async function tgApi(method, params) {
     const r = await fetch(`https://api.telegram.org/bot${TOKEN}/${method}`, {
       method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(params || {})
     });
-    return await r.json();
+    const res = await r.json();
+    // Safe-Send: bei HTML-Parse-Fehler (fehlerhaftes Modell-/Daten-HTML) einmalig als bereinigten
+    // Plain-Text nachsenden, statt die Nachricht stillschweigend zu verlieren (Telegram 400).
+    if (method === "sendMessage" && params?.parse_mode && res && res.ok === false
+        && res.error_code === 400 && /parse|entit/i.test(res.description || "")) {
+      const { parse_mode, text, ...rest } = params;
+      const plain = String(text || "").replace(/<[^>]+>/g, "").replace(/&lt;/g, "<").replace(/&gt;/g, ">").replace(/&amp;/g, "&");
+      const r2 = await fetch(`https://api.telegram.org/bot${TOKEN}/${method}`, {
+        method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ ...rest, text: plain })
+      });
+      return await r2.json();
+    }
+    return res;
   } catch (e) { return { ok: false, error: e.message }; }
 }
 const send = (chatId, text, extra = {}) =>
