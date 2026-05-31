@@ -151,14 +151,15 @@ function makeEinwandQ(einwaende, chooser = pick) {
   if (pool.length < 4) return null;
   const target = chooser(pool);
   const wrong3 = shuffleArr(pool.filter((e) => e !== target)).slice(0, 3);
-  const opts = shuffleArr([{ text: target.antwort.slice(0, 110), correct: true, feedback: `✓ Beste Strategie bei „${esc(target.kategorie || "diesem Einwand")}"` }, ...wrong3.map((e) => ({ text: e.antwort.slice(0, 110), correct: false, feedback: "✗ Das passt zu einem anderen Einwand-Typ." }))]);
+  const opts = shuffleArr([{ text: target.antwort.slice(0, 110), correct: true, feedback: `✓ Beste Strategie bei „${target.kategorie || "diesem Einwand"}"` }, ...wrong3.map((e) => ({ text: e.antwort.slice(0, 110), correct: false, feedback: "✗ Das passt zu einem anderen Einwand-Typ." }))]);
   return { type: "einwand_mc", label: "💬 Einwand", itemId: target.id || target.einwand || "", frage: `💬 <b>Einwand-Training</b>\n\nKunde sagt:\n<i>„${esc(target.einwand)}"</i>\n\n<b>Welche Antwort ist am besten?</b>`, opts, muster: target.beweis ? `\n💡 ${esc(target.beweis.slice(0, 150))}` : "" };
 }
 function makeMarkenQ(marken, chooser = pick) {
   const named = marken.filter((m) => m.name);
   if (named.length < 4) return null;
   const target = chooser(named);
-  const others = named.filter((m) => m !== target);
+  // Falsch-Antwort-Pool: Markennamen, eindeutig (Set) und ohne den korrekten Namen — sonst doppelte/kollidierende Optionen.
+  const otherNames = [...new Set(named.filter((m) => m !== target).map((m) => m.name).filter((n) => n && n !== target.name))];
   const heroName = (h) => (typeof h === "string" ? h : (h && h.name) || "");
   const id = target.id || target.name || "";
   // Frage-Varianten je nach Datenlage (Herkunft / USP / Hero-Produkt) — mehr Lernwert.
@@ -166,17 +167,17 @@ function makeMarkenQ(marken, chooser = pick) {
   if (target.herkunft?.land) variants.push(() => {
     const laender = [...new Set(named.map((m) => m.herkunft?.land).filter((l) => l && l !== target.herkunft.land))];
     if (laender.length < 3) return null;
-    const opts = shuffleArr([{ text: target.herkunft.land, correct: true, feedback: `✓ ${esc(target.name)} kommt aus ${esc(target.herkunft.land)}${target.herkunft.gruendung ? ` (gegr. ${esc(String(target.herkunft.gruendung))})` : ""}` }, ...shuffleArr(laender).slice(0, 3).map((l) => ({ text: l, correct: false, feedback: `✗ ${esc(target.name)} kommt aus ${esc(target.herkunft.land)}.` }))]);
+    const opts = shuffleArr([{ text: target.herkunft.land, correct: true, feedback: `✓ ${target.name} kommt aus ${target.herkunft.land}${target.herkunft.gruendung ? ` (gegr. ${String(target.herkunft.gruendung)})` : ""}` }, ...shuffleArr(laender).slice(0, 3).map((l) => ({ text: l, correct: false, feedback: `✗ ${target.name} kommt aus ${target.herkunft.land}.` }))]);
     return { type: "marken_quiz", label: "🏷 Marke", itemId: id, frage: `🏷 <b>Marken-Quiz</b>\n\nAus welchem Land kommt <b>${esc(target.name)}</b>?`, opts, muster: target.philosophie ? `\n<i>„${esc(target.philosophie.slice(0, 120))}"</i>` : "" };
   });
-  const usp = (target.usps || []).find((u) => typeof u === "string" && u.trim().length >= 8);
-  if (usp) variants.push(() => {
-    const opts = shuffleArr([{ text: target.name, correct: true, feedback: `✓ Das ist ein USP von ${esc(target.name)}.` }, ...shuffleArr(others).slice(0, 3).map((m) => ({ text: m.name, correct: false, feedback: `✗ Das ist ein USP von ${esc(target.name)}.` }))]);
+  const usp = (target.usps || []).map((u) => (typeof u === "string" ? u : (u?.argument || u?.text || ""))).find((u) => u && u.trim().length >= 8);
+  if (usp && otherNames.length >= 3) variants.push(() => {
+    const opts = shuffleArr([{ text: target.name, correct: true, feedback: `✓ Das ist ein USP von ${target.name}.` }, ...shuffleArr(otherNames).slice(0, 3).map((n) => ({ text: n, correct: false, feedback: `✗ Das ist ein USP von ${target.name}.` }))]);
     return { type: "marken_quiz", label: "🏷 Marke", itemId: id, frage: `🏷 <b>Marken-Quiz</b>\n\nWelche Marke wirbt mit:\n<i>„${esc(usp.slice(0, 140))}"</i>`, opts, muster: "" };
   });
   const hero = (target.hero_produkte || []).map(heroName).find((h) => h && h.trim().length >= 2);
-  if (hero) variants.push(() => {
-    const opts = shuffleArr([{ text: target.name, correct: true, feedback: `✓ „${esc(hero)}" gehört zu ${esc(target.name)}.` }, ...shuffleArr(others).slice(0, 3).map((m) => ({ text: m.name, correct: false, feedback: `✗ „${esc(hero)}" gehört zu ${esc(target.name)}.` }))]);
+  if (hero && otherNames.length >= 3) variants.push(() => {
+    const opts = shuffleArr([{ text: target.name, correct: true, feedback: `✓ „${hero}" gehört zu ${target.name}.` }, ...shuffleArr(otherNames).slice(0, 3).map((n) => ({ text: n, correct: false, feedback: `✗ „${hero}" gehört zu ${target.name}.` }))]);
     return { type: "marken_quiz", label: "🏷 Marke", itemId: id, frage: `🏷 <b>Marken-Quiz</b>\n\nZu welcher Marke gehört <b>${esc(hero)}</b>?`, opts, muster: "" };
   });
   if (!variants.length) return null;
@@ -427,7 +428,7 @@ async function cmdScore(chatId, userId, userName) {
 async function cmdRollenspiel(chatId) {
   const d = await loadData(); if (!d.roleplays.length) return send(chatId, "Keine Rollenspiele verfügbar.");
   const rp = pick(d.roleplays);
-  let txt = `<b>🎭 ${esc(rp.titel || "Rollenspiel")}</b>\n\n<b>Persona:</b> ${esc(rp.persona || "")}\n<b>Setting:</b> ${esc(rp.setting || "")}\n<b>Technik:</b> ${esc(rp.verkaufstechnik || "")} · <b>Ziel-AOV:</b> €${rp.ziel_aov || "—"}\n\n`;
+  let txt = `<b>🎭 ${esc(rp.titel || "Rollenspiel")}</b>\n\n<b>Persona:</b> ${esc(rp.persona || "")}\n<b>Setting:</b> ${esc(rp.setting || "")}\n<b>Technik:</b> ${esc(rp.verkaufstechnik || "")} · <b>Ziel-AOV:</b> €${esc(String(rp.ziel_aov || "—"))}\n\n`;
   if ((rp.ablauf || []).length) txt += `<b>Ablauf:</b>\n${rp.ablauf.map((s) => `${s.schritt || "•"}. <b>${esc(s.name || "")}</b> — ${esc((s.beschreibung || "").slice(0, 120))}`).join("\n")}\n\n`;
   if ((rp.einwaende || []).length) txt += `<b>Einwände:</b>\n${rp.einwaende.map((e) => `• „${esc(e.einwand)}" → <i>${esc(e.erwartete_technik || "")}</i>`).join("\n")}`;
   await send(chatId, txt.slice(0, 4000), { reply_markup: { inline_keyboard: [[{ text: "🎭 Nächstes", callback_data: "menu|rollenspiel" }], [{ text: "⬅️ Menü", callback_data: "menu|main" }]] } });
