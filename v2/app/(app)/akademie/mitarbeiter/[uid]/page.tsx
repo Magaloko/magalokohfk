@@ -2,7 +2,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { requireAdmin } from "@/lib/auth-helpers";
 import { db } from "@/lib/supabase-server";
-import { getProgress, emptyProgress, levelInfo, BADGES } from "@/lib/progress";
+import { getProgress, emptyProgress, levelInfo, BADGES, pathComplete, pathDoneCount } from "@/lib/progress";
 import { getCockpitData } from "@/lib/cockpit";
 import { PATHS } from "@/lib/paths";
 import { PageShell } from "@/components/_primitives/page-shell";
@@ -85,9 +85,9 @@ export default async function MitarbeiterDetail({ params }: { params: Promise<{ 
         <Section title="Lernpfade">
           <div className="flex flex-col gap-2">
             {PATHS.map((path) => {
-              const dn = (p.stats.paths?.[path.id]?.length || 0);
+              const dn = pathDoneCount(path.id, p.stats);
               const pct = Math.round((dn / path.steps.length) * 100);
-              const full = dn >= path.steps.length;
+              const full = pathComplete(path.id, p.stats);
               return (
                 <div key={path.id} className="flex items-center gap-3">
                   <span className="inline-flex w-44 shrink-0 items-center gap-1 truncate text-sm"><Icon name={path.icon} className="h-4 w-4 shrink-0" /> {path.title}</span>

@@ -149,11 +149,16 @@ function pathStepDone(step: { auto?: TrainingType[] }, idx: number, manual: Set<
   if (step.auto && step.auto.length) return step.auto.some((t) => (byType?.[t] || 0) >= 1);
   return manual.has(idx);
 }
-function pathComplete(pathId: string, stats: Stats): boolean {
+// Anzahl erfüllter Schritte (manuell + auto) eines Pfads — für Fortschrittsanzeigen.
+export function pathDoneCount(pathId: string, stats: Stats): number {
   const p = getPath(pathId);
-  if (!p || !p.steps.length) return false;
+  if (!p) return 0;
   const manual = new Set<number>(stats.paths?.[pathId] || []);
-  return p.steps.every((s, i) => pathStepDone(s, i, manual, stats.byType));
+  return p.steps.reduce((n, s, i) => n + (pathStepDone(s, i, manual, stats.byType) ? 1 : 0), 0);
+}
+export function pathComplete(pathId: string, stats: Stats): boolean {
+  const p = getPath(pathId);
+  return !!p && p.steps.length > 0 && pathDoneCount(pathId, stats) === p.steps.length;
 }
 
 export type RecordResult = {
@@ -201,11 +206,13 @@ export async function recordResult(
   let pathBonus = 0;
   for (const p of PATHS) if (!awardedPaths.has(p.id) && pathComplete(p.id, stats)) { awardedPaths.add(p.id); pathBonus += 60; }
   stats.pathsAwarded = [...awardedPaths];
+  // An die UI gemeldeter Zuwachs inkl. Pfad-Bonus — sonst widerspricht "+X XP" dem Level (das den Bonus enthält).
+  const totalXpGain = xpGain + pathBonus;
 
   const next: Progress = {
     user_key: userKey,
     display: display || prev.display || "Du",
-    xp: prev.xp + xpGain + pathBonus,
+    xp: prev.xp + totalXpGain,
     sessions_count: prev.sessions_count + 1,
     streak, best_streak,
     last_active: today,
@@ -223,11 +230,11 @@ export async function recordResult(
       streak: next.streak, best_streak: next.best_streak, last_active: next.last_active,
       badges: next.badges, stats: next.stats, updated_at: new Date().toISOString(),
     }, { onConflict: "user_key" });
-    if (error) return { ok: false, xpGain, newBadges: badgesByIds(newBadgeIds), progress: next };
+    if (error) return { ok: false, xpGain: totalXpGain, newBadges: badgesByIds(newBadgeIds), progress: next };
   } catch {
-    return { ok: false, xpGain, newBadges: badgesByIds(newBadgeIds), progress: next };
+    return { ok: false, xpGain: totalXpGain, newBadges: badgesByIds(newBadgeIds), progress: next };
   }
-  return { ok: true, xpGain, newBadges: badgesByIds(newBadgeIds), progress: next };
+  return { ok: true, xpGain: totalXpGain, newBadges: badgesByIds(newBadgeIds), progress: next };
 }
 
 // Lernpfad-Schritt umschalten; bei erstmaligem Abschluss +60 XP Bonus.
@@ -235,16 +242,25 @@ export async function recordPathStep(
   userKey: string, display: string, pathId: string, totalSteps: number, step: number, done: boolean,
 ): Promise<{ ok: boolean; steps: number[]; justCompleted: boolean; xpGain: number }> {
   const prev = (await getProgress(userKey)) || emptyProgress(userKey, display);
+  const cur = getPath(pathId);
+  // auto-Schritte werden durch Training erfüllt und nie manuell gespeichert — sonst könnte ein Client
+  // über die Route stats.paths aufblähen und Abschluss/Dashboards fälschen.
+  const isManual = (i: number) => !(cur && cur.steps[i]?.auto?.length);
   const paths = { ...(prev.stats.paths || {}) };
-  const set = new Set<number>((paths[pathId] || []).filter((s) => s >= 0 && s < totalSteps));
-  if (done) set.add(step); else set.delete(step);
+  const set = new Set<number>((paths[pathId] || []).filter((s) => s >= 0 && s < totalSteps && isManual(s)));
+  if (done && isManual(step)) set.add(step); else set.delete(step);
   const steps = [...set].sort((a, b) => a - b);
   paths[pathId] = steps;
 
   const awarded = new Set<string>(prev.stats.pathsAwarded || []);
   let xpGain = 0, justCompleted = false;
   // Vollständigkeit kombiniert: manuelle (Lese-)Schritte + auto-Schritte (durch Training erfüllt).
-  if (!awarded.has(pathId) && pathComplete(pathId, { ...prev.stats, paths })) { awarded.add(pathId); xpGain = 60; justCompleted = true; }
+  // Synthetische Pfade (z. B. Cockpilot-Guides "copilot:<id>", nicht in PATHS) haben nur manuelle
+  // Schritte → Längen-Check als Fallback, sonst würden sie nie als abgeschlossen erkannt.
+  const complete = cur
+    ? pathComplete(pathId, { ...prev.stats, paths })
+    : (totalSteps > 0 && steps.length >= totalSteps);
+  if (!awarded.has(pathId) && complete) { awarded.add(pathId); xpGain = 60; justCompleted = true; }
 
   const stats: Stats = { ...prev.stats, paths, pathsAwarded: [...awarded] };
   const next: Progress = { ...prev, display: display || prev.display, xp: prev.xp + xpGain, stats };

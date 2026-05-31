@@ -6,7 +6,7 @@ import { QuizLauncher } from "@/components/akademie/quiz-launcher";
 import { DrillLauncher } from "@/components/akademie/drill-launcher";
 import { ContinueCard } from "@/components/akademie/continue-card";
 import { ChallengeCard } from "@/components/akademie/challenge-card";
-import { getProgress, getLeaderboard, levelInfo, BADGES, emptyProgress } from "@/lib/progress";
+import { getProgress, getLeaderboard, levelInfo, BADGES, emptyProgress, pathComplete } from "@/lib/progress";
 import { PATHS } from "@/lib/paths";
 import { Icon } from "@/components/icon";
 
@@ -38,7 +38,7 @@ export default async function AkademieHub() {
   const board = await getLeaderboard(sess.email, 8);
   const today = new Date().toISOString().slice(0, 10);
   const challengeDone = progress.stats.lastChallenge === today;
-  const pathsDone = PATHS.filter((p) => (progress.stats.paths?.[p.id]?.length || 0) >= p.steps.length).length;
+  const pathsDone = PATHS.filter((p) => pathComplete(p.id, progress.stats)).length;
 
   return (
     <PageShell title="Akademie" icon="academy" subtitle="Dein Verkaufstraining — wähle einen Bereich oder leg direkt los.">

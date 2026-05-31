@@ -2,7 +2,7 @@ import Link from "next/link";
 import { requireAdmin } from "@/lib/auth-helpers";
 import { getCockpitData, leverScore, formatEur, isTaskOpen, isLeverActive, sortedWeeks } from "@/lib/cockpit";
 import { getRecentActivity } from "@/lib/history";
-import { getProgress, levelInfo, emptyProgress } from "@/lib/progress";
+import { getProgress, levelInfo, emptyProgress, pathComplete } from "@/lib/progress";
 import { PATHS } from "@/lib/paths";
 import { PageShell } from "@/components/_primitives/page-shell";
 import { Icon } from "@/components/icon";
@@ -31,7 +31,7 @@ export default async function HeutePage() {
   const activity = await getRecentActivity(6);
   const progress = (await getProgress(sess.email)) || emptyProgress(sess.email);
   const lvl = levelInfo(progress.xp);
-  const pathsDone = PATHS.filter((p) => (progress.stats.paths?.[p.id]?.length || 0) >= p.steps.length).length;
+  const pathsDone = PATHS.filter((p) => pathComplete(p.id, progress.stats)).length;
 
   const openTasks = tasks.filter(isTaskOpen);
 

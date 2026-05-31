@@ -289,7 +289,7 @@ function checkTopicLine(label, icon, pre, post) {
 function renderQuizMsg(q, qi, total, streak = 0) {
   const fill = "▓".repeat(qi), empty = "░".repeat(total - qi);
   const streakTag = streak >= 2 ? `  🔥${streak}` : "";
-  const optLines = q.opts.map((o, i) => `${QUIZ_LETTERS[i]}) ${o.text}`).join("\n");
+  const optLines = q.opts.map((o, i) => `${QUIZ_LETTERS[i]}) ${esc(o.text)}`).join("\n");
   const text = `${fill}${empty} <b>${qi + 1}/${total}</b> · ${q.label || ""}${streakTag}\n\n${q.frage}\n\n${optLines}`;
   return { text: text.slice(0, 4000), keyboard: { inline_keyboard: [q.opts.map((_, i) => ({ text: QUIZ_LETTERS[i], callback_data: `quiz_ans|${qi}|${i}` }))] } };
 }

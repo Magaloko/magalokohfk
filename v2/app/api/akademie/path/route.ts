@@ -24,6 +24,8 @@ export async function POST(req: NextRequest) {
   if (areas.some((a) => !allowed.includes(a))) return NextResponse.json({ error: "forbidden_area" }, { status: 403 });
   const step = Math.round(Number(body?.step));
   if (!Number.isInteger(step) || step < 0 || step >= path.steps.length) return NextResponse.json({ error: "bad_step" }, { status: 400 });
+  // auto-Schritte werden durch Training erfüllt, nicht manuell abgehakt — nicht buchbar.
+  if (path.steps[step].auto?.length) return NextResponse.json({ error: "auto_step" }, { status: 400 });
 
   const res = await recordPathStep(sess.email, "Du", path.id, path.steps.length, step, !!body?.done);
   if (!res.ok) return NextResponse.json({ error: "save_failed" }, { status: 500 });

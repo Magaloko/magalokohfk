@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { requireAdmin } from "@/lib/auth-helpers";
 import { db } from "@/lib/supabase-server";
-import { getAllProgress, uidFromKey, levelInfo, type Progress } from "@/lib/progress";
+import { getAllProgress, uidFromKey, levelInfo, pathComplete, type Progress } from "@/lib/progress";
 import { getCockpitData } from "@/lib/cockpit";
 import { PATHS } from "@/lib/paths";
 import { PageShell } from "@/components/_primitives/page-shell";
@@ -19,7 +19,7 @@ type Member = {
 
 const PATHS_TOTAL = PATHS.length;
 const donePaths = (p?: Progress | null) =>
-  PATHS.filter((path) => (p?.stats.paths?.[path.id]?.length || 0) >= path.steps.length).length;
+  p ? PATHS.filter((path) => pathComplete(path.id, p.stats)).length : 0;
 
 export default async function MitarbeiterPage() {
   await requireAdmin();
