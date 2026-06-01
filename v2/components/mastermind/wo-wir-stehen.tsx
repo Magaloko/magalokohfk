@@ -30,30 +30,52 @@ export function WoWirStehen({ vorgaenge, toolStatus }:
   const router = useRouter();
   const refresh = () => router.refresh();
   const [adding, setAdding] = useState(false);
+  // Standardmäßig zugeklappt: oben nur eine kompakte Zusammenfassung, damit die
+  // Strategie-Seite sofort mit dem eigentlichen Plan startet. Auf Tipp aufklappen.
+  const [open, setOpen] = useState(false);
   const offen = vorgaenge.filter((v) => v.status !== "Erledigt");
   const waitCount = (key: string) => offen.filter((v) => v.werkzeug === key && v.status === "Wartet").length;
+  const waiting = offen.filter((v) => v.status === "Wartet").length;
 
   return (
     <section className="rounded-xl border border-accent/30 bg-accent/5 p-5 shadow-sm sm:p-6">
-      <div className="flex items-center gap-1.5 text-xs font-bold uppercase tracking-wide text-accent">
-        <Icon name="compass" className="h-3.5 w-3.5" /> Aktueller Stand
-      </div>
-      <h2 className="mt-1 text-lg font-extrabold tracking-tight">Wo wir gerade stehen</h2>
+      <button type="button" onClick={() => setOpen((v) => !v)} aria-expanded={open}
+        className="flex w-full items-center gap-3 text-left">
+        <div className="min-w-0 flex-1">
+          <div className="flex items-center gap-1.5 text-xs font-bold uppercase tracking-wide text-accent">
+            <Icon name="compass" className="h-3.5 w-3.5" /> Aktueller Stand
+          </div>
+          <h2 className="mt-1 text-lg font-extrabold tracking-tight">Wo wir gerade stehen</h2>
+          {!open && (
+            <p className="mt-1 text-xs text-muted-2">
+              {TOOLS.length} Tools · {offen.length} offene Vorgänge
+              {waiting > 0 && <span className="text-amber"> · {waiting} wartet</span>}
+            </p>
+          )}
+        </div>
+        <span className={cn("grid h-8 w-8 shrink-0 place-items-center rounded-full bg-surface text-muted-2 transition-transform", open && "rotate-90")}>
+          <Icon name="arrow-right" className="h-4 w-4" />
+        </span>
+      </button>
 
-      <div className="mt-3 flex flex-wrap gap-2">
-        {TOOLS.map((t) => <ToolChip key={t.key} tool={t} status={toolStatus[t.key]} wait={waitCount(t.key)} onSaved={refresh} />)}
-      </div>
+      {open && (
+        <>
+          <div className="mt-3 flex flex-wrap gap-2">
+            {TOOLS.map((t) => <ToolChip key={t.key} tool={t} status={toolStatus[t.key]} wait={waitCount(t.key)} onSaved={refresh} />)}
+          </div>
 
-      <div className="mt-4 flex items-center justify-between gap-2">
-        <h3 className="text-xs font-bold uppercase tracking-wide text-muted-2">Offene Vorgänge ({offen.length})</h3>
-        <button type="button" onClick={() => setAdding(!adding)}
-          className="inline-flex min-h-9 items-center rounded-lg bg-accent px-3 text-xs font-semibold text-bg">{adding ? "Abbrechen" : "+ Vorgang"}</button>
-      </div>
-      {adding && <div className="mt-2"><VorgangForm onClose={() => setAdding(false)} onSaved={refresh} /></div>}
-      <div className="mt-2 flex flex-col gap-2">
-        {offen.length ? offen.map((v) => <VorgangRow key={v.id} v={v} onSaved={refresh} />)
-          : <p className="text-sm text-muted-2">Keine offenen Vorgänge.</p>}
-      </div>
+          <div className="mt-4 flex items-center justify-between gap-2">
+            <h3 className="text-xs font-bold uppercase tracking-wide text-muted-2">Offene Vorgänge ({offen.length})</h3>
+            <button type="button" onClick={() => setAdding(!adding)}
+              className="inline-flex min-h-9 items-center rounded-lg bg-accent px-3 text-xs font-semibold text-bg">{adding ? "Abbrechen" : "+ Vorgang"}</button>
+          </div>
+          {adding && <div className="mt-2"><VorgangForm onClose={() => setAdding(false)} onSaved={refresh} /></div>}
+          <div className="mt-2 flex flex-col gap-2">
+            {offen.length ? offen.map((v) => <VorgangRow key={v.id} v={v} onSaved={refresh} />)
+              : <p className="text-sm text-muted-2">Keine offenen Vorgänge.</p>}
+          </div>
+        </>
+      )}
     </section>
   );
 }
