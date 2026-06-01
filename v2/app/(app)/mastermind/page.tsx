@@ -1,5 +1,6 @@
 import { requireAdmin } from "@/lib/auth-helpers";
 import { MASTERMIND } from "@/lib/strategy";
+import { getMastermindAntworten } from "@/lib/mastermind";
 import { PageShell } from "@/components/_primitives/page-shell";
 import { PlanView } from "@/components/mastermind/plan-view";
 
@@ -10,10 +11,11 @@ export const dynamic = "force-dynamic";
 export default async function MasterMindPage() {
   await requireAdmin();
   const m = MASTERMIND;
+  const antworten = await getMastermindAntworten();
 
   return (
     <PageShell icon="compass" title="Strategie & Roadmap" subtitle={`MasterMind — der Plan von Stephan · ${m.version}`}>
-      <PlanView />
+      <PlanView antworten={antworten} />
     </PageShell>
   );
 }

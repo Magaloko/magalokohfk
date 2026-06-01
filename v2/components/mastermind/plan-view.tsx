@@ -1,6 +1,9 @@
 import { MASTERMIND, type Werkzeug } from "@/lib/strategy";
 import { Card, Pill } from "@/components/_primitives/card";
 import { Icon } from "@/components/icon";
+import { fragenFuer } from "@/lib/mastermind-fragen";
+import type { MasterMindAntwort } from "@/lib/mastermind";
+import { FragenBlock } from "@/components/mastermind/fragen-block";
 
 const statusTone = (s: Werkzeug["status"]): "green" | "accent" | "muted" =>
   s === "Live" ? "green" : s === "Geplant" ? "accent" : "muted";
@@ -19,7 +22,7 @@ function SectionTitle({ icon, kicker, title }: { icon: string; kicker: string; t
 // Render-Body des MasterMind-Plans (aus cockpit/strategie extrahiert).
 // Reine Server-Component (kein State) — wird von app/(app)/mastermind/page.tsx in eine
 // PageShell eingebettet. MASTERMIND ist die Single Source of Truth aus lib/strategy.ts.
-export function PlanView() {
+export function PlanView({ antworten }: { antworten: Record<string, MasterMindAntwort> }) {
   const m = MASTERMIND;
 
   return (
@@ -78,6 +81,10 @@ export function PlanView() {
         ))}
       </div>
 
+      {/* Querschnitt / Foundation — offene Fragen */}
+      <SectionTitle icon="globe" kicker="Querschnitt / Foundation" title="Offene Fragen an Stephan (gilt für alle Werkzeuge)" />
+      <FragenBlock titel="Querschnitt / Foundation" fragen={fragenFuer("querschnitt")} antworten={antworten} />
+
       {/* Werkzeug-Set */}
       <SectionTitle icon="cockpit" kicker="Das Werkzeug-Set" title="Fünf operative Werkzeuge" />
       <div className="grid gap-4 lg:grid-cols-2">
@@ -112,6 +119,7 @@ export function PlanView() {
               <span><span className="font-semibold text-ink">Hebel:</span> {w.hebel}</span>
             </div>
             <div className="mt-2 text-[11px] uppercase tracking-wide text-muted-2">{w.agentTyp}</div>
+            <FragenBlock fragen={fragenFuer(w.key)} antworten={antworten} />
           </div>
         ))}
       </div>
@@ -130,6 +138,7 @@ export function PlanView() {
           </Card>
         ))}
       </div>
+      <FragenBlock titel="Offene Fragen — Future Scope" fragen={fragenFuer("future")} antworten={antworten} />
 
       {/* Roadmap */}
       <SectionTitle icon="repeat" kicker="Roadmap" title="Sequenz — Foundation zuerst" />
