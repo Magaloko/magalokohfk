@@ -1,4 +1,4 @@
-import { getCockpitData, formatEur } from "./cockpit";
+import { getCockpitData } from "./cockpit";
 import { getAkademieData } from "./akademie";
 import { strategySummaryText } from "./strategy";
 
@@ -7,7 +7,6 @@ import { strategySummaryText } from "./strategy";
 
 const cut = (s: unknown, n = 300) => { const t = String(s ?? "").trim(); return t.length > n ? t.slice(0, n) + "…" : t; };
 const line = (...parts: (string | false | undefined)[]) => parts.filter(Boolean).join(" · ");
-const KPI_SKIP = new Set(["id", "weekStart", "weekLabel", "label", "notes", "note"]);
 
 export async function buildStephanContext(): Promise<string> {
   const [c, a] = await Promise.all([getCockpitData(), getAkademieData()]);
@@ -23,26 +22,11 @@ export async function buildStephanContext(): Promise<string> {
     t.owner && `Verantw.: ${t.owner}`, t.dueDate && `fällig: ${t.dueDate}`, t.notes && `Notiz: ${cut(t.notes, 200)}`,
   )).join("\n"));
 
-  const levers = c.levers.slice(0, 80);
-  if (levers.length) out.push("## HEBEL (Wachstums-Initiativen)\n" + levers.map((l) => "- " + line(
-    cut(l.title, 160), l.area && `Bereich: ${l.area}`, l.status && `Status: ${l.status}`,
-    l.expectedImpactEur != null && `Impact: ${formatEur(l.expectedImpactEur)}/Jahr`, l.effortHours != null && `Aufwand: ${l.effortHours}h`,
-    l.confidence && `Confidence: ${l.confidence}`, l.risk && `Risiko: ${l.risk}`, l.startDate && `Start: ${l.startDate}`, l.finishDate && `Ziel: ${l.finishDate}`,
-  )).join("\n"));
-
   const dec = c.decisions.slice(0, 60);
   if (dec.length) out.push("## ENTSCHEIDUNGEN (Stephan)\n" + dec.map((d) => "- " + line(
     cut(d.titel, 160), d.status && `Status: ${d.status}`, d.kategorie && `Kategorie: ${d.kategorie}`,
     d.frist && `Frist: ${d.frist}`, d.empfehlung && `Empfehlung: ${cut(d.empfehlung, 300)}`,
   )).join("\n"));
-
-  const weeks = [...c.weeklyKpis].sort((x, y) => String(y.weekStart || "").localeCompare(String(x.weekStart || ""))).slice(0, 6);
-  if (weeks.length) out.push("## KPI-WOCHEN (neueste zuerst)\n" + weeks.map((w) => {
-    const metrics = Object.entries(w)
-      .filter(([k, v]) => !KPI_SKIP.has(k) && (typeof v === "number" || (typeof v === "string" && v.trim() !== "")))
-      .map(([k, v]) => `${k}=${typeof v === "number" ? v.toLocaleString("de-AT") : String(v)}`).join(", ");
-    return "- " + line(w.weekLabel || w.weekStart, metrics);
-  }).join("\n"));
 
   const events = c.calendarEvents.filter((e) => (e.date || "") >= today).sort((x, y) => String(x.date).localeCompare(String(y.date))).slice(0, 40);
   if (events.length) out.push("## KOMMENDE TERMINE\n" + events.map((e) => "- " + line(

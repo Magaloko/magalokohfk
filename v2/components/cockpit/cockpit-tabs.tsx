@@ -10,8 +10,6 @@ const TABS = [
   { href: "/cockpit/umsetzung", icon: "handshake", label: "Umsetzung" },
   { href: "/cockpit/briefing", icon: "send", label: "Briefing" },
   { href: "/cockpit/tasks", icon: "check", label: "Tasks" },
-  { href: "/cockpit/hebel", icon: "lever", label: "Hebel" },
-  { href: "/cockpit/kpis", icon: "kpi", label: "KPIs" },
   { href: "/cockpit/entscheidungen", icon: "compass", label: "Entscheidungen" },
   { href: "/cockpit/aktivitaet", icon: "clock", label: "Aktivität" },
   { href: "/cockpit/stephan", icon: "chat", label: "Stephan-Assistent" },

@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { requireAdmin } from "@/lib/auth-helpers";
-import { getCockpitData, isTaskOpen, isLeverActive, sortedWeeks } from "@/lib/cockpit";
+import { getCockpitData, isTaskOpen } from "@/lib/cockpit";
 import { UMSETZUNGS_BLOECKE } from "@/lib/phases";
 import { PageShell } from "@/components/_primitives/page-shell";
 import { Pill } from "@/components/_primitives/card";
@@ -10,7 +10,7 @@ export const dynamic = "force-dynamic";
 
 export default async function CockpitOverview() {
   await requireAdmin();
-  const { tasks, levers, weeklyKpis, decisions, umsetzung } = await getCockpitData();
+  const { tasks, decisions, umsetzung } = await getCockpitData();
 
   const openTasks = tasks.filter(isTaskOpen);
   const openDecisions = decisions.filter((d) => (d.status || "offen") === "offen" || d.status === "vorbereitet");
@@ -19,7 +19,6 @@ export default async function CockpitOverview() {
 
   const blockOpen = (keys: string[]) => openTasks.filter((t) => keys.includes(String(t.phase || ""))).length;
   const focus = [...UMSETZUNGS_BLOECKE].sort((a, b) => a.step - b.step).find((b) => blockOpen(b.phaseKeys) > 0);
-  const latestWeek = sortedWeeks(weeklyKpis)[0];
 
   return (
     <PageShell icon="cockpit" title="Umsetzung" subtitle="Stephans MasterMind-Plan kontrolliert umsetzen — Phasen · Steuerung · Briefing">
@@ -81,8 +80,6 @@ export default async function CockpitOverview() {
       <h2 className="mb-2 mt-7 text-xs font-bold uppercase tracking-wide text-muted-2">Datenbestand</h2>
       <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
         <Stat href="/cockpit/tasks" icon="check" label="Offene Tasks" value={openTasks.length} sub={`${tasks.length} gesamt`} />
-        <Stat href="/cockpit/hebel" icon="lever" label="Aktive Hebel" value={levers.filter(isLeverActive).length} sub={`${levers.length} gesamt`} />
-        <Stat href="/cockpit/kpis" icon="kpi" label="KPI-Wochen" value={weeklyKpis.length} sub={latestWeek?.weekLabel || latestWeek?.weekStart || "—"} />
         <Stat href="/cockpit/entscheidungen" icon="compass" label="Offene Entsch." value={openDecisions.length} sub={`${decisions.length} gesamt`} />
       </div>
 

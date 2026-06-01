@@ -108,7 +108,6 @@ export const DECISION_FIELDS: FieldSpec[] = [
 export type ActivityItem = { at: number; by?: string; type: string; title: string; href: string; kind: "created" | "changed"; changes: HistoryChange[] };
 
 const ACT_CONF = [
-  { collection: "levers", type: "Hebel", titleKey: "title", path: "hebel", fields: LEVER_FIELDS },
   { collection: "tasks", type: "Task", titleKey: "title", path: "tasks", fields: TASK_FIELDS },
   { collection: "stephanDecisions", type: "Entscheidung", titleKey: "titel", path: "entscheidungen", fields: DECISION_FIELDS },
 ];
