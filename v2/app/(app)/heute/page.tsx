@@ -27,9 +27,13 @@ export default async function HeutePage() {
   const today = new Date().toISOString().slice(0, 10);
   const dateLabel = new Date().toLocaleDateString("de-AT", { weekday: "long", day: "numeric", month: "long", year: "numeric" });
 
-  const { tasks, levers, weeklyKpis, decisions, calendarEvents } = await getCockpitData();
-  const activity = await getRecentActivity(6);
-  const progress = (await getProgress(sess.email)) || emptyProgress(sess.email);
+  const [cockpit, activity, progressRaw] = await Promise.all([
+    getCockpitData(),
+    getRecentActivity(6),
+    getProgress(sess.email),
+  ]);
+  const { tasks, levers, weeklyKpis, decisions, calendarEvents } = cockpit;
+  const progress = progressRaw || emptyProgress(sess.email);
   const lvl = levelInfo(progress.xp);
   const pathsDone = PATHS.filter((p) => pathComplete(p.id, progress.stats)).length;
 

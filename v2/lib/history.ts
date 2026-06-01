@@ -1,5 +1,9 @@
 import { db, STATE_ID } from "./supabase-server";
 
+// Wie viele state_history-Snapshots die History lädt. Bewusst klein: jeder Snapshot ist der
+// komplette App-State-jsonb — 120 wären mehrere MB Transfer/Parse pro Request (Perf, Phase 2a).
+const HISTORY_SNAPSHOTS = 20;
+
 export type HistoryChange = { label: string; from: string; to: string };
 export type HistoryEvent = { at: number; kind: "created" | "changed"; changes: HistoryChange[]; by?: string };
 export type FieldSpec = { key: string; label: string };
@@ -47,8 +51,10 @@ function fmt(v: unknown): string {
 // Baut die Änderungs-Historie eines Datensatzes aus den state_history-Snapshots (alt) + aktuellem Stand.
 export async function getRecordHistory(collection: string, id: string, fields: FieldSpec[]): Promise<HistoryEvent[]> {
   try {
-    const snaps = await db().from("state_history").select("updated_at, data, actor").order("updated_at", { ascending: true }).limit(120);
-    const cur = await db().from("app_state").select("data, updated_at").eq("id", STATE_ID).maybeSingle();
+    const [snaps, cur] = await Promise.all([
+      db().from("state_history").select("updated_at, data, actor").order("updated_at", { ascending: true }).limit(HISTORY_SNAPSHOTS),
+      db().from("app_state").select("data, updated_at").eq("id", STATE_ID).maybeSingle(),
+    ]);
 
     const versions: { at: number; item: Record<string, any> | undefined; actor?: string }[] = [];
     for (const s of (snaps.data || [])) versions.push({ at: Number((s as any).updated_at) || 0, item: findItem((s as any).data, collection, id), actor: (s as any).actor || undefined });
@@ -116,8 +122,10 @@ function byId(data: any, collection: string): Record<string, Record<string, any>
 
 export async function getRecentActivity(limit = 40): Promise<ActivityItem[]> {
   try {
-    const snaps = await db().from("state_history").select("updated_at, data, actor").order("updated_at", { ascending: true }).limit(120);
-    const cur = await db().from("app_state").select("data, updated_at").eq("id", STATE_ID).maybeSingle();
+    const [snaps, cur] = await Promise.all([
+      db().from("state_history").select("updated_at, data, actor").order("updated_at", { ascending: true }).limit(HISTORY_SNAPSHOTS),
+      db().from("app_state").select("data, updated_at").eq("id", STATE_ID).maybeSingle(),
+    ]);
     const versions: { at: number; data: any; actor?: string }[] = [];
     for (const s of (snaps.data || [])) versions.push({ at: Number((s as any).updated_at) || 0, data: (s as any).data, actor: (s as any).actor || undefined });
     versions.push({ at: Number(cur.data?.updated_at) || Date.now(), data: cur.data?.data, actor: undefined });
