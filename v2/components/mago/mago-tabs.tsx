@@ -8,6 +8,8 @@ import { MAGO_MODULES } from "@/lib/mago-config";
 const TABS = [
   { href: "/mago", icon: "briefcase", label: "Übersicht" },
   ...MAGO_MODULES.map((m) => ({ href: m.route, icon: m.icon, label: m.label })),
+  { href: "/mago/hebel", icon: "lever", label: "Hebel" },
+  { href: "/mago/kennzahlen", icon: "kpi", label: "Kennzahlen" },
 ];
 
 export function MagoTabs() {

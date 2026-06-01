@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { requireSuperAdmin } from "@/lib/auth-helpers";
-import { getMagoData } from "@/lib/mago";
+import { getMagoData, getMagoCollection } from "@/lib/mago";
 import { MAGO_MODULES } from "@/lib/mago-config";
 import { PageShell } from "@/components/_primitives/page-shell";
 import { Icon } from "@/components/icon";
@@ -10,6 +10,7 @@ export const dynamic = "force-dynamic";
 export default async function MagoOverview() {
   await requireSuperAdmin();
   const data = await getMagoData();
+  const [hebel, kpis] = await Promise.all([getMagoCollection("magoHebel"), getMagoCollection("magoKpis")]);
   const totalStunden = (data.zeit || []).reduce((s, z) => s + (Number(z.stunden) || 0), 0);
   const offeneMs = (data.meilensteine || []).filter((m) => (String(m.status || "Geplant")) !== "Abgenommen").length;
 
@@ -26,6 +27,22 @@ export default async function MagoOverview() {
             <div className="text-xs text-muted-2">{m.subtitle}</div>
           </Link>
         ))}
+        <Link href="/mago/hebel" className="group rounded-xl border border-line bg-surface p-4 shadow-sm transition hover:border-accent">
+          <div className="flex items-center justify-between">
+            <Icon name="lever" className="h-5 w-5 text-accent" />
+            <span className="text-2xl font-extrabold">{hebel.length}</span>
+          </div>
+          <div className="mt-2 text-sm font-semibold">Hebel</div>
+          <div className="text-xs text-muted-2">Wirkungs-Hebel &amp; deren Aufwand</div>
+        </Link>
+        <Link href="/mago/kennzahlen" className="group rounded-xl border border-line bg-surface p-4 shadow-sm transition hover:border-accent">
+          <div className="flex items-center justify-between">
+            <Icon name="kpi" className="h-5 w-5 text-accent" />
+            <span className="text-2xl font-extrabold">{kpis.length}</span>
+          </div>
+          <div className="mt-2 text-sm font-semibold">Kennzahlen</div>
+          <div className="text-xs text-muted-2">Eigene KPIs gegen Ziele</div>
+        </Link>
       </div>
 
       <div className="mt-4 grid gap-3 sm:grid-cols-2">
