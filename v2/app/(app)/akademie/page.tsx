@@ -41,7 +41,7 @@ export default async function AkademieHub() {
   const pathsDone = PATHS.filter((p) => pathComplete(p.id, progress.stats)).length;
 
   return (
-    <PageShell title="Akademie" icon="academy" subtitle="Dein Verkaufstraining — wähle einen Bereich oder leg direkt los.">
+    <PageShell title="VEKTRA" icon="academy" subtitle="Dein Verkaufstraining — wähle einen Bereich oder leg direkt los.">
       <div className="flex flex-col gap-5">
         {/* Fortschritt */}
         <section className="rounded-xl border border-line bg-gradient-to-br from-accent/10 to-transparent p-4 shadow-sm">

@@ -311,7 +311,7 @@ function renderQuizMsg(q, qi, total, streak = 0) {
 function setUserMenuButton(chatId, userId) {
   let btn;
   if (isAdmin(userId)) btn = { type: "web_app", text: "🚀 Cockpit", web_app: { url: WEBAPP_URL + "/heute" } };
-  else btn = { type: "web_app", text: "🎓 Akademie", web_app: { url: WEBAPP_URL + "/akademie" } };
+  else btn = { type: "web_app", text: "🎓 VEKTRA", web_app: { url: WEBAPP_URL + "/akademie" } };
   tgApi("setChatMenuButton", { chat_id: chatId, menu_button: btn }).catch(() => {});
 }
 async function sendMenu(chatId, userId) {
@@ -332,7 +332,7 @@ async function sendMenu(chatId, userId) {
   return tgApi("sendMessage", { chat_id: chatId, text: "<b>🎯 VEKTRA</b> — Was möchtest du tun?", parse_mode: "HTML", reply_markup: { inline_keyboard: rows } });
 }
 async function cmdStart(chatId, userId) {
-  const lines = ["🎓 <b>HFK Verkaufs-Akademie</b>", "", "Trainiere Produktwissen & Verkauf — direkt im Chat.", "", "<b>🎯 Training:</b>", "/drill — Zufalls-Quiz", "/quiz — Gemischtes Quiz (z.B. <code>/quiz 7</code>)", "/tagesaufgabe — Tägliche Challenge ☀️", "/marke <i>LIEWOOD</i> · /einwand <i>preis</i> · /persona <i>anna</i>", "/rollenspiel · /score · /lern", "/check — Wissens-Check · /fortschritt — Skill-Profil", "", "<b>🧠 Microsoft Copilot:</b>", "/copilot — Hilfe & Schritt-für-Schritt zu Outlook, Excel, Word, Teams"];
+  const lines = ["🎓 <b>HFK VEKTRA</b>", "", "Trainiere Produktwissen & Verkauf — direkt im Chat.", "", "<b>🎯 Training:</b>", "/drill — Zufalls-Quiz", "/quiz — Gemischtes Quiz (z.B. <code>/quiz 7</code>)", "/tagesaufgabe — Tägliche Challenge ☀️", "/marke <i>LIEWOOD</i> · /einwand <i>preis</i> · /persona <i>anna</i>", "/rollenspiel · /score · /lern", "/check — Wissens-Check · /fortschritt — Skill-Profil", "", "<b>🧠 Microsoft Copilot:</b>", "/copilot — Hilfe & Schritt-für-Schritt zu Outlook, Excel, Word, Teams"];
   if (hasModule(userId, "ai")) lines.push("/frag <i>…</i> — KI-Assistent");
   if (isAdmin(userId)) lines.push("", "<b>⚙️ Admin:</b>", "/admin — Panel (User + Bereiche)", "/adduser <i>ID Name</i> · /setrole <i>ID admin|mitarbeiter</i> · /removeuser <i>ID</i>", "/grant <i>ID bereich</i> · /revoke <i>ID bereich</i> — Akademie-Bereiche je Person", "/webcode <i>ID</i> — Web-Login-Code für Browser-Zugang");
   await send(chatId, lines.join("\n"));

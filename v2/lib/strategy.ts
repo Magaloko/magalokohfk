@@ -4,7 +4,7 @@
 //
 // Inhalte 1:1 aus dem Strategie-Dokument — bewusst KEINE erfundenen Zahlen (Halluzinations-Schutz,
 // Architektur-Prinzip 6.4). Wo das Dokument keine Zahl nennt, steht hier auch keine.
-// VEKTRA = diese App.
+// VEKTRA = das Trainer-Werkzeug dieser App (MasterMind).
 
 export type WerkzeugStatus = "Live" | "Geplant" | "Future Scope";
 export type AgentTyp = "deterministisch" | "agentisch" | "hybrid";
