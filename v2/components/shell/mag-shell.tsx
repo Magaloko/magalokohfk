@@ -1,5 +1,5 @@
 "use client";
-import { useState, type ReactNode } from "react";
+import { useEffect, useRef, useState, type ReactNode } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { cn } from "@/lib/cn";
@@ -33,7 +33,13 @@ const SECTIONS: Section[] = [
 export function MagShell({ role, superAdmin = false, children }: { role: string; superAdmin?: boolean; children: ReactNode }) {
   const pathname = usePathname();
   const [open, setOpen] = useState(false);
+  const mainRef = useRef<HTMLElement>(null);
+  const [showTop, setShowTop] = useState(false);
   const isAdmin = role === "admin";
+
+  // Bei Seitenwechsel den internen Scroll-Container zurück nach oben (Next setzt das
+  // bei overflow-Containern nicht automatisch) und den „Nach oben"-Button verstecken.
+  useEffect(() => { mainRef.current?.scrollTo({ top: 0 }); setShowTop(false); }, [pathname]);
   const homeHref = "/akademie"; // Brand „VEKTRA" führt zur Spiel-/Trainings-App (für alle Nutzer)
   const canSee = (h: Hub) => (h.superOnly ? superAdmin : !h.adminOnly || isAdmin);
   const active = (href: string) => pathname === href || pathname.startsWith(href + "/");
@@ -100,8 +106,19 @@ export function MagShell({ role, superAdmin = false, children }: { role: string;
           <IconButton icon="menu" label="Menü" onClick={() => setOpen(true)} size="lg" tone="strong" iconClassName="h-6 w-6" className="-ml-2" />
           <Link href={homeHref} className="font-extrabold">VEKTRA</Link>
         </header>
-        <main className="min-h-0 min-w-0 flex-1 overflow-y-auto pb-[env(safe-area-inset-bottom)]">{children}</main>
+        <main ref={mainRef}
+          onScroll={(e) => setShowTop(e.currentTarget.scrollTop > 400)}
+          className="min-h-0 min-w-0 flex-1 overflow-y-auto pb-[env(safe-area-inset-bottom)]">{children}</main>
       </div>
+
+      {/* „Nach oben" — erscheint nach etwas Scrollen, scrollt den Inhalt sanft hoch */}
+      {showTop && (
+        <button type="button" aria-label="Nach oben"
+          onClick={() => mainRef.current?.scrollTo({ top: 0, behavior: "smooth" })}
+          className="fixed bottom-[calc(1rem+env(safe-area-inset-bottom))] right-4 z-30 grid h-11 w-11 place-items-center rounded-full bg-accent text-bg shadow-lg transition hover:opacity-90">
+          <Icon name="arrow-right" className="h-5 w-5 -rotate-90" />
+        </button>
+      )}
     </div>
   );
 }
