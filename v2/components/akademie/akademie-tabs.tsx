@@ -30,10 +30,10 @@ export function AkademieTabs({ allowed, isAdmin }: { allowed: string[]; isAdmin:
   const overviewActive = pathname === "/akademie";
   return (
     <div className="sticky top-0 z-10 border-b border-line bg-bg/80 backdrop-blur">
-      <div className="mx-auto flex max-w-6xl gap-1 overflow-x-auto px-4 py-2 sm:px-6">
+      <div className="mx-auto flex max-w-6xl gap-1 overflow-x-auto px-4 py-2 sm:px-6 [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden">
         <Link href="/akademie"
           className={cn(
-            "whitespace-nowrap rounded-lg px-3 py-1.5 text-sm font-semibold transition",
+            "whitespace-nowrap rounded-lg px-3 py-2.5 text-sm font-semibold transition inline-flex items-center min-h-11",
             overviewActive ? "bg-accent/15 text-accent" : "text-muted hover:bg-surface-2 hover:text-ink",
           )}><span className="flex items-center gap-1"><Icon name="academy" className="h-4 w-4" />Übersicht</span></Link>
         {tabs.map((t) => {
@@ -42,7 +42,7 @@ export function AkademieTabs({ allowed, isAdmin }: { allowed: string[]; isAdmin:
           return (
             <Link key={t.area} href={href}
               className={cn(
-                "whitespace-nowrap rounded-lg px-3 py-1.5 text-sm font-semibold transition",
+                "whitespace-nowrap rounded-lg px-3 py-2.5 text-sm font-semibold transition inline-flex items-center min-h-11",
                 active ? "bg-accent/15 text-accent" : "text-muted hover:bg-surface-2 hover:text-ink",
               )}>{t.area === "lernpfade" ? <span className="flex items-center gap-1"><Icon name="compass" className="h-4 w-4" />{t.label}</span> : t.label}</Link>
           );
