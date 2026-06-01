@@ -31,7 +31,7 @@ export default async function CockpitOverview() {
             <h2 className="mt-1 text-lg font-extrabold tracking-tight">Reihenfolge laut Plan: Foundation → Treasury → Einkauf</h2>
             <p className="mt-1 max-w-2xl text-sm text-muted">VEKTRA (diese App) ist der erste sichtbare Baustein, aber bewusst nachrangig. Der strategische Schwerpunkt bleibt Foundation, Treasury und Einkauf.</p>
           </div>
-          <Link href="/cockpit/strategie" className="shrink-0 text-xs font-semibold text-accent">Plan ansehen →</Link>
+          <Link href="/mastermind" className="shrink-0 text-xs font-semibold text-accent">Plan ansehen →</Link>
         </div>
       </section>
 
