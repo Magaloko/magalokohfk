@@ -5,6 +5,7 @@ import { cockpitMutate, errText } from "@/components/cockpit/mutate";
 import { Modal } from "@/components/cockpit/task-editor";
 import type { Rollenspiel } from "@/lib/akademie";
 import { Icon } from "@/components/icon";
+import { IconButton } from "@/components/_primitives/icon-button";
 
 const COL = "akademieRoleplays";
 const sel = "w-full rounded-lg border border-line bg-surface-2 px-3 py-2 text-sm text-ink outline-none focus:border-accent";
@@ -35,8 +36,8 @@ export function RollenspielActions({ id, rp }: { id: string; rp: Rollenspiel }) 
   }
   return (
     <div className="mt-3 flex gap-2 border-t border-line/60 pt-3">
-      <button disabled={busy} onClick={() => setEdit(true)} className="rounded-lg bg-surface-2 px-3 py-1.5 text-xs font-semibold hover:text-ink disabled:opacity-50"><Icon name="edit" className="h-4 w-4 inline-block mr-1" />Bearbeiten</button>
-      <button disabled={busy} onClick={del} className="rounded-lg bg-red/10 px-3 py-1.5 text-xs font-semibold text-red hover:bg-red/20 disabled:opacity-50"><Icon name="trash" className="h-4 w-4 inline-block mr-1" />Löschen</button>
+      <button disabled={busy} onClick={() => setEdit(true)} className="inline-flex items-center gap-1 rounded-lg bg-surface-2 px-3 py-1.5 min-h-10 text-xs font-semibold hover:text-ink disabled:opacity-50"><Icon name="edit" className="h-4 w-4" />Bearbeiten</button>
+      <button disabled={busy} onClick={del} className="inline-flex items-center gap-1 rounded-lg bg-red/10 px-3 py-1.5 min-h-10 text-xs font-semibold text-red hover:bg-red/20 disabled:opacity-50"><Icon name="trash" className="h-4 w-4" />Löschen</button>
       {edit && <RpForm id={id} rp={rp} onClose={() => setEdit(false)} />}
     </div>
   );
@@ -48,7 +49,7 @@ function RowList<T>({ items, setItems, blank, render }: { items: T[]; setItems: 
       {items.map((it, i) => (
         <div key={i} className="flex items-start gap-2 rounded-lg border border-line bg-surface-2/40 p-2">
           <div className="flex-1">{render(it, (p) => setItems(items.map((x, j) => (j === i ? { ...x, ...p } : x))))}</div>
-          <button onClick={() => setItems(items.filter((_, j) => j !== i))} className="mt-1 text-muted-2 hover:text-red" aria-label="entfernen"><Icon name="x" className="h-4 w-4" /></button>
+          <IconButton icon="x" label="entfernen" onClick={() => setItems(items.filter((_, j) => j !== i))} className="-mr-2" />
         </div>
       ))}
       <button onClick={() => setItems([...items, blank()])} className="self-start rounded bg-surface-2 px-2 py-1 text-xs font-semibold text-muted hover:text-ink">+ hinzufügen</button>

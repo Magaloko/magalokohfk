@@ -4,7 +4,7 @@ import { useRouter } from "next/navigation";
 import { cockpitMutate, errText } from "@/components/cockpit/mutate";
 import { Modal } from "@/components/cockpit/task-editor";
 import type { Einwand } from "@/lib/akademie";
-import { Icon } from "@/components/icon";
+import { IconButton } from "@/components/_primitives/icon-button";
 
 const COL = "salesObjections";
 const sel = "w-full rounded-lg border border-line bg-surface-2 px-3 py-2 text-sm text-ink outline-none focus:border-accent";
@@ -32,9 +32,9 @@ export function EinwandRowActions({ id, einwand }: { id: string; einwand: Einwan
     if (r.ok) router.refresh(); else alert(errText(r.error));
   }
   return (
-    <span className="inline-flex gap-1">
-      <button disabled={busy} onClick={() => setEdit(true)} className="rounded bg-surface-2 px-2 py-1 text-xs hover:text-ink disabled:opacity-50" aria-label="Bearbeiten"><Icon name="edit" className="h-4 w-4" /></button>
-      <button disabled={busy} onClick={del} className="rounded bg-red/10 px-2 py-1 text-xs text-red hover:bg-red/20 disabled:opacity-50" aria-label="Löschen"><Icon name="trash" className="h-4 w-4" /></button>
+    <span className="inline-flex gap-2">
+      <IconButton icon="edit" label="Bearbeiten" onClick={() => setEdit(true)} disabled={busy} />
+      <IconButton icon="trash" label="Löschen" onClick={del} disabled={busy} tone="danger" />
       {edit && <EinwandForm id={id} einwand={einwand} onClose={() => setEdit(false)} />}
     </span>
   );
