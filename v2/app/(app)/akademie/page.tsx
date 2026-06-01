@@ -63,7 +63,7 @@ export default async function AkademieHub() {
           </div>
           <div className="mt-1 text-right text-[11px] text-muted-2">{lvl.into}/{lvl.need} bis Level {lvl.level + 1}</div>
           {/* Badges */}
-          <div className="mt-3 flex flex-wrap gap-2">
+          <div className="mt-3 hidden flex-wrap gap-2 md:flex">
             {BADGES.map((b) => {
               const earned = progress.badges.includes(b.id);
               return (
@@ -76,9 +76,9 @@ export default async function AkademieHub() {
           </div>
         </section>
 
-        {showQuick && <ChallengeCard drills={d.drills} einwaende={d.einwaende} marken={d.marken} doneToday={challengeDone} streak={progress.streak} />}
+        {showQuick && <div className="order-2 md:order-none"><ChallengeCard drills={d.drills} einwaende={d.einwaende} marken={d.marken} doneToday={challengeDone} streak={progress.streak} /></div>}
 
-        <Link href="/akademie/lernpfade" className="group flex items-center justify-between rounded-xl border border-line bg-gradient-to-br from-accent/10 to-transparent p-4 shadow-sm transition hover:border-accent">
+        <Link href="/akademie/lernpfade" className="group order-2 md:order-none flex items-center justify-between rounded-xl border border-line bg-gradient-to-br from-accent/10 to-transparent p-4 shadow-sm transition hover:border-accent">
           <div className="flex items-center gap-3">
             <Icon name="compass" className="h-6 w-6 text-accent" />
             <div>
@@ -89,10 +89,10 @@ export default async function AkademieHub() {
           <span className="text-accent transition group-hover:translate-x-0.5">→</span>
         </Link>
 
-        <ContinueCard allowed={areas} />
+        <div className="order-2 md:order-none"><ContinueCard allowed={areas} /></div>
 
         {showQuick && (
-          <section className="rounded-xl border border-line bg-surface p-4 shadow-sm">
+          <section className="order-2 md:order-none rounded-xl border border-line bg-surface p-4 shadow-sm">
             <h2 className="mb-3 flex items-center gap-1.5 text-xs font-bold uppercase tracking-wide text-muted-2"><Icon name="bolt" className="h-4 w-4" /> Schnellstart</h2>
             <div className="flex flex-col gap-3">
               {has("drills") && <DrillLauncher drills={d.drills} />}
@@ -101,7 +101,7 @@ export default async function AkademieHub() {
           </section>
         )}
 
-        <section>
+        <section className="order-1 md:order-none">
           <h2 className="mb-3 text-xs font-bold uppercase tracking-wide text-muted-2">Bereiche</h2>
           <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
             {tiles.map((t) => (
@@ -129,7 +129,7 @@ export default async function AkademieHub() {
         </section>
 
         {board.length > 0 && (
-          <section>
+          <section className="order-3 md:order-none">
             <h2 className="mb-3 flex items-center gap-1.5 text-xs font-bold uppercase tracking-wide text-muted-2"><Icon name="trophy" className="h-4 w-4" /> Bestenliste (anonym)</h2>
             <div className="overflow-hidden rounded-xl border border-line bg-surface">
               {board.map((e) => (
