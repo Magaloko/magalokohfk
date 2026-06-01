@@ -8,7 +8,7 @@ type Cfg = { n: number; drills: Drill[]; einwaende: Einwand[]; marken: Marke[]; 
 
 export function QuizLauncher({ drills, einwaende, marken }: { drills: Drill[]; einwaende: Einwand[]; marken: Marke[] }) {
   const [cfg, setCfg] = useState<Cfg | null>(null);
-  const btn = "rounded-lg px-4 py-2 text-sm font-semibold transition";
+  const btn = "rounded-lg px-4 py-2.5 text-sm font-semibold transition min-h-11";
   const has = { drills: drills.length >= 2, einwaende: einwaende.length >= 4, marken: marken.length >= 4 };
 
   return (

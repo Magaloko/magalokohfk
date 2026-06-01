@@ -23,7 +23,7 @@ export function DrillLauncher({ drills }: { drills: Drill[] }) {
       <button
         onClick={() => setOpen(true)}
         disabled={!playable}
-        className="rounded-lg bg-accent px-4 py-2 text-sm font-semibold text-bg transition hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-40 flex items-center gap-1.5"
+        className="rounded-lg bg-accent px-4 py-2.5 text-sm font-semibold text-bg transition hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-40 flex items-center gap-1.5 min-h-11"
       >
         <Icon name="bolt" className="h-4 w-4" /> Drill-Training starten{playable ? ` (${playable})` : ""}
       </button>
@@ -31,7 +31,7 @@ export function DrillLauncher({ drills }: { drills: Drill[] }) {
         <select
           value={marke}
           onChange={(e) => setMarke(e.target.value)}
-          className="rounded-lg border border-line bg-surface-2 px-3 py-2 text-sm text-ink outline-none focus:border-accent"
+          className="rounded-lg border border-line bg-surface-2 px-3 py-2.5 text-sm text-ink outline-none focus:border-accent min-h-11"
         >
           <option value="all">Alle Marken</option>
           {marken.map((m) => <option key={m} value={m}>{m}</option>)}

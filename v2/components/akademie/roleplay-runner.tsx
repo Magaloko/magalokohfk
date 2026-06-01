@@ -5,6 +5,7 @@ import { Confetti } from "./confetti";
 import { ResultRewards } from "./result-rewards";
 import type { Rollenspiel } from "@/lib/akademie";
 import { Icon } from "@/components/icon";
+import { IconButton } from "@/components/_primitives/icon-button";
 
 type Msg = { role: "user" | "assistant"; content: string };
 type Coach = {
@@ -105,7 +106,7 @@ export function RoleplayRunner({ rp, onClose }: { rp: Rollenspiel; onClose: () =
           <h3 className="text-base font-bold"><Icon name="mic" className="h-5 w-5 inline-block mr-1" />{rp.titel || "Live-Rollenspiel"}</h3>
           <p className="text-xs text-muted-2">{(rp.persona || "").split("(")[0].trim()}{rp.verkaufstechnik ? ` · ${rp.verkaufstechnik}` : ""}</p>
         </div>
-        <button onClick={onClose} aria-label="Schließen" className="rounded-lg bg-surface-2 px-2.5 py-1 text-sm text-muted hover:text-ink"><Icon name="x" className="h-4 w-4" /></button>
+        <IconButton icon="x" label="Schließen" onClick={onClose} tone="default" />
       </div>
 
       {phase === "result" && coach ? (
@@ -154,7 +155,7 @@ export function RoleplayRunner({ rp, onClose }: { rp: Rollenspiel; onClose: () =
           <div className="mt-2 flex items-center justify-between">
             <span className="text-xs text-muted-2">{turns} Wechsel</span>
             <button onClick={evaluate} disabled={sending}
-              className="rounded-lg bg-surface-2 px-3 py-1.5 text-sm font-semibold text-ink hover:bg-surface-2/70 disabled:opacity-50"><Icon name="target" className="h-4 w-4 inline-block mr-1" />Gespräch auswerten</button>
+              className="rounded-lg bg-surface-2 px-4 py-2.5 text-sm font-semibold text-ink hover:bg-surface-2/70 disabled:opacity-50 min-h-11"><Icon name="target" className="h-4 w-4 inline-block mr-1" />Gespräch auswerten</button>
           </div>
         </>
       )}
