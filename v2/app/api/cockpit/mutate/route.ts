@@ -25,6 +25,7 @@ const SPEC: Record<string, { fields: string[]; numeric?: string[]; prefix: strin
   magoZeit: { fields: ["datum", "taetigkeit", "bezug", "notiz"], numeric: ["stunden", "satz"], prefix: "mzeit" },
   magoMeilensteine: { fields: ["titel", "phase", "status", "datumZiel", "datumAbnahme", "notiz"], prefix: "mms" },
   magoHebel: { fields: ["title", "area", "phase", "status", "confidence", "risk", "description", "notes", "startDate", "finishDate"], numeric: ["expectedImpactEur", "effortHours"], prefix: "mhbl" },
+  mastermindAntworten: { fields: ["frageId", "status", "antwort", "notiz"], prefix: "mma" },
 };
 const DYNAMIC = new Set(["weeklyKpis", "magoKpis"]); // dynamische Metrik-Felder
 const KPI_PREFIX = "kpi";
