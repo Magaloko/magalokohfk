@@ -26,6 +26,7 @@ export function UserManager({ initial }: { initial: User[] }) {
   const [codes, setCodes] = useState<Record<number, string>>({});
   const [newUid, setNewUid] = useState("");
   const [newName, setNewName] = useState("");
+  const [newWebName, setNewWebName] = useState("");
 
   async function refresh() {
     const r = await fetch("/api/admin/users").then((x) => (x.ok ? x.json() : null)).catch(() => null);
@@ -45,6 +46,12 @@ export function UserManager({ initial }: { initial: User[] }) {
     if (!Number.isInteger(uid) || uid <= 0) { setMsg("Gültige Telegram-ID eingeben (Zahlen)."); return; }
     await run({ action: "add", uid, name: newName.trim() }, "Mitarbeiter hinzugefügt.");
     setNewUid(""); setNewName("");
+  }
+  async function addWeb() {
+    if (!newWebName.trim()) { setMsg("Name eingeben."); return; }
+    const r = await run({ action: "addWeb", name: newWebName.trim() }, "Web-Login angelegt — Code unten in der Karte.");
+    if (r?.code && r?.uid) setCodes((c) => ({ ...c, [r.uid]: r.code }));
+    setNewWebName("");
   }
   const setRole = (uid: number, role: string) => run({ action: "setRole", uid, role });
   const toggleArea = (u: User, area: string) => {
@@ -71,6 +78,16 @@ export function UserManager({ initial }: { initial: User[] }) {
         {msg && <p className="mt-2 text-sm text-accent">{msg}</p>}
       </section>
 
+      {/* Web-Login ohne Telegram */}
+      <section className="rounded-xl border border-line bg-surface p-4 shadow-sm">
+        <h2 className="mb-3 flex items-center gap-1.5 text-xs font-bold uppercase tracking-wide text-muted-2"><Icon name="key" className="h-3.5 w-3.5" /> Web-Login (ohne Telegram)</h2>
+        <div className="flex flex-wrap items-end gap-2">
+          <label className="block"><span className="mb-1 block text-[11px] uppercase text-muted-2">Name</span><input value={newWebName} onChange={(e) => setNewWebName(e.target.value)} placeholder="Vorname" className={cn(inp, "w-48")} /></label>
+          <button onClick={addWeb} disabled={busy} className="rounded-lg bg-accent px-4 py-2 text-sm font-semibold text-bg disabled:opacity-50">Anlegen &amp; Code</button>
+        </div>
+        <p className="mt-2 text-xs text-muted-2">Für Mitarbeiter ohne Telegram. Der Web-Code erscheint einmalig in der Karte unten — dem Mitarbeiter für den Browser-Login geben.</p>
+      </section>
+
       {/* Liste */}
       <section className="flex flex-col gap-3">
         {users.map((u) => {
@@ -79,7 +96,7 @@ export function UserManager({ initial }: { initial: User[] }) {
             <div key={u.uid} className="rounded-xl border border-line bg-surface p-4 shadow-sm">
               <div className="flex flex-wrap items-center justify-between gap-3">
                 <div>
-                  <div className="font-bold">{u.name || "—"} <span className="font-mono text-xs text-muted-2">#{u.uid}</span></div>
+                  <div className="font-bold">{u.name || "—"} {u.uid < 0 ? <span className="rounded-full bg-surface-2 px-2 py-0.5 text-[10px] font-bold uppercase text-muted-2">Web</span> : <span className="font-mono text-xs text-muted-2">#{u.uid}</span>}</div>
                 </div>
                 <div className="flex flex-wrap items-center gap-2">
                   <select value={u.role} onChange={(e) => setRole(u.uid, e.target.value)} disabled={busy} className={inp}>

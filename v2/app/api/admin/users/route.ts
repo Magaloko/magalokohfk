@@ -35,8 +35,28 @@ export async function POST(req: NextRequest) {
   try { b = await req.json(); } catch { return NextResponse.json({ error: "bad_request" }, { status: 400 }); }
 
   const action = String(b?.action || "");
+
+  // Web-only-Nutzer: ohne Telegram-ID. Synthetische NEGATIVE id (kollidiert nie mit
+  // positiven Telegram-IDs) + sofort ein Web-Code. Login läuft per Code (web-auth sucht
+  // bot_users über web_code_hash, nicht über die Telegram-ID).
+  if (action === "addWeb") {
+    try {
+      const code = genWebCode();
+      const uid = -Date.now();
+      await db().from("bot_users").upsert(
+        { uid, name: String(b?.name || "").slice(0, 80) || "Web-Nutzer", role: "mitarbeiter", modules: [], web_code_hash: webCodeHash(code) },
+        { onConflict: "uid" },
+      );
+      return NextResponse.json({ ok: true, uid, code }); // Klartext-Code nur einmal
+    } catch (e) {
+      console.error("[admin/users:addWeb]", (e as Error)?.message);
+      return NextResponse.json({ error: "save_failed" }, { status: 500 });
+    }
+  }
+
   const uid = Number(b?.uid);
-  if (!Number.isInteger(uid) || uid <= 0) return NextResponse.json({ error: "bad_uid" }, { status: 400 });
+  // negative IDs erlaubt (Web-only-Nutzer); nur 0 / keine Zahl ablehnen.
+  if (!Number.isInteger(uid) || uid === 0) return NextResponse.json({ error: "bad_uid" }, { status: 400 });
 
   try {
     if (action === "add") {
