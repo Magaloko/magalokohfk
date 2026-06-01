@@ -4,6 +4,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { cn } from "@/lib/cn";
 import { Icon } from "@/components/icon";
+import { IconButton } from "@/components/_primitives/icon-button";
 
 type Hub = { href: string; label: string; icon: string; adminOnly?: boolean; superOnly?: boolean };
 type Section = { title?: string; adminOnly?: boolean; items: Hub[] };
@@ -86,7 +87,7 @@ export function MagShell({ role, superAdmin = false, children }: { role: string;
           <aside className="absolute left-0 top-0 h-full w-72 border-r border-line bg-surface">
             <div className="flex items-center justify-between px-4 py-5">
               <span className="font-extrabold">MasterMind</span>
-              <button onClick={() => setOpen(false)} aria-label="Schließen" className="text-muted-2"><Icon name="x" className="h-5 w-5" /></button>
+              <IconButton icon="x" label="Schließen" onClick={() => setOpen(false)} size="lg" tone="default" iconClassName="h-6 w-6" className="-mr-2" />
             </div>
             {Nav}
           </aside>
@@ -96,7 +97,7 @@ export function MagShell({ role, superAdmin = false, children }: { role: string;
       <div className="flex min-w-0 flex-1 flex-col">
         {/* Topbar (mobil) */}
         <header className="flex items-center gap-3 border-b border-line bg-surface px-4 py-3 md:hidden">
-          <button onClick={() => setOpen(true)} aria-label="Menü"><Icon name="menu" className="h-6 w-6" /></button>
+          <IconButton icon="menu" label="Menü" onClick={() => setOpen(true)} size="lg" tone="strong" iconClassName="h-6 w-6" className="-ml-2" />
           <span className="font-extrabold">MasterMind</span>
         </header>
         <main className="min-w-0 flex-1 pb-[env(safe-area-inset-bottom)]">{children}</main>
