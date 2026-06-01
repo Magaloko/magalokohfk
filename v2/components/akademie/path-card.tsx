@@ -70,9 +70,11 @@ export function PathCard({ path, initial, autoDone = [] }: { path: LearnPath; in
               ) : (
                 <button onClick={() => toggle(i)} disabled={busy != null}
                   aria-label={dn ? "Als offen markieren" : "Als erledigt markieren"}
-                  className={cn("grid h-6 w-6 shrink-0 place-items-center rounded-full border text-xs transition disabled:opacity-50",
+                  className="grid h-11 w-11 shrink-0 place-items-center rounded-lg transition disabled:opacity-50">
+                  <span className={cn("grid h-6 w-6 shrink-0 place-items-center rounded-full border text-xs",
                     dn ? "border-green bg-green text-bg" : "border-line text-muted-2 hover:border-accent")}>
-                  {dn ? <Icon name="check" className="h-3 w-3" /> : i + 1}
+                    {dn ? <Icon name="check" className="h-3 w-3" /> : i + 1}
+                  </span>
                 </button>
               )}
               <div className="min-w-0 flex-1">
@@ -80,7 +82,7 @@ export function PathCard({ path, initial, autoDone = [] }: { path: LearnPath; in
                 {s.hint && <div className="text-xs text-muted-2">{s.hint}</div>}
                 {autoStep && <div className={cn("text-[11px] font-semibold", dn ? "text-green" : "text-amber")}>{dn ? "durch Training erfüllt" : "Training nötig"}</div>}
               </div>
-              <Link href={s.href} className="shrink-0 rounded-lg bg-surface-2 px-3 py-1.5 text-xs font-semibold text-accent hover:bg-accent/10">Öffnen →</Link>
+              <Link href={s.href} className="shrink-0 rounded-lg bg-surface-2 px-3 py-2 text-sm font-semibold text-accent hover:bg-accent/10 min-h-10">Öffnen →</Link>
             </li>
           );
         })}

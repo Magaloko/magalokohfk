@@ -25,7 +25,7 @@ export function ChallengeCard({ drills, einwaende, marken, doneToday, streak }: 
             <span className="rounded-full bg-green/15 px-3 py-1.5 text-sm font-semibold text-green flex items-center gap-1"><Icon name="check" className="h-4 w-4" /> heute erledigt</span>
           ) : (
             <button onClick={() => setOpen(true)} disabled={!playable}
-              className="rounded-lg bg-accent px-4 py-2 text-sm font-semibold text-bg transition hover:opacity-90 disabled:opacity-50">
+              className="rounded-lg bg-accent px-4 py-2.5 text-sm font-semibold text-bg transition hover:opacity-90 disabled:opacity-50 min-h-11">
               Challenge starten
             </button>
           )}
