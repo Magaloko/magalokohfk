@@ -70,9 +70,9 @@ export function MagShell({ role, superAdmin = false, children }: { role: string;
   );
 
   return (
-    <div className="flex min-h-[var(--tg-vh,100vh)]">
-      {/* Desktop-Sidebar */}
-      <aside className="hidden w-60 shrink-0 border-r border-line bg-surface md:block">
+    <div className="flex h-[var(--tg-vh,100vh)] overflow-hidden">
+      {/* Desktop-Sidebar — volle Höhe, eigener Scroll; scrollt nicht mit dem Inhalt mit */}
+      <aside className="hidden h-full w-60 shrink-0 overflow-y-auto border-r border-line bg-surface md:block">
         <Link href={homeHref} className="flex items-center gap-2 px-4 py-5 transition hover:opacity-80">
           <div className="grid h-9 w-9 place-items-center rounded-lg bg-accent/20 font-extrabold text-accent">V</div>
           <div><div className="text-sm font-extrabold">VEKTRA</div><div className="text-xs text-muted-2">{isAdmin ? "Admin" : "Sales-Training"}</div></div>
@@ -95,12 +95,12 @@ export function MagShell({ role, superAdmin = false, children }: { role: string;
       )}
 
       <div className="flex min-w-0 flex-1 flex-col">
-        {/* Topbar (mobil) */}
-        <header className="flex items-center gap-3 border-b border-line bg-surface px-4 py-3 md:hidden">
+        {/* Topbar (mobil) — bleibt oben, da außerhalb des scrollenden <main> */}
+        <header className="flex shrink-0 items-center gap-3 border-b border-line bg-surface px-4 py-3 md:hidden">
           <IconButton icon="menu" label="Menü" onClick={() => setOpen(true)} size="lg" tone="strong" iconClassName="h-6 w-6" className="-ml-2" />
           <Link href={homeHref} className="font-extrabold">VEKTRA</Link>
         </header>
-        <main className="min-w-0 flex-1 pb-[env(safe-area-inset-bottom)]">{children}</main>
+        <main className="min-h-0 min-w-0 flex-1 overflow-y-auto pb-[env(safe-area-inset-bottom)]">{children}</main>
       </div>
     </div>
   );
