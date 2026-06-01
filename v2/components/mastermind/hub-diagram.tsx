@@ -3,33 +3,33 @@ import { cn } from "@/lib/cn";
 
 // Reines SVG-Hub-and-Spoke-Diagramm: Zentrale „MasterMind" + die 5 Werkzeuge als
 // anklickbare Speichen (Anker → #wz-<key>). Server-Component, skaliert via viewBox.
-const C = 210;            // Zentrum x/y
-const RC = 56;            // Radius Zentrumskreis
-const NW = 104, NH = 44;  // Knoten-Box
-// Knoten-Zentren im Uhrzeigersinn ab oben (0/72/144/216/288 Grad, R=150)
+const C = 220;             // Zentrum x/y
+const RC = 62;             // Radius Zentrumskreis
+const NW = 122, NH = 46;   // Knoten-Box (breit genug für „Einkaufssystem")
+// Knoten-Zentren im Uhrzeigersinn ab oben (0/72/144/216/288 Grad, R=158)
 const NODES = [
-  { cx: 210, cy: 60 },
-  { cx: 353, cy: 164 },
-  { cx: 298, cy: 331 },
-  { cx: 122, cy: 331 },
-  { cx: 67, cy: 164 },
+  { cx: 220, cy: 62 },
+  { cx: 370, cy: 171 },
+  { cx: 313, cy: 348 },
+  { cx: 127, cy: 348 },
+  { cx: 70, cy: 171 },
 ];
 
 export function HubDiagram() {
   const wz = MASTERMIND.werkzeuge.slice(0, 5);
   return (
-    <svg viewBox="0 0 420 420" role="img"
+    <svg viewBox="0 0 440 440" role="img"
       aria-label="MasterMind-Architektur: Zentrale mit fünf Werkzeugen"
-      className="mx-auto block h-auto w-full max-w-[520px]">
+      className="mx-auto block h-auto w-full max-w-[560px]">
       {/* Speichen-Linien (zuerst — werden von Kreis/Knoten überdeckt) */}
       {NODES.map((n, i) => (
-        <line key={`l${i}`} x1={C} y1={C} x2={n.cx} y2={n.cy} className="stroke-line" strokeWidth={2} />
+        <line key={`l${i}`} x1={C} y1={C} x2={n.cx} y2={n.cy} className="stroke-muted-2" strokeWidth={2} strokeOpacity={0.55} />
       ))}
-      {/* Zentrum */}
+      {/* Zentrum (Navy + Gold-Ring) */}
       <circle cx={C} cy={C} r={RC} className="fill-ink" />
-      <circle cx={C} cy={C} r={RC} className="fill-none stroke-gold" strokeWidth={3} />
-      <text x={C} y={C - 4} textAnchor="middle" className="fill-surface" fontSize={15} fontWeight={800}>MasterMind</text>
-      <text x={C} y={C + 16} textAnchor="middle" className="fill-gold" fontSize={9} fontWeight={600}>zentrale Intelligenz</text>
+      <circle cx={C} cy={C} r={RC} className="fill-none stroke-gold" strokeWidth={3.5} />
+      <text x={C} y={C - 5} textAnchor="middle" className="fill-surface" fontSize={17} fontWeight={800}>MasterMind</text>
+      <text x={C} y={C + 15} textAnchor="middle" className="fill-gold" fontSize={9.5} fontWeight={600}>zentrale Intelligenz</text>
       {/* Werkzeug-Knoten */}
       {wz.map((w, i) => {
         const n = NODES[i];
@@ -37,11 +37,11 @@ export function HubDiagram() {
         const live = w.status === "Live";
         return (
           <a key={w.key} href={`#wz-${w.key}`} className="group cursor-pointer">
-            <rect x={x} y={y} width={NW} height={NH} rx={10}
-              className={cn("fill-surface transition group-hover:stroke-accent", live ? "stroke-green" : "stroke-line")}
-              strokeWidth={live ? 2 : 1.5} />
-            <circle cx={x + 14} cy={y + 14} r={4} className={live ? "fill-green" : "fill-accent"} />
-            <text x={n.cx} y={n.cy + 4} textAnchor="middle" className="fill-ink" fontSize={12} fontWeight={700}>{w.name}</text>
+            <rect x={x} y={y} width={NW} height={NH} rx={12}
+              className={cn("fill-surface-2 transition group-hover:stroke-accent", live ? "stroke-green" : "stroke-line")}
+              strokeWidth={live ? 2.5 : 1} />
+            <circle cx={x + 16} cy={y + 15} r={5} className={live ? "fill-green" : "fill-accent"} />
+            <text x={n.cx} y={n.cy + 5} textAnchor="middle" className="fill-ink" fontSize={13} fontWeight={700}>{w.name}</text>
           </a>
         );
       })}

@@ -5,6 +5,8 @@ import { fragenFuer } from "@/lib/mastermind-fragen";
 import type { MasterMindAntwort } from "@/lib/mastermind";
 import { FragenBlock } from "@/components/mastermind/fragen-block";
 import { HubDiagram } from "@/components/mastermind/hub-diagram";
+import { FragenFortschritt } from "@/components/mastermind/fragen-fortschritt";
+import { RoadmapTimeline } from "@/components/mastermind/roadmap-timeline";
 
 const statusTone = (s: Werkzeug["status"]): "green" | "accent" | "muted" =>
   s === "Live" ? "green" : s === "Geplant" ? "accent" : "muted";
@@ -43,6 +45,9 @@ export function PlanView({ antworten }: { antworten: Record<string, MasterMindAn
       <SectionTitle icon="cockpit" kicker="Das System auf einen Blick" title="MasterMind & seine Werkzeuge" />
       <div className="rounded-xl border border-line bg-surface p-5 shadow-sm sm:p-6">
         <HubDiagram />
+      </div>
+      <div className="mt-4">
+        <FragenFortschritt antworten={antworten} />
       </div>
 
       {/* Wo wir stehen */}
@@ -150,24 +155,7 @@ export function PlanView({ antworten }: { antworten: Record<string, MasterMindAn
       {/* Roadmap */}
       <SectionTitle icon="repeat" kicker="Roadmap" title="Sequenz — Foundation zuerst" />
       <Card>
-        <ol className="flex flex-col">
-          {m.roadmap.map((r, i) => (
-            <li key={r.schritt} className="flex gap-3 pb-4 last:pb-0">
-              <div className="flex flex-col items-center">
-                <span className={`grid h-8 w-8 shrink-0 place-items-center rounded-full text-sm font-extrabold ${r.istDieseApp ? "bg-accent text-bg" : "bg-accent/15 text-accent"}`}>{r.schritt}</span>
-                {i < m.roadmap.length - 1 && <span className="mt-1 w-px flex-1 bg-line" />}
-              </div>
-              <div className="pb-1">
-                <div className="flex flex-wrap items-center gap-2">
-                  <h3 className="text-sm font-bold">{r.titel}</h3>
-                  {r.istDieseApp && <Pill tone="green">live · diese App</Pill>}
-                  {r.timing && <span className="text-xs text-muted-2">{r.timing}</span>}
-                </div>
-                <p className="mt-0.5 text-sm leading-relaxed text-muted">{r.beschreibung}</p>
-              </div>
-            </li>
-          ))}
-        </ol>
+        <RoadmapTimeline />
       </Card>
 
       {/* Ziele 2028 */}
