@@ -6,23 +6,22 @@ import { Modal } from "./task-editor";
 import { Icon } from "@/components/icon";
 import type { WeeklyKpi } from "@/lib/cockpit";
 
-const COL = "weeklyKpis";
 const sel = "w-full rounded-lg border border-line bg-surface-2 px-3 py-2 text-sm text-ink outline-none focus:border-accent";
 const SKIP = new Set(["id", "weekStart", "weekLabel"]);
 
 type Row = { key: string; value: string };
 
-export function NewKpiButton() {
+export function NewKpiButton({ collection = "weeklyKpis" }: { collection?: string }) {
   const [open, setOpen] = useState(false);
   return (
     <>
       <button onClick={() => setOpen(true)} className="rounded-lg bg-accent px-4 py-2 text-sm font-semibold text-bg hover:opacity-90">+ Neue Woche</button>
-      {open && <KpiForm onClose={() => setOpen(false)} />}
+      {open && <KpiForm collection={collection} onClose={() => setOpen(false)} />}
     </>
   );
 }
 
-export function KpiActions({ id, week }: { id: string; week: WeeklyKpi }) {
+export function KpiActions({ id, week, collection = "weeklyKpis" }: { id: string; week: WeeklyKpi; collection?: string }) {
   const router = useRouter();
   const [busy, setBusy] = useState(false);
   const [edit, setEdit] = useState(false);
@@ -31,7 +30,7 @@ export function KpiActions({ id, week }: { id: string; week: WeeklyKpi }) {
   async function del() {
     if (busy || !confirm("Diese KPI-Woche wirklich löschen?")) return;
     setBusy(true); setErr("");
-    const r = await cockpitMutate({ collection: COL, action: "delete", id });
+    const r = await cockpitMutate({ collection, action: "delete", id });
     setBusy(false);
     if (r.ok) router.refresh(); else setErr(errText(r.error));
   }
@@ -41,12 +40,12 @@ export function KpiActions({ id, week }: { id: string; week: WeeklyKpi }) {
       <button disabled={busy} onClick={() => setEdit(true)} className="flex items-center gap-1.5 rounded-lg bg-surface-2 px-3 py-1.5 text-xs font-semibold hover:text-ink disabled:opacity-50"><Icon name="edit" className="h-3 w-3" /> Bearbeiten</button>
       <button disabled={busy} onClick={del} className="flex items-center gap-1.5 rounded-lg bg-red/10 px-3 py-1.5 text-xs font-semibold text-red hover:bg-red/20 disabled:opacity-50"><Icon name="trash" className="h-3 w-3" /> Löschen</button>
       {err && <span className="text-xs text-red">{err}</span>}
-      {edit && <KpiForm id={id} week={week} onClose={() => setEdit(false)} />}
+      {edit && <KpiForm id={id} week={week} collection={collection} onClose={() => setEdit(false)} />}
     </div>
   );
 }
 
-function KpiForm({ id, week, onClose }: { id?: string; week?: WeeklyKpi; onClose: () => void }) {
+function KpiForm({ id, week, collection = "weeklyKpis", onClose }: { id?: string; week?: WeeklyKpi; collection?: string; onClose: () => void }) {
   const router = useRouter();
   const [weekStart, setWeekStart] = useState(String(week?.weekStart || ""));
   const [weekLabel, setWeekLabel] = useState(String(week?.weekLabel || ""));
@@ -69,8 +68,8 @@ function KpiForm({ id, week, onClose }: { id?: string; week?: WeeklyKpi; onClose
     if (weekLabel.trim()) item.weekLabel = weekLabel.trim();
     for (const r of rows) { const k = r.key.trim(); if (k && r.value.trim() !== "") item[k] = r.value.trim(); }
     const r = id
-      ? await cockpitMutate({ collection: COL, action: "replace", id, item })
-      : await cockpitMutate({ collection: COL, action: "create", item });
+      ? await cockpitMutate({ collection, action: "replace", id, item })
+      : await cockpitMutate({ collection, action: "create", item });
     setBusy(false);
     if (r.ok) { onClose(); router.refresh(); } else setErr(errText(r.error));
   }

@@ -9,7 +9,6 @@ import { PHASE_KEYS } from "@/lib/phases";
 
 const STATUSES = ["Backlog", "Geplant", "In Arbeit", "Live", "Verworfen"];
 const LEVELS = ["", "hoch", "mittel", "niedrig"];
-const COL = "levers";
 const sel = "w-full rounded-lg border border-line bg-surface-2 px-3 py-2 text-sm text-ink outline-none focus:border-accent";
 
 type Form = { title: string; area: string; phase: string; status: string; expectedImpactEur: string; effortHours: string; confidence: string; risk: string; description: string; notes: string; startDate: string; finishDate: string };
@@ -21,17 +20,17 @@ const toForm = (l?: Lever): Form => ({
   startDate: l?.startDate || "", finishDate: l?.finishDate || "",
 });
 
-export function NewLeverButton() {
+export function NewLeverButton({ collection = "levers" }: { collection?: string }) {
   const [open, setOpen] = useState(false);
   return (
     <>
       <button onClick={() => setOpen(true)} className="rounded-lg bg-accent px-4 py-2 text-sm font-semibold text-bg hover:opacity-90">+ Neuer Hebel</button>
-      {open && <LeverForm onClose={() => setOpen(false)} />}
+      {open && <LeverForm collection={collection} onClose={() => setOpen(false)} />}
     </>
   );
 }
 
-export function LeverActions({ id, lever }: { id: string; lever: Lever }) {
+export function LeverActions({ id, lever, collection = "levers", backHref = "/cockpit/hebel" }: { id: string; lever: Lever; collection?: string; backHref?: string }) {
   const router = useRouter();
   const [busy, setBusy] = useState(false);
   const [edit, setEdit] = useState(false);
@@ -40,15 +39,15 @@ export function LeverActions({ id, lever }: { id: string; lever: Lever }) {
   async function setStatus(status: string) {
     if (busy || status === lever.status) return;
     setBusy(true); setErr("");
-    const r = await cockpitMutate({ collection: COL, action: "update", id, patch: { status } });
+    const r = await cockpitMutate({ collection, action: "update", id, patch: { status } });
     setBusy(false);
     if (r.ok) router.refresh(); else setErr(errText(r.error));
   }
   async function del() {
     if (busy || !confirm("Diesen Hebel wirklich löschen?")) return;
     setBusy(true); setErr("");
-    const r = await cockpitMutate({ collection: COL, action: "delete", id });
-    if (r.ok) { router.push("/cockpit/hebel"); router.refresh(); }
+    const r = await cockpitMutate({ collection, action: "delete", id });
+    if (r.ok) { router.push(backHref); router.refresh(); }
     else { setBusy(false); setErr(errText(r.error)); }
   }
 
@@ -66,12 +65,12 @@ export function LeverActions({ id, lever }: { id: string; lever: Lever }) {
         <button disabled={busy} onClick={del} className="flex items-center gap-1.5 rounded-lg bg-red/10 px-3 py-1.5 text-sm font-semibold text-red hover:bg-red/20 disabled:opacity-50"><Icon name="trash" className="h-3.5 w-3.5" /> Löschen</button>
       </div>
       {err && <p className="mt-2 text-sm text-red">{err}</p>}
-      {edit && <LeverForm id={id} lever={lever} onClose={() => setEdit(false)} />}
+      {edit && <LeverForm id={id} lever={lever} collection={collection} onClose={() => setEdit(false)} />}
     </section>
   );
 }
 
-function LeverForm({ id, lever, onClose }: { id?: string; lever?: Lever; onClose: () => void }) {
+function LeverForm({ id, lever, collection = "levers", onClose }: { id?: string; lever?: Lever; collection?: string; onClose: () => void }) {
   const router = useRouter();
   const [f, setF] = useState<Form>(toForm(lever));
   const [busy, setBusy] = useState(false);
@@ -83,8 +82,8 @@ function LeverForm({ id, lever, onClose }: { id?: string; lever?: Lever; onClose
     setBusy(true); setErr("");
     const payload = f as unknown as Record<string, unknown>;
     const r = id
-      ? await cockpitMutate({ collection: COL, action: "update", id, patch: payload })
-      : await cockpitMutate({ collection: COL, action: "create", item: payload });
+      ? await cockpitMutate({ collection, action: "update", id, patch: payload })
+      : await cockpitMutate({ collection, action: "create", item: payload });
     setBusy(false);
     if (r.ok) { onClose(); router.refresh(); } else setErr(errText(r.error));
   }
