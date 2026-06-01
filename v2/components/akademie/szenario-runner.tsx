@@ -5,6 +5,7 @@ import { Confetti } from "./confetti";
 import { ResultRewards } from "./result-rewards";
 import type { Szenario } from "@/lib/akademie";
 import { Icon } from "@/components/icon";
+import { IconButton } from "@/components/_primitives/icon-button";
 
 type Step = { prompt: string; options: { text: string; feedback?: string }[]; correctIdx: number };
 
@@ -76,8 +77,8 @@ export function SzenarioRunner({ sc, personaName, onClose }: { sc: Szenario; per
           <p className="mt-4 text-sm text-muted">{msg}</p>
           <ResultRewards type="szenario" score={score} total={total} />
           <div className="mt-5 flex justify-center gap-2">
-            <button onClick={restart} className="rounded-lg bg-accent px-4 py-2 font-semibold text-bg"><Icon name="repeat" className="h-4 w-4 inline-block mr-1" />Nochmal</button>
-            <button onClick={onClose} className="rounded-lg bg-surface-2 px-4 py-2 font-semibold"><Icon name="check" className="h-4 w-4 inline-block mr-1" />Fertig</button>
+            <button onClick={restart} className="rounded-lg bg-accent px-4 py-3 font-semibold text-bg"><Icon name="repeat" className="h-4 w-4 inline-block mr-1" />Nochmal</button>
+            <button onClick={onClose} className="rounded-lg bg-surface-2 px-4 py-3 font-semibold"><Icon name="check" className="h-4 w-4 inline-block mr-1" />Fertig</button>
           </div>
         </div>
       </Modal>
@@ -90,7 +91,7 @@ export function SzenarioRunner({ sc, personaName, onClose }: { sc: Szenario; per
     <Modal onClose={onClose}>
       <div className="mb-3 flex items-start justify-between gap-3">
         <h3 className="text-base font-bold">{sc.name || "Szenario"}</h3>
-        <button onClick={onClose} aria-label="Schließen" className="rounded-lg bg-surface-2 px-2.5 py-1 text-sm text-muted hover:text-ink"><Icon name="x" className="h-4 w-4" /></button>
+        <IconButton icon="x" label="Schließen" onClick={onClose} tone="default" />
       </div>
       <div className="mb-2 h-1.5 overflow-hidden rounded-full bg-surface-2">
         <div className="h-full rounded-full bg-accent transition-all" style={{ width: `${progress}%` }} />

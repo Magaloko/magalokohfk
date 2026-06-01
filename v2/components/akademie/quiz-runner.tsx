@@ -158,8 +158,8 @@ export function QuizRunner({ drills, einwaende, marken, n = 5, onClose, recordTy
           <div className="text-muted flex items-center justify-center gap-1">{pct}% richtig{best >= 2 ? <><span> · </span><Icon name="flame" className="h-4 w-4" /><span> beste Serie {best}</span></> : ""}</div>
           <ResultRewards type={recordType} score={score} total={questions.length} itemResults={resultsRef.current} />
           <div className="mt-5 flex justify-center gap-2">
-            <button onClick={restart} className="rounded-lg bg-accent px-4 py-2 font-semibold text-bg flex items-center gap-1.5"><Icon name="repeat" className="h-4 w-4" /> Nochmal</button>
-            <button onClick={onClose} className="rounded-lg bg-surface-2 px-4 py-2 font-semibold flex items-center gap-1.5"><Icon name="check" className="h-4 w-4" /> Fertig</button>
+            <button onClick={restart} className="rounded-lg bg-accent px-4 py-3 font-semibold text-bg flex items-center gap-1.5"><Icon name="repeat" className="h-4 w-4" /> Nochmal</button>
+            <button onClick={onClose} className="rounded-lg bg-surface-2 px-4 py-3 font-semibold flex items-center gap-1.5"><Icon name="check" className="h-4 w-4" /> Fertig</button>
           </div>
         </div>
       </Modal>

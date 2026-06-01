@@ -5,6 +5,7 @@ import { Confetti } from "./confetti";
 import { ResultRewards } from "./result-rewards";
 import type { Drill } from "@/lib/akademie";
 import { Icon } from "@/components/icon";
+import { IconButton } from "@/components/_primitives/icon-button";
 
 type Opt = { text: string; correct: boolean; feedback?: string };
 type Q = { id?: string; marke: string; technik?: string; schwierigkeit?: string; frage: string; opts: Opt[]; muster?: string };
@@ -80,8 +81,8 @@ export function DrillRunner({ drills, onClose }: { drills: Drill[]; onClose: () 
           <div className="text-muted">{pct}% richtig{best >= 2 ? <> · <Icon name="flame" className="h-4 w-4 inline-block" /> beste Serie {best}</> : ""}</div>
           <ResultRewards type="drill" score={score} total={total} itemResults={results} />
           <div className="mt-5 flex justify-center gap-2">
-            <button onClick={restart} className="rounded-lg bg-accent px-4 py-2 font-semibold text-bg"><Icon name="repeat" className="h-4 w-4 inline-block mr-1" />Nochmal</button>
-            <button onClick={onClose} className="rounded-lg bg-surface-2 px-4 py-2 font-semibold"><Icon name="check" className="h-4 w-4 inline-block mr-1" />Fertig</button>
+            <button onClick={restart} className="rounded-lg bg-accent px-4 py-3 font-semibold text-bg"><Icon name="repeat" className="h-4 w-4 inline-block mr-1" />Nochmal</button>
+            <button onClick={onClose} className="rounded-lg bg-surface-2 px-4 py-3 font-semibold"><Icon name="check" className="h-4 w-4 inline-block mr-1" />Fertig</button>
           </div>
         </div>
       </Modal>
@@ -95,7 +96,7 @@ export function DrillRunner({ drills, onClose }: { drills: Drill[]; onClose: () 
     <Modal onClose={onClose}>
       <div className="mb-3 flex items-start justify-between gap-3">
         <h3 className="text-base font-bold"><Icon name="bolt" className="h-5 w-5 inline-block mr-1" />Drill-Training</h3>
-        <button onClick={onClose} aria-label="Schließen" className="rounded-lg bg-surface-2 px-2.5 py-1 text-sm text-muted hover:text-ink"><Icon name="x" className="h-4 w-4" /></button>
+        <IconButton icon="x" label="Schließen" onClick={onClose} tone="default" />
       </div>
       <div className="mb-2 h-1.5 overflow-hidden rounded-full bg-surface-2">
         <div className="h-full rounded-full bg-accent transition-all" style={{ width: `${progress}%` }} />
