@@ -5,7 +5,7 @@ import { cockpitMutate, errText } from "@/components/cockpit/mutate";
 import { Modal } from "@/components/cockpit/task-editor";
 import { StrList } from "./str-list";
 import type { Drill } from "@/lib/akademie";
-import { Icon } from "@/components/icon";
+import { IconButton } from "@/components/_primitives/icon-button";
 
 const COL = "akademieDrills";
 const sel = "w-full rounded-lg border border-line bg-surface-2 px-3 py-2 text-sm text-ink outline-none focus:border-accent";
@@ -33,9 +33,9 @@ export function DrillRowActions({ id, drill }: { id: string; drill: Drill }) {
     if (r.ok) router.refresh(); else alert(errText(r.error));
   }
   return (
-    <span className="inline-flex gap-1">
-      <button disabled={busy} onClick={() => setEdit(true)} className="rounded bg-surface-2 px-2 py-1 text-xs hover:text-ink disabled:opacity-50" aria-label="Bearbeiten"><Icon name="edit" className="h-4 w-4" /></button>
-      <button disabled={busy} onClick={del} className="rounded bg-red/10 px-2 py-1 text-xs text-red hover:bg-red/20 disabled:opacity-50" aria-label="Löschen"><Icon name="trash" className="h-4 w-4" /></button>
+    <span className="inline-flex gap-2">
+      <IconButton disabled={busy} icon="edit" label="Bearbeiten" onClick={() => setEdit(true)} tone="default" />
+      <IconButton disabled={busy} icon="trash" label="Löschen" onClick={del} tone="danger" />
       {edit && <DrillForm id={id} drill={drill} onClose={() => setEdit(false)} />}
     </span>
   );
@@ -77,19 +77,19 @@ function DrillForm({ id, drill, onClose }: { id?: string; drill?: Drill; onClose
           <div className="flex flex-col gap-2">
             {opts.map((o, i) => (
               <div key={i} className="rounded-lg border border-line bg-surface-2/40 p-2">
-                <div className="flex flex-wrap items-center gap-2">
+                <div className="flex flex-col gap-2 sm:flex-wrap sm:items-center">
                   <label className="flex shrink-0 items-center gap-1 text-xs text-muted" title="richtig">
-                    <input type="checkbox" checked={o.ist_richtig} onChange={(e) => updOpt(i, { ist_richtig: e.target.checked })} className="accent-green" />richtig
+                    <input type="checkbox" checked={o.ist_richtig} onChange={(e) => updOpt(i, { ist_richtig: e.target.checked })} className="accent-green h-5 w-5" />richtig
                   </label>
                   <input value={o.text} onChange={(e) => updOpt(i, { text: e.target.value })} placeholder={`Option ${String.fromCharCode(65 + i)}`} className={`${sel} w-full sm:flex-1`} />
                   <input value={o.punkte} onChange={(e) => updOpt(i, { punkte: e.target.value })} placeholder="Pkt" inputMode="numeric" className={`${sel} w-16`} />
-                  <button onClick={() => setOpts(opts.filter((_, j) => j !== i))} className="text-muted-2 hover:text-red" aria-label="entfernen"><Icon name="x" className="h-4 w-4" /></button>
+                  <IconButton icon="x" label="entfernen" onClick={() => setOpts(opts.filter((_, j) => j !== i))} tone="danger" />
                 </div>
                 <input value={o.feedback} onChange={(e) => updOpt(i, { feedback: e.target.value })} placeholder="Feedback" className={`${sel} mt-2`} />
               </div>
             ))}
           </div>
-          <button onClick={() => setOpts([...opts, blankOpt()])} className="mt-2 rounded bg-surface-2 px-2 py-1 text-xs font-semibold text-muted hover:text-ink">+ Option</button>
+          <button onClick={() => setOpts([...opts, blankOpt()])} className="mt-2 rounded bg-surface-2 px-3 py-2 text-sm font-semibold text-muted hover:text-ink min-h-10">+ Option</button>
         </div>
         <label className="block">{L("Musterantwort")}<textarea value={b.musterantwort} onChange={set("musterantwort")} rows={2} className={sel} /></label>
         <StrList label="Lerntyp(en)" items={lerntyp} setItems={setLerntyp} placeholder="z. B. visuell" />

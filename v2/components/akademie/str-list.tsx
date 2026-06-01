@@ -1,5 +1,5 @@
 "use client";
-import { Icon } from "@/components/icon";
+import { IconButton } from "@/components/_primitives/icon-button";
 
 const sel = "w-full rounded-lg border border-line bg-surface-2 px-3 py-2 text-sm text-ink outline-none focus:border-accent";
 
@@ -12,11 +12,11 @@ export function StrList({ label, items, setItems, placeholder }: { label: string
         {items.map((v, i) => (
           <div key={i} className="flex gap-2">
             <input value={v} onChange={(e) => setItems(items.map((x, j) => (j === i ? e.target.value : x)))} placeholder={placeholder} className={`${sel} flex-1`} />
-            <button onClick={() => setItems(items.filter((_, j) => j !== i))} className="text-muted-2 hover:text-red" aria-label="entfernen"><Icon name="x" className="h-4 w-4" /></button>
+            <IconButton icon="x" label="entfernen" onClick={() => setItems(items.filter((_, j) => j !== i))} tone="danger" />
           </div>
         ))}
       </div>
-      <button onClick={() => setItems([...items, ""])} className="mt-2 rounded bg-surface-2 px-2 py-1 text-xs font-semibold text-muted hover:text-ink">+ hinzufügen</button>
+      <button onClick={() => setItems([...items, ""])} className="mt-2 rounded bg-surface-2 px-3 py-2 text-sm font-semibold text-muted hover:text-ink min-h-10">+ hinzufügen</button>
     </div>
   );
 }
