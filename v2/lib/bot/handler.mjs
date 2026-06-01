@@ -467,7 +467,6 @@ function buildContext(question, ws) {
   if (q.match(/aufgabe|task|todo|offen|nächste/)) { const t = (ws.tasks || []).filter((x) => x.status !== "done" && x.status !== "erledigt").slice(0, 12); if (t.length) parts.push(`Offene Aufgaben:\n${t.map((x) => `• ${x.title || x.text || x.name} [${x.status || "offen"}]`).join("\n")}`); }
   if (q.match(/entscheidung|stephan|pitch|angebot/)) { const ds = (ws.stephanDecisions || []).slice(0, 8); if (ds.length) parts.push(`Entscheidungen:\n${ds.map((x) => `• ${x.titel || x.title}`).join("\n")}`); }
   if (q.match(/marke|liewood|stokke|joolz|produkt/)) { const ms = (ws.akademieMarken || []).slice(0, 12); if (ms.length) parts.push(`Marken: ${ms.map((m) => m.name).filter(Boolean).join(", ")}`); }
-  if (q.match(/kpi|umsatz|woche|zahlen/)) { const k = (ws.weeklyKpis || []).slice(-4); if (k.length) parts.push(`KPIs:\n${k.map((x) => JSON.stringify(x).slice(0, 200)).join("\n")}`); }
   return parts.join("\n\n");
 }
 async function cmdFrag(chatId, question, from) {
