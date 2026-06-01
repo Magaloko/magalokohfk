@@ -6,6 +6,7 @@ import { Pill } from "@/components/_primitives/card";
 import { QuizLauncher } from "@/components/akademie/quiz-launcher";
 import { DrillLauncher } from "@/components/akademie/drill-launcher";
 import { NewDrillButton, DrillRowActions } from "@/components/akademie/drill-editor-form";
+import { CollapsibleOnMobile } from "@/components/_primitives/collapsible-on-mobile";
 
 export const dynamic = "force-dynamic";
 
@@ -24,7 +25,9 @@ export default async function DrillsPage() {
     <PageShell title="Daily-Drills" icon="bolt" subtitle={`${d.drills.length} Drills · tägliches Mikro-Training`} action={admin ? <NewDrillButton /> : undefined}>
       <DrillLauncher drills={d.drills} />
       <QuizLauncher drills={d.drills} einwaende={d.einwaende} marken={d.marken} />
-      <DataTable columns={cols} rows={d.drills} getKey={(r, i) => r.id || String(i)} empty={{ title: "Noch keine Drills", hint: "Lernsystem importieren." }} />
+      <CollapsibleOnMobile title={`Alle ${d.drills.length} Drills`}>
+        <DataTable columns={cols} rows={d.drills} getKey={(r, i) => r.id || String(i)} empty={{ title: "Noch keine Drills", hint: "Lernsystem importieren." }} />
+      </CollapsibleOnMobile>
     </PageShell>
   );
 }
