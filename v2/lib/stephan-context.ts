@@ -1,7 +1,7 @@
 import { getCockpitData } from "./cockpit";
 import { getAkademieData } from "./akademie";
 import { strategySummaryText, MASTERMIND } from "./strategy";
-import { getMastermindAntworten } from "./mastermind";
+import { getMastermindAntworten, getMastermindVorgaenge, getMastermindToolStatus } from "./mastermind";
 import { MASTERMIND_FRAGEN } from "./mastermind-fragen";
 
 // Baut eine kompakte, token-begrenzte Wissensbasis aus ALLEN MasterMind-Daten.
@@ -11,7 +11,7 @@ const cut = (s: unknown, n = 300) => { const t = String(s ?? "").trim(); return 
 const line = (...parts: (string | false | undefined)[]) => parts.filter(Boolean).join(" · ");
 
 export async function buildStephanContext(): Promise<string> {
-  const [c, a, mmAntworten] = await Promise.all([getCockpitData(), getAkademieData(), getMastermindAntworten()]);
+  const [c, a, mmAntworten, mmVorgaenge, mmToolStatus] = await Promise.all([getCockpitData(), getAkademieData(), getMastermindAntworten(), getMastermindVorgaenge(), getMastermindToolStatus()]);
   const today = new Date().toISOString().slice(0, 10);
   const out: string[] = [];
 
@@ -62,6 +62,17 @@ export async function buildStephanContext(): Promise<string> {
   if (a.szenarien.length) out.push("## TRAININGS-SZENARIEN\n" + a.szenarien.slice(0, 40).map((s) => "- " + line(
     cut(s.name, 120), s.schwierigkeit && `Niveau: ${s.schwierigkeit}`, s.situation && cut(s.situation, 200),
   )).join("\n"));
+
+  const toolN = (key: string) => MASTERMIND.werkzeuge.find((w) => w.key === key)?.name || (key === "foundation" ? "Foundation" : key);
+  const statusZeilen = Object.values(mmToolStatus).filter((t) => t.status).map((t) => `- ${toolN(t.werkzeug)}: ${t.status}`);
+  const offeneVorgaenge = mmVorgaenge.filter((v) => v.status !== "Erledigt");
+  if (statusZeilen.length || offeneVorgaenge.length) {
+    const teile: string[] = ["## AKTUELLER STAND (operativ)"];
+    if (statusZeilen.length) teile.push("Tool-Status:\n" + statusZeilen.join("\n"));
+    if (offeneVorgaenge.length) teile.push("Offene Vorgänge:\n" + offeneVorgaenge.map((v) =>
+      `- [${toolN(v.werkzeug)}] ${cut(v.titel, 120)}${v.status === "Wartet" && v.wartetAuf ? ` (wartet auf ${cut(v.wartetAuf, 60)})` : ""}${v.naechsterSchritt ? ` · nächster Schritt: ${cut(v.naechsterSchritt, 120)}` : ""}`).join("\n"));
+    out.push(teile.join("\n"));
+  }
 
   const wzName = (key: string) =>
     MASTERMIND.werkzeuge.find((w) => w.key === key)?.name
