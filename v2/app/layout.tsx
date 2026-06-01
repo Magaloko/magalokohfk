@@ -6,8 +6,8 @@ const manrope = Manrope({ subsets: ["latin"], variable: "--font-sans", weight: [
 const mono = JetBrains_Mono({ subsets: ["latin"], variable: "--font-mono", weight: ["400", "500"] });
 
 export const metadata: Metadata = {
-  title: { default: "VEKTRA", template: "%s · VEKTRA" },
-  description: "HFK Cockpit & Verkaufs-Akademie",
+  title: { default: "MasterMind", template: "%s · MasterMind" },
+  description: "HFK Cockpit & VEKTRA",
   robots: { index: false, follow: false },
 };
 
