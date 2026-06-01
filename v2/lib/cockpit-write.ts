@@ -5,6 +5,7 @@ const PROTECTED = [
   "akademieDrills", "akademieMarken", "salesObjections", "salesPersonas",
   "akademieRoleplays", "trainingScenarios", "consultingServices",
   "tasks", "knowledgeCards", "glossary",
+  "magoHebel", "magoKpis",
 ];
 const len = (o: any, k: string) => (Array.isArray(o?.[k]) ? o[k].length : 0);
 

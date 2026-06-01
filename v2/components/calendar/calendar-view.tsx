@@ -6,12 +6,11 @@ import { cn } from "@/lib/cn";
 import { NewEventButton, EventEditButton } from "./event-editor";
 import { cockpitMutate, errText } from "@/components/cockpit/mutate";
 import { Icon } from "@/components/icon";
-import type { Task, Decision, WeeklyKpi, CalendarEvent, Lever, StaffMember } from "@/lib/cockpit";
+import type { Task, Decision, CalendarEvent, StaffMember } from "@/lib/cockpit";
 
 type Tone = "accent" | "amber" | "red" | "green" | "teal" | "muted";
 type Drag = { collection: string; id: string; field: string; min?: string; max?: string };
 type Item = { date: string; time?: string; title: string; kindLabel: string; tone: Tone; layer: string; href?: string; event?: CalendarEvent; sort: number; drag?: Drag };
-type SpanSeg = { id: string; title: string; tone: Tone; pos: "start" | "mid" | "end" | "single"; href: string; start: string; finish: string };
 
 type View = "week" | "2weeks" | "month" | "quarter" | "year";
 const VIEWS: { id: View; label: string }[] = [
@@ -25,8 +24,6 @@ const LAYERS: { id: string; label: string; tone: Tone }[] = [
   { id: "termine", label: "Termine", tone: "accent" },
   { id: "aufgaben", label: "Aufgaben", tone: "amber" },
   { id: "entscheidungen", label: "Entscheidungen", tone: "accent" },
-  { id: "hebel", label: "Hebel", tone: "teal" },
-  { id: "kpis", label: "KPIs", tone: "teal" },
   { id: "training", label: "Training", tone: "green" },
 ];
 
@@ -35,23 +32,17 @@ const ymd = (d: Date) => `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.ge
 const parse = (s: string) => { const [y, m, d] = s.split("-").map(Number); return new Date(y, (m || 1) - 1, d || 1); };
 const addDays = (d: Date, n: number) => new Date(d.getFullYear(), d.getMonth(), d.getDate() + n);
 const startOfWeek = (d: Date) => { const x = new Date(d.getFullYear(), d.getMonth(), d.getDate()); x.setDate(x.getDate() - ((x.getDay() + 6) % 7)); return x; };
-const isMonday = (d: Date) => (d.getDay() + 6) % 7 === 0;
-const eachDay = (a: string, b: string) => { const out: string[] = []; let d = parse(a); const end = parse(b); let n = 0; while (d <= end && n < 400) { out.push(ymd(d)); d = addDays(d, 1); n++; } return out; };
 const WD = ["Mo", "Di", "Mi", "Do", "Fr", "Sa", "So"];
 const toneChip: Record<Tone, string> = {
   accent: "bg-accent/15 text-accent", amber: "bg-amber/15 text-amber", red: "bg-red/15 text-red",
   green: "bg-green/15 text-green", teal: "bg-teal/15 text-teal", muted: "bg-surface-2 text-muted",
 };
-const barBg: Record<Tone, string> = {
-  accent: "bg-accent/25 text-accent", amber: "bg-amber/25 text-amber", red: "bg-red/25 text-red",
-  green: "bg-green/25 text-green", teal: "bg-teal/25 text-teal", muted: "bg-surface-2 text-muted",
-};
 const toneDot: Record<Tone, string> = {
   accent: "bg-accent", amber: "bg-amber", red: "bg-red", green: "bg-green", teal: "bg-teal", muted: "bg-muted-2",
 };
 
-export function CalendarView({ events, tasks, decisions, kpis, levers, staff, today }: {
-  events: CalendarEvent[]; tasks: Task[]; decisions: Decision[]; kpis: WeeklyKpi[]; levers: Lever[]; staff: StaffMember[]; today: string;
+export function CalendarView({ events, tasks, decisions, staff, today }: {
+  events: CalendarEvent[]; tasks: Task[]; decisions: Decision[]; staff: StaffMember[]; today: string;
 }) {
   const router = useRouter();
   const now = parse(today);
@@ -72,9 +63,8 @@ export function CalendarView({ events, tasks, decisions, kpis, levers, staff, to
     return () => mq.removeEventListener("change", on);
   }, []);
 
-  const { byDate, spanByDate } = useMemo(() => {
+  const { byDate } = useMemo(() => {
     const byDate: Record<string, Item[]> = {};
-    const spanByDate: Record<string, SpanSeg[]> = {};
     const push = (date: string | undefined, it: Omit<Item, "date">) => {
       if (!date || !/^\d{4}-\d{2}-\d{2}/.test(date)) return;
       const d = date.slice(0, 10);
@@ -84,35 +74,19 @@ export function CalendarView({ events, tasks, decisions, kpis, levers, staff, to
     for (const e of events) push(e.date, { title: e.title || "Termin", time: e.time, kindLabel: e.kind || "Termin", tone: eKind[e.kind || ""] || "accent", layer: "termine", event: e, sort: 0, drag: e.id ? { collection: "calendarEvents", id: e.id, field: "date" } : undefined });
     for (const t of tasks) if ((t.status || "") !== "Erledigt") push(t.dueDate, { title: t.title || "Aufgabe", kindLabel: "Aufgabe", tone: (t.dueDate || "") < today ? "red" : "amber", layer: "aufgaben", href: `/cockpit/tasks/${encodeURIComponent(t.id || String(tasks.indexOf(t)))}`, sort: 1, drag: t.id ? { collection: "tasks", id: t.id, field: "dueDate" } : undefined });
     for (const d of decisions) if ((d.status || "offen") !== "entschieden" && d.status !== "verworfen") push(d.frist, { title: d.titel || "Entscheidung", kindLabel: "Entscheidung", tone: (d.frist || "") < today ? "red" : "accent", layer: "entscheidungen", href: `/cockpit/entscheidungen/${encodeURIComponent(d.id || String(decisions.indexOf(d)))}`, sort: 2, drag: d.id ? { collection: "stephanDecisions", id: d.id, field: "frist" } : undefined });
-    for (const k of kpis) push(k.weekStart, { title: `KPI-Woche${k.weekLabel ? " · " + k.weekLabel : ""}`, kindLabel: "KPI", tone: "teal", layer: "kpis", href: "/cockpit/kpis", sort: 3 });
-    for (const l of levers) {
-      if (l.status === "Verworfen") continue;
-      const href = `/cockpit/hebel/${encodeURIComponent(l.id || String(levers.indexOf(l)))}`;
-      const tone: Tone = l.status === "Live" ? "green" : (l.finishDate && l.finishDate < today) ? "red" : "accent";
-      if (l.id && l.startDate && l.finishDate && l.startDate <= l.finishDate) {
-        const days = eachDay(l.startDate, l.finishDate);
-        for (const ds of days) {
-          const pos: SpanSeg["pos"] = days.length === 1 ? "single" : ds === l.startDate ? "start" : ds === l.finishDate ? "end" : "mid";
-          (spanByDate[ds] ||= []).push({ id: l.id, title: l.title || "Hebel", tone, pos, href, start: l.startDate, finish: l.finishDate });
-        }
-      } else {
-        if (l.startDate) push(l.startDate, { title: `Start: ${l.title || "Hebel"}`, kindLabel: "Hebel-Start", tone: "accent", layer: "hebel", href, sort: 4, drag: l.id ? { collection: "levers", id: l.id, field: "startDate" } : undefined });
-        if (l.finishDate) push(l.finishDate, { title: `Ziel: ${l.title || "Hebel"}`, kindLabel: "Hebel-Ziel", tone: (l.finishDate < today && l.status !== "Live") ? "red" : "teal", layer: "hebel", href, sort: 4, drag: l.id ? { collection: "levers", id: l.id, field: "finishDate" } : undefined });
-      }
-    }
     for (const m of staff) for (const c of m.completedScenarios || []) {
       push(c.completedAt, { title: `${m.name || "?"}: ${c.titel || "Training"}${typeof c.score === "number" ? ` (${c.score}%)` : ""}`, kindLabel: "Training", tone: "green", layer: "training", href: "/akademie/mitarbeiter", sort: 5 });
     }
     for (const d of Object.keys(byDate)) byDate[d].sort((a, b) => a.sort - b.sort || (a.time || "").localeCompare(b.time || ""));
-    return { byDate, spanByDate };
-  }, [events, tasks, decisions, kpis, levers, staff, today]);
+    return { byDate };
+  }, [events, tasks, decisions, staff, today]);
 
-  // --- Drag & Drop: Eintrag (oder Hebel-Ende) auf einen anderen Tag ziehen → Datum aktualisieren ---
+  // --- Drag & Drop: Eintrag auf einen anderen Tag ziehen -> Datum aktualisieren ---
   async function move(to: string) {
     const dr = dragRef.current; dragRef.current = null; setOver(null);
     if (!dr || dr.from === to || busy) return;
-    if (dr.min && to < dr.min) { alert("Datum darf nicht vor dem Hebel-Start liegen."); return; }
-    if (dr.max && to > dr.max) { alert("Datum darf nicht nach dem Hebel-Ziel liegen."); return; }
+    if (dr.min && to < dr.min) { alert("Datum darf nicht vor dem Minimalwert liegen."); return; }
+    if (dr.max && to > dr.max) { alert("Datum darf nicht nach dem Maximalwert liegen."); return; }
     setBusy(true);
     const r = await cockpitMutate({ collection: dr.collection, action: "update", id: dr.id, patch: { [dr.field]: to } });
     setBusy(false);
@@ -135,7 +109,6 @@ export function CalendarView({ events, tasks, decisions, kpis, levers, staff, to
   function renderDay(d: Date, opts: { dim?: boolean; size: "lg" | "md" | "sm"; maxChips?: number; dots?: boolean }) {
     const ds = ymd(d);
     const pts = (byDate[ds] || []).filter((it) => layerOn(it.layer));
-    const segs = layerOn("hebel") ? (spanByDate[ds] || []) : [];
     const isToday = ds === today, isSel = ds === sel, isOver = over === ds;
     const maxChips = opts.maxChips ?? 2;
     const h = opts.size === "lg" ? "min-h-[78px]" : opts.size === "md" ? "min-h-[52px]" : "min-h-[30px]";
@@ -148,22 +121,9 @@ export function CalendarView({ events, tasks, decisions, kpis, levers, staff, to
         )}>
         <span className={cn("text-[11px] font-semibold leading-none", isToday ? "grid h-5 w-5 place-items-center rounded-full bg-accent text-bg" : "text-muted")}>{d.getDate()}</span>
         {opts.dots ? (
-          (segs.length + pts.length > 0) && <span className="flex flex-wrap gap-0.5">{[...segs.map((s) => s.tone), ...pts.map((p) => p.tone)].slice(0, 5).map((tn, i) => <span key={i} className={cn("h-1.5 w-1.5 rounded-full", toneDot[tn])} />)}</span>
+          pts.length > 0 && <span className="flex flex-wrap gap-0.5">{pts.map((p) => p.tone).slice(0, 5).map((tn, i) => <span key={i} className={cn("h-1.5 w-1.5 rounded-full", toneDot[tn])} />)}</span>
         ) : (
           <span className="flex flex-col gap-0.5">
-            {/* Hebel-Laufzeit-Balken */}
-            {segs.map((s, i) => {
-              const showLabel = s.pos === "start" || s.pos === "single" || isMonday(d);
-              const drag: Drag | undefined = s.pos === "start" ? { collection: "levers", id: s.id, field: "startDate", max: s.finish }
-                : s.pos === "end" ? { collection: "levers", id: s.id, field: "finishDate", min: s.start } : undefined;
-              return (
-                <span key={`s${i}`} {...dnd(drag, ds)} title={`${s.title} (${s.start} – ${s.finish})`}
-                  className={cn("h-4 truncate px-1 text-[10px] font-medium leading-4", barBg[s.tone],
-                    (s.pos === "start" || s.pos === "single") && "rounded-l", (s.pos === "end" || s.pos === "single") && "rounded-r",
-                    drag && !busy && "cursor-grab active:cursor-grabbing")}>{showLabel ? s.title : " "}</span>
-              );
-            })}
-            {/* Punkt-Einträge */}
             {pts.slice(0, maxChips).map((it, i) => (
               <span key={`p${i}`} {...dnd(it.drag, it.date)} title={it.title}
                 className={cn("truncate rounded px-1 py-0.5 text-[10px] font-medium", toneChip[it.tone], it.drag && !busy && "cursor-grab active:cursor-grabbing")}>{it.title}</span>
@@ -175,7 +135,7 @@ export function CalendarView({ events, tasks, decisions, kpis, levers, staff, to
     );
   }
 
-  // --- Ein Monats-Block (für Monat / 3 Monate / Jahr) ---
+  // --- Ein Monats-Block (fuer Monat / 3 Monate / Jahr) ---
   function monthBlock(year: number, month: number, size: "lg" | "md" | "sm", maxChips: number, dots = false, framed = false) {
     const first = new Date(year, month, 1);
     const offset = (first.getDay() + 6) % 7;
@@ -194,7 +154,7 @@ export function CalendarView({ events, tasks, decisions, kpis, levers, staff, to
     );
   }
 
-  // --- Tage-Streifen (für Arbeitswoche / 2 Wochen) ---
+  // --- Tage-Streifen (fuer Arbeitswoche / 2 Wochen) ---
   function dayStrip(days: Date[], header: string[], cols: 5 | 7, maxChips: number, dots = false) {
     return (
       <div className={cn("grid gap-1", cols === 5 ? "grid-cols-5 sm:min-w-[460px]" : "grid-cols-7 sm:min-w-[560px]")}>
@@ -228,15 +188,12 @@ export function CalendarView({ events, tasks, decisions, kpis, levers, staff, to
     body = dayStrip(Array.from({ length: 14 }, (_, i) => addDays(mo, i)), WD, 7, narrow ? 0 : 3, narrow);
     periodLabel = `${fmt(mo, { day: "numeric", month: "short" })} – ${fmt(addDays(mo, 13), { day: "numeric", month: "short", year: "numeric" })}`;
   } else if (view === "month") {
-    // Handy: kompakte Punkte-Darstellung (Details per Tipp); Desktop: Text-Kürzel.
+    // Handy: kompakte Punkte-Darstellung (Details per Tipp); Desktop: Text-Kuerzel.
     body = narrow ? monthBlock(anchor.getFullYear(), anchor.getMonth(), "md", 0, true) : monthBlock(anchor.getFullYear(), anchor.getMonth(), "lg", 2);
     periodLabel = fmt(new Date(anchor.getFullYear(), anchor.getMonth(), 1), { month: "long", year: "numeric" });
   } else if (view === "quarter") {
     const b = new Date(anchor.getFullYear(), anchor.getMonth(), 1);
     const months = [0, 1, 2].map((o) => new Date(b.getFullYear(), b.getMonth() + o, 1));
-    // Handy: kompakte Punkte-Übersicht, 3 Monate gestapelt (Bearbeiten über das Tages-Detail).
-    // Desktop: jeder Monat in voller Breite untereinander → Zellen ~98px breit, Einträge lesbar + Drag & Drop.
-    // "md" (nur nötige Wochen, kürzere Reihen) hält es kompakt; nebeneinander wären die Zellen ~46px → abgeschnitten.
     body = narrow
       ? <div className="flex flex-col gap-4">{months.map((m) => monthBlock(m.getFullYear(), m.getMonth(), "md", 0, true, true))}</div>
       : <div className="flex flex-col gap-4">{months.map((m) => monthBlock(m.getFullYear(), m.getMonth(), "md", 2, false, true))}</div>;
@@ -247,9 +204,7 @@ export function CalendarView({ events, tasks, decisions, kpis, levers, staff, to
   }
 
   const selPts = (byDate[sel] || []).filter((it) => layerOn(it.layer));
-  const selSpans = layerOn("hebel") ? (spanByDate[sel] || []) : [];
   const selLabel = parse(sel).toLocaleDateString("de-AT", { weekday: "long", day: "numeric", month: "long", year: "numeric" });
-  const posLabel = (p: SpanSeg["pos"]) => p === "start" ? "Start" : p === "end" ? "Ziel" : p === "single" ? "Start & Ziel" : "läuft";
 
   return (
     <div className="grid gap-5 lg:grid-cols-[1fr_340px]">
@@ -258,8 +213,8 @@ export function CalendarView({ events, tasks, decisions, kpis, levers, staff, to
         <div className="mb-3 flex flex-col gap-3">
           <div className="flex items-center justify-between gap-2">
             <div className="flex items-center gap-1">
-              <button onClick={() => step(-1)} className="rounded-lg bg-surface-2 px-2.5 py-1.5 text-sm hover:text-ink" aria-label="Zurück">‹</button>
-              <button onClick={() => step(1)} className="rounded-lg bg-surface-2 px-2.5 py-1.5 text-sm hover:text-ink" aria-label="Weiter">›</button>
+              <button onClick={() => step(-1)} className="rounded-lg bg-surface-2 px-2.5 py-1.5 text-sm hover:text-ink" aria-label="Zurueck">&#8249;</button>
+              <button onClick={() => step(1)} className="rounded-lg bg-surface-2 px-2.5 py-1.5 text-sm hover:text-ink" aria-label="Weiter">&#8250;</button>
               <button onClick={goToday} className="ml-1 rounded-lg bg-surface-2 px-3 py-1.5 text-xs font-semibold hover:text-ink">Heute</button>
             </div>
             <h2 className="text-base font-bold capitalize">{periodLabel}</h2>
@@ -287,7 +242,7 @@ export function CalendarView({ events, tasks, decisions, kpis, levers, staff, to
             );
           })}
         </div>
-        <p className="mt-2 flex items-center gap-1.5 text-[11px] text-muted-2"><Icon name="arrow-right" className="h-3 w-3" />Tipp: Einträge per Drag &amp; Drop verschieben · Hebel-Balken an den Enden ziehen verschiebt Start/Ziel{busy ? " · speichert …" : ""}.</p>
+        <p className="mt-2 flex items-center gap-1.5 text-[11px] text-muted-2"><Icon name="arrow-right" className="h-3 w-3" />Tipp: Einträge per Drag &amp; Drop verschieben{busy ? " · speichert …" : ""}.</p>
       </div>
 
       {/* Tages-Detail */}
@@ -296,19 +251,8 @@ export function CalendarView({ events, tasks, decisions, kpis, levers, staff, to
           <h3 className="text-sm font-bold capitalize">{selLabel}</h3>
           <NewEventButton presetDate={sel} />
         </div>
-        {(selSpans.length + selPts.length) ? (
+        {selPts.length ? (
           <ul className="flex flex-col gap-2">
-            {selSpans.map((s, i) => (
-              <li key={`s${i}`} className="rounded-lg border border-line bg-surface-2/40 p-2.5">
-                <span className="flex items-center gap-2 text-sm">
-                  <span className={cn("mt-1 h-2 w-2 shrink-0 rounded-full", toneDot[s.tone])} />
-                  <span>
-                    <Link href={s.href} className="font-medium hover:text-accent">{s.title}</Link>
-                    <span className="ml-1 text-xs text-muted-2">· Hebel · {posLabel(s.pos)}</span>
-                  </span>
-                </span>
-              </li>
-            ))}
             {selPts.map((it, i) => (
               <li key={`p${i}`} className="rounded-lg border border-line bg-surface-2/40 p-2.5">
                 <div className="flex items-start justify-between gap-2">
@@ -325,7 +269,7 @@ export function CalendarView({ events, tasks, decisions, kpis, levers, staff, to
               </li>
             ))}
           </ul>
-        ) : <p className="text-sm text-muted-2">Nichts an diesem Tag. „+ Termin" legt einen an.</p>}
+        ) : <p className="text-sm text-muted-2">Nichts an diesem Tag. &bdquo;+ Termin&ldquo; legt einen an.</p>}
       </div>
     </div>
   );
