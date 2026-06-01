@@ -1,6 +1,8 @@
 import { getCockpitData } from "./cockpit";
 import { getAkademieData } from "./akademie";
-import { strategySummaryText } from "./strategy";
+import { strategySummaryText, MASTERMIND } from "./strategy";
+import { getMastermindAntworten } from "./mastermind";
+import { MASTERMIND_FRAGEN } from "./mastermind-fragen";
 
 // Baut eine kompakte, token-begrenzte Wissensbasis aus ALLEN MasterMind-Daten.
 // Dient als alleinige Faktenquelle für den Stephan-Assistenten (keine Halluzination).
@@ -9,7 +11,7 @@ const cut = (s: unknown, n = 300) => { const t = String(s ?? "").trim(); return 
 const line = (...parts: (string | false | undefined)[]) => parts.filter(Boolean).join(" · ");
 
 export async function buildStephanContext(): Promise<string> {
-  const [c, a] = await Promise.all([getCockpitData(), getAkademieData()]);
+  const [c, a, mmAntworten] = await Promise.all([getCockpitData(), getAkademieData(), getMastermindAntworten()]);
   const today = new Date().toISOString().slice(0, 10);
   const out: string[] = [];
 
@@ -60,6 +62,18 @@ export async function buildStephanContext(): Promise<string> {
   if (a.szenarien.length) out.push("## TRAININGS-SZENARIEN\n" + a.szenarien.slice(0, 40).map((s) => "- " + line(
     cut(s.name, 120), s.schwierigkeit && `Niveau: ${s.schwierigkeit}`, s.situation && cut(s.situation, 200),
   )).join("\n"));
+
+  const wzName = (key: string) =>
+    MASTERMIND.werkzeuge.find((w) => w.key === key)?.name
+    || (key === "querschnitt" ? "Querschnitt/Foundation" : key === "future" ? "Future Scope" : key);
+  const beantwortet = MASTERMIND_FRAGEN.filter((f) => {
+    const r = mmAntworten[f.id];
+    return r && r.status === "beantwortet" && String(r.antwort || "").trim();
+  });
+  if (beantwortet.length) {
+    out.push("## MASTERMIND-KLÄRUNGEN (von Stephan beantwortet)\n" + beantwortet.map((f) =>
+      `- [${wzName(f.werkzeug)}] ${cut(f.frage, 160)}: „${cut(mmAntworten[f.id].antwort, 400)}"`).join("\n"));
+  }
 
   return out.join("\n\n");
 }
