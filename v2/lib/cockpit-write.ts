@@ -6,7 +6,7 @@ const PROTECTED = [
   "akademieRoleplays", "trainingScenarios", "consultingServices",
   "tasks", "knowledgeCards", "glossary",
   "magoHebel", "magoKpis",
-  "mastermindAntworten",
+  "mastermindAntworten", "mastermindVorgaenge", "mastermindToolStatus",
 ];
 const len = (o: any, k: string) => (Array.isArray(o?.[k]) ? o[k].length : 0);
 
