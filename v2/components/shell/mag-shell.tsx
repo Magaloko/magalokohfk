@@ -20,6 +20,10 @@ const SECTIONS: Section[] = [
     { href: "/cockpit", label: "Lieferung", icon: "cockpit", adminOnly: true },
     { href: "/kalender", label: "Kalender", icon: "calendar", adminOnly: true },
   ] },
+  { title: "Beratung", adminOnly: true, items: [
+    { href: "/kompass", label: "Baby-Kompass", icon: "footprints", adminOnly: true },
+    { href: "/cockpit/kompass", label: "Kompass-Pflege", icon: "tag", adminOnly: true },
+  ] },
   { title: "Team", items: [
     { href: "/cockpilot", label: "Cockpilot", icon: "sparkles" },
     { href: "/werkstatt", label: "Werkstatt", icon: "bulb" },
