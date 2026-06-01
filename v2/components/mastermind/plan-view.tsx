@@ -4,6 +4,7 @@ import { Icon } from "@/components/icon";
 import { fragenFuer } from "@/lib/mastermind-fragen";
 import type { MasterMindAntwort } from "@/lib/mastermind";
 import { FragenBlock } from "@/components/mastermind/fragen-block";
+import { HubDiagram } from "@/components/mastermind/hub-diagram";
 
 const statusTone = (s: Werkzeug["status"]): "green" | "accent" | "muted" =>
   s === "Live" ? "green" : s === "Geplant" ? "accent" : "muted";
@@ -37,6 +38,12 @@ export function PlanView({ antworten }: { antworten: Record<string, MasterMindAn
         <p className="mt-1 text-sm font-semibold text-muted">{m.unterzeile}</p>
         <p className="mt-4 max-w-3xl text-sm leading-relaxed text-muted">{m.vision}</p>
       </section>
+
+      {/* System-Diagramm */}
+      <SectionTitle icon="cockpit" kicker="Das System auf einen Blick" title="MasterMind & seine Werkzeuge" />
+      <div className="rounded-xl border border-line bg-surface p-5 shadow-sm sm:p-6">
+        <HubDiagram />
+      </div>
 
       {/* Wo wir stehen */}
       <SectionTitle icon="pin" kicker="Wo wir stehen" title="Ausgangslage & zentrale Frage" />
@@ -89,8 +96,8 @@ export function PlanView({ antworten }: { antworten: Record<string, MasterMindAn
       <SectionTitle icon="cockpit" kicker="Das Werkzeug-Set" title="Fünf operative Werkzeuge" />
       <div className="grid gap-4 lg:grid-cols-2">
         {m.werkzeuge.map((w) => (
-          <div key={w.key}
-            className={`rounded-xl border bg-surface p-5 shadow-sm ${w.istDieseApp ? "border-accent ring-1 ring-accent/30" : "border-line"}`}>
+          <div key={w.key} id={`wz-${w.key}`}
+            className={`scroll-mt-24 rounded-xl border bg-surface p-5 shadow-sm ${w.istDieseApp ? "border-accent ring-1 ring-accent/30" : "border-line"}`}>
             <div className="flex items-start justify-between gap-3">
               <div className="flex items-center gap-2.5">
                 <span className="grid h-10 w-10 shrink-0 place-items-center rounded-lg bg-accent/15 text-accent">
