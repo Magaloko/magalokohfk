@@ -24,7 +24,7 @@ export default async function StephanPage({ searchParams }: { searchParams: Prom
     .filter((d) => d.id);
 
   return (
-    <PageShell title="Stephan-Assistent" icon="chat" subtitle="Antwort entwerfen · Gespräch festhalten · auf Basis der VEKTRA-Daten">
+    <PageShell title="Stephan-Assistent" icon="chat" subtitle="Antwort entwerfen · Gespräch festhalten · auf Basis der MasterMind-Daten">
       <StephanAssist
         configured={aiConfigured()}
         activeThread={activeThread}

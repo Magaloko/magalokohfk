@@ -29,7 +29,7 @@ export const COPILOT_GUIDES = [
       { title: "Copilot öffnen", detail: "Im neuen Outlook bzw. Outlook im Web oben rechts im Menüband auf das Copilot-Symbol klicken. (Setzt eine Microsoft-365-Copilot-Lizenz voraus.)" },
       { title: "Posteingang zusammenfassen lassen", detail: "Copilot-Chat in Outlook nutzen und nach den wichtigsten ungelesenen Mails fragen.", prompt: "Fasse meine ungelesenen E-Mails von heute zusammen und ordne sie nach Dringlichkeit. Markiere, welche eine Antwort von mir brauchen." },
       { title: "Eine lange Konversation verdichten", detail: "Eine längere E-Mail-Kette öffnen und oben „Zusammenfassen“ wählen — Copilot fasst Verlauf und offene Punkte zusammen." },
-      { title: "Aufgaben ableiten", detail: "Aus der Zusammenfassung die To-dos in VEKTRA (Cockpit → Tasks) oder als Outlook-Aufgabe festhalten.", prompt: "Welche konkreten Aufgaben ergeben sich für mich aus diesen E-Mails? Liste sie als kurze Stichpunkte." },
+      { title: "Aufgaben ableiten", detail: "Aus der Zusammenfassung die To-dos in MasterMind (Cockpit → Tasks) oder als Outlook-Aufgabe festhalten.", prompt: "Welche konkreten Aufgaben ergeben sich für mich aus diesen E-Mails? Liste sie als kurze Stichpunkte." },
     ],
     tips: ["Keine sensiblen Kundendaten (Geburts-/Gesundheitsdaten) in freie Prompts schreiben.", "Copilot kann irren — Prioritäten kurz gegenchecken."],
   },
@@ -53,7 +53,7 @@ export const COPILOT_GUIDES = [
       { title: "Copilot-Chat (Arbeit) öffnen", detail: "In Outlook oder über Microsoft 365 Copilot den Chat öffnen, der auf deine Mails/Dateien zugreift." },
       { title: "Vorbereitung anfordern", detail: "Nach allem zur Marke/zum Lieferanten fragen.", prompt: "Bereite mich auf das Gespräch mit [Lieferant/Marke] vor: Fasse unsere letzten E-Mails, offene Bestellungen, zugesagte Liefertermine und offene Fragen zusammen." },
       { title: "Agenda erstellen", detail: "Aus der Zusammenfassung eine kurze Agenda ableiten lassen.", prompt: "Erstelle daraus eine Agenda mit 4 Punkten und je einer Leitfrage." },
-      { title: "In VEKTRA hinterlegen", detail: "Den Termin im Kalender und ggf. als Entscheidung/Task im Cockpit anlegen." },
+      { title: "In MasterMind hinterlegen", detail: "Den Termin im Kalender und ggf. als Entscheidung/Task im Cockpit anlegen." },
     ],
   },
 
@@ -67,7 +67,7 @@ export const COPILOT_GUIDES = [
       { title: "Copilot in Excel öffnen", detail: "Auf der Registerkarte „Start“ ganz rechts auf das Copilot-Symbol klicken." },
       { title: "Analyse anfordern", detail: "Nach Erkenntnissen fragen.", prompt: "Analysiere diese Verkaufsdaten: Welche Marken/Produkte wachsen, welche schwächeln? Zeige die Top 5 und auffällige Trends." },
       { title: "Visualisierung vorschlagen lassen", detail: "Copilot kann Diagramme und PivotTables vorschlagen und einfügen.", prompt: "Erstelle ein Diagramm, das den Umsatz pro Monat und Warengruppe zeigt." },
-      { title: "Ergebnis übernehmen", detail: "Passende Erkenntnisse als KPI/Notiz in VEKTRA (Cockpit → KPIs) festhalten." },
+      { title: "Ergebnis übernehmen", detail: "Passende Erkenntnisse als KPI/Notiz in MasterMind (Cockpit → KPIs) festhalten." },
     ],
     tips: ["Spaltenüberschriften klar benennen (z. B. „Umsatz“, „Marke“, „Monat“) — Copilot versteht so besser.", "Keine Klarnamen von Kund:innen in der Tabelle, wenn vermeidbar."],
   },
@@ -140,7 +140,7 @@ export const COPILOT_GUIDES = [
       { title: "Copilot im Meeting öffnen", detail: "Während des Meetings oben auf „Copilot“ klicken — auch nach dem Meeting verfügbar (Intelligent Recap)." },
       { title: "Recap & Aufgaben anfordern", detail: "Nach Ergebnissen und To-dos fragen.", prompt: "Fasse die Besprechung zusammen: Welche Entscheidungen wurden getroffen und welche Action Items hat wer bis wann?" },
       { title: "Offene Punkte klären", detail: "Gezielt nachhaken.", prompt: "Was sind meine persönlichen Action Items aus diesem Meeting?" },
-      { title: "In VEKTRA übernehmen", detail: "Aufgaben/Entscheidungen ins Cockpit übertragen." },
+      { title: "In MasterMind übernehmen", detail: "Aufgaben/Entscheidungen ins Cockpit übertragen." },
     ],
     tips: ["Copilot im Meeting braucht Transkript oder Aufzeichnung für volle Funktion.", "Teilnehmende über Aufzeichnung informieren (Datenschutz)."],
   },
@@ -298,7 +298,7 @@ export const COPILOT_FAQ = [
   { q: "Wie schreibe ich einen guten Prompt?", a: "Vier Bausteine: 1) Ziel (was soll herauskommen), 2) Kontext (für wen, worum geht es), 3) Quelle (welche Datei/Mail), 4) Format & Ton (Tabelle, Stichpunkte, freundlich/kurz). Je konkreter, desto besser." },
   { q: "Kann Copilot Fehler machen?", a: "Ja. Copilot kann Dinge falsch zusammenfassen oder Platzhalter erfinden. Ergebnisse immer prüfen, besonders Zahlen, Preise, Namen und Fristen. Der Mensch bleibt verantwortlich („human in the loop“)." },
   { q: "Wo finde ich Copilot in der App?", a: "Outlook: Copilot-Symbol oben rechts bzw. „Mit Copilot entwerfen“ beim Verfassen. Word: oben rechts und am Absatzrand. Excel: Registerkarte „Start“ ganz rechts (Daten vorher als Tabelle formatieren). Teams: „Copilot“ oben im Meeting/Chat." },
-  { q: "Was kann Mago/VEKTRA dabei für HFK tun?", a: "Mago übersetzt Copilot in den HFK-Alltag: rollenbasierte Arbeitsanweisungen, eine deutsche Prompt-Bibliothek, Schulung & Zertifizierung, Datenschutz-Leitplanken und ein ROI-Tracking der gesparten Zeit — alles gebündelt im Cockpilot." },
+  { q: "Was kann Mago/MasterMind dabei für HFK tun?", a: "Mago übersetzt Copilot in den HFK-Alltag: rollenbasierte Arbeitsanweisungen, eine deutsche Prompt-Bibliothek, Schulung & Zertifizierung, Datenschutz-Leitplanken und ein ROI-Tracking der gesparten Zeit — alles gebündelt im Cockpilot." },
 ];
 
 // Prompt-Bibliothek — kopierfertige Prompts, nach App/Rolle gefiltert.
@@ -339,7 +339,7 @@ export function buildCopilotKB() {
   const out = [];
   out.push("# GRUNDLAGEN (FAQ)");
   out.push(COPILOT_FAQ.map((f) => `F: ${f.q}\nA: ${f.a}`).join("\n\n"));
-  out.push("\n# SCHRITT-FÜR-SCHRITT-GUIDES (in VEKTRA verfügbar, mit Check-ins)");
+  out.push("\n# SCHRITT-FÜR-SCHRITT-GUIDES (in MasterMind verfügbar, mit Check-ins)");
   for (const g of COPILOT_GUIDES) {
     const tag = g.role ? `${appLabel(g.app)} · Rolle: ${roleLabel(g.role)}` : appLabel(g.app);
     const steps = g.steps.map((s, i) => `  ${i + 1}. ${s.title} — ${s.detail}${s.prompt ? `\n     Beispiel-Prompt: „${s.prompt}“` : ""}`).join("\n");
@@ -353,7 +353,7 @@ export function buildCopilotKB() {
 // Gemeinsamer System-Prompt für den Cockpilot-Assistenten. channel: "web" | "telegram".
 export function copilotSystemPrompt(kb, today, channel = "web") {
   const lines = [
-    "Du bist „Cockpilot“, der Microsoft-365-Copilot-Trainer von VEKTRA für „Herr und Frau Klein“ (HFK), einen Babyfachhandel in Wien/Österreich.",
+    "Du bist „Cockpilot“, der Microsoft-365-Copilot-Trainer von MasterMind für „Herr und Frau Klein“ (HFK), einen Babyfachhandel in Wien/Österreich.",
     "Deine Aufgabe: Fragen rund um Microsoft 365 Copilot (Word, Excel, Outlook, Teams, PowerPoint, Copilot Chat) sehr präzise und praxisnah beantworten und exakte Arbeitsanweisungen geben.",
     "",
     "ANTWORT-REGELN:",
@@ -361,7 +361,7 @@ export function copilotSystemPrompt(kb, today, channel = "web") {
     "2. Liefere bei Handlungsfragen eine nummerierte SCHRITT-FÜR-SCHRITT-Anleitung. Wo hilfreich, gib einen fertigen Beispiel-Prompt zum Kopieren an (in Anführungszeichen).",
     "3. Stütze dich vorrangig auf die unten stehende COCKPILOT-WISSENSBASIS. Allgemein etabliertes, korrektes Microsoft-365-Copilot-Wissen darfst du ergänzen — aber erfinde KEINE Menüpunkte, Schaltflächen oder Funktionen, die es nicht gibt.",
     "4. Wenn du dir bei einem Detail nicht sicher bist, sage das offen und nenne, wo man es nachsehen kann (z. B. Copilot-Symbol in der App), statt zu raten.",
-    "5. Weise auf passende fertige Anleitungen in VEKTRA hin: „→ In-App-Guide: <Titel>“, wenn ein Guide aus der Wissensbasis zur Frage passt.",
+    "5. Weise auf passende fertige Anleitungen in MasterMind hin: „→ In-App-Guide: <Titel>“, wenn ein Guide aus der Wissensbasis zur Frage passt.",
     "6. Erinnere bei sensiblen Daten kurz an Datenschutz (keine besonders sensiblen Kundendaten unnötig eingeben) — nur wenn relevant.",
     "7. Halte dich kurz und nützlich. Schließe mit einer Zeile „Nächster Schritt: …“.",
   ];

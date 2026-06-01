@@ -265,14 +265,14 @@ export function StephanAssist({ configured, activeThread, threadNames, messages,
         <div className="mt-3 flex flex-wrap items-center gap-3">
           <button disabled={busy || !msg.trim() || !configured} onClick={run}
             className="rounded-lg bg-accent px-4 py-2 text-sm font-semibold text-bg disabled:opacity-50">
-            {busy ? "Suche in VEKTRA …" : "Antwort entwerfen"}
+            {busy ? "Suche in MasterMind …" : "Antwort entwerfen"}
           </button>
           {(msg.trim() || reply) && !busy && <button onClick={() => { setMsg(""); setReply(""); setFinal(""); setErr(""); }} className="text-xs font-semibold text-muted-2 hover:text-ink">Leeren</button>}
-          <label className="inline-flex cursor-pointer items-center gap-1.5 text-xs text-muted-2" title="Die KI ahmt deinen Schreibstil aus früheren Antworten nach (Fakten bleiben aus den VEKTRA-Daten).">
+          <label className="inline-flex cursor-pointer items-center gap-1.5 text-xs text-muted-2" title="Die KI ahmt deinen Schreibstil aus früheren Antworten nach (Fakten bleiben aus den MasterMind-Daten).">
             <input type="checkbox" checked={useStyle} onChange={(e) => setUseStyle(e.target.checked)} className="accent-accent" />
             Meinen Stil verwenden <span>{outgoingCount > 0 ? `(${outgoingCount} erfasst)` : "(noch keine Beispiele)"}</span>
           </label>
-          <span className="text-xs text-muted-2">Fakten ausschließlich aus VEKTRA-Daten.</span>
+          <span className="text-xs text-muted-2">Fakten ausschließlich aus MasterMind-Daten.</span>
         </div>
         {err && <p className="mt-2 text-sm text-red">{err}</p>}
 

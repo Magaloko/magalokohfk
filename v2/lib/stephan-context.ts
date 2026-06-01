@@ -2,7 +2,7 @@ import { getCockpitData, formatEur } from "./cockpit";
 import { getAkademieData } from "./akademie";
 import { strategySummaryText } from "./strategy";
 
-// Baut eine kompakte, token-begrenzte Wissensbasis aus ALLEN VEKTRA-Daten.
+// Baut eine kompakte, token-begrenzte Wissensbasis aus ALLEN MasterMind-Daten.
 // Dient als alleinige Faktenquelle für den Stephan-Assistenten (keine Halluzination).
 
 const cut = (s: unknown, n = 300) => { const t = String(s ?? "").trim(); return t.length > n ? t.slice(0, n) + "…" : t; };
