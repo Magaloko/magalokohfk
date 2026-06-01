@@ -7,6 +7,8 @@ import { FragenBlock } from "@/components/mastermind/fragen-block";
 import { HubDiagram } from "@/components/mastermind/hub-diagram";
 import { FragenFortschritt } from "@/components/mastermind/fragen-fortschritt";
 import { RoadmapTimeline } from "@/components/mastermind/roadmap-timeline";
+import { WoWirStehen } from "@/components/mastermind/wo-wir-stehen";
+import type { MasterMindVorgang, MasterMindToolStatus } from "@/lib/mastermind";
 
 const statusTone = (s: Werkzeug["status"]): "green" | "accent" | "muted" =>
   s === "Live" ? "green" : s === "Geplant" ? "accent" : "muted";
@@ -25,11 +27,15 @@ function SectionTitle({ icon, kicker, title }: { icon: string; kicker: string; t
 // Render-Body des MasterMind-Plans (aus cockpit/strategie extrahiert).
 // Reine Server-Component (kein State) — wird von app/(app)/mastermind/page.tsx in eine
 // PageShell eingebettet. MASTERMIND ist die Single Source of Truth aus lib/strategy.ts.
-export function PlanView({ antworten }: { antworten: Record<string, MasterMindAntwort> }) {
+export function PlanView({ antworten, vorgaenge, toolStatus }:
+  { antworten: Record<string, MasterMindAntwort>; vorgaenge: MasterMindVorgang[]; toolStatus: Record<string, MasterMindToolStatus> }) {
   const m = MASTERMIND;
 
   return (
     <>
+      {/* Aktueller Stand — zuerst sichtbar */}
+      <WoWirStehen vorgaenge={vorgaenge} toolStatus={toolStatus} />
+
       {/* Hero */}
       <section className="rounded-xl border border-line bg-surface p-5 shadow-sm sm:p-6">
         <div className="flex flex-wrap items-center gap-2">
