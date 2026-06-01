@@ -14,7 +14,7 @@ export function NewAngebotButton() {
   const [open, setOpen] = useState(false);
   return (
     <>
-      <button onClick={() => setOpen(true)} className="rounded-lg bg-accent px-4 py-2 text-sm font-semibold text-bg hover:opacity-90">+ Neues Angebot</button>
+      <button onClick={() => setOpen(true)} className="rounded-lg bg-accent px-4 py-2.5 text-sm font-semibold text-bg hover:opacity-90 min-h-11">+ Neues Angebot</button>
       {open && <AngebotForm onClose={() => setOpen(false)} />}
     </>
   );

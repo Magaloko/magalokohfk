@@ -19,7 +19,7 @@ const blankStep = (): Step => ({ prompt: "", options: [{ text: "", feedback: "" 
 export function NewSzenarioButton({ personas }: { personas: Persona[] }) {
   const [open, setOpen] = useState(false);
   return (<>
-    <button onClick={() => setOpen(true)} className="rounded-lg bg-accent px-4 py-2 text-sm font-semibold text-bg hover:opacity-90">+ Neues Szenario</button>
+    <button onClick={() => setOpen(true)} className="rounded-lg bg-accent px-4 py-2.5 text-sm font-semibold text-bg hover:opacity-90 min-h-11">+ Neues Szenario</button>
     {open && <SzenarioForm personas={personas} onClose={() => setOpen(false)} />}
   </>);
 }

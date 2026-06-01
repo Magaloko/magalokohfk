@@ -14,7 +14,7 @@ export function NewEinwandButton() {
   const [open, setOpen] = useState(false);
   return (
     <>
-      <button onClick={() => setOpen(true)} className="rounded-lg bg-accent px-4 py-2 text-sm font-semibold text-bg hover:opacity-90">+ Neuer Einwand</button>
+      <button onClick={() => setOpen(true)} className="rounded-lg bg-accent px-4 py-2.5 text-sm font-semibold text-bg hover:opacity-90 min-h-11">+ Neuer Einwand</button>
       {open && <EinwandForm onClose={() => setOpen(false)} />}
     </>
   );
