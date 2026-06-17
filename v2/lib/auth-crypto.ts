@@ -63,5 +63,11 @@ export async function createSession(opts: { tgUserId: number | null; role: strin
 }
 
 export function cookieOptions() {
-  return { httpOnly: true, secure: true, sameSite: "lax" as const, path: "/", maxAge: SESSION_DAYS * 24 * 60 * 60 };
+  return {
+    httpOnly: true,
+    secure: process.env.NODE_ENV === "production",
+    sameSite: "lax" as const,
+    path: "/",
+    maxAge: SESSION_DAYS * 24 * 60 * 60,
+  };
 }
