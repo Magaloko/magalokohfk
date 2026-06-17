@@ -15,6 +15,9 @@ function send(res, status, obj, extra) {
   res.writeHead(status, { ...JSON_H, ...(extra || {}) });
   res.end(typeof obj === "string" ? obj : JSON.stringify(obj));
 }
+function actorOf(sess, fallback = "system") {
+  return sess?.email || fallback;
+}
 
 // === SMTP-Config aus Env ===
 const SMTP = {
@@ -161,7 +164,7 @@ export default async function handler(req, res) {
         }
       }
       // SNAPSHOT: aktuellen Stand vor dem Überschreiben sichern (best-effort)
-      await snapshotState(cur.data?.data, diskUpdatedAt, req.headers["x-client-id"]);
+      await snapshotState(cur.data?.data, diskUpdatedAt, req.headers["x-client-id"], actorOf(sess, "api-state"));
       const newUpdatedAt = Number(sanitized.updatedAt) || Date.now();
       // Bedingtes Update: nur wenn updated_at noch dem gelesenen Stand entspricht (Race-Schutz)
       const upd = await db.from("app_state")
@@ -232,7 +235,7 @@ export default async function handler(req, res) {
       };
       state.captureInbox.unshift(e);
       state.captureInbox = state.captureInbox.slice(0, 500);
-      await snapshotState(cur.data?.data, Number(cur.data?.updated_at || 0), "capture");
+      await snapshotState(cur.data?.data, Number(cur.data?.updated_at || 0), "capture", actorOf(sess, "api-capture"));
       state.updatedAt = Date.now();
       await db.from("app_state").update({ data: sanitizeStateJson(state), updated_at: state.updatedAt })
         .eq("id", STATE_ID);
@@ -270,7 +273,7 @@ export default async function handler(req, res) {
       if (!snap.data?.data) return send(res, 404, { error: "Snapshot nicht gefunden" });
       // aktuellen Stand zuerst sichern (rückgängig-machbar), dann mit höchstem updated_at zurückspielen
       const cur = await db.from("app_state").select("data, updated_at").eq("id", STATE_ID).maybeSingle();
-      await snapshotState(cur.data?.data, Number(cur.data?.updated_at || 0), "pre-restore");
+      await snapshotState(cur.data?.data, Number(cur.data?.updated_at || 0), "pre-restore", actorOf(sess, "api-restore"));
       const restored = sanitizeStateJson(snap.data.data);
       const newUpdatedAt = Date.now();
       restored.updatedAt = newUpdatedAt;

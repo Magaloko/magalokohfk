@@ -11,6 +11,7 @@ config/*.json
 
 # === Deploy / Tooling ===
 .vercel/
+.mcp.json
 .claude/*
 !.claude/skills/
 /audit/

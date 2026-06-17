@@ -12,6 +12,22 @@ type Coach = {
   perKrit: { name: string; punkte: number; max: number; kommentar: string }[];
   gesamt: string; got: number; max: number; pct: number;
 };
+type SpeechRecognitionLike = {
+  lang: string;
+  interimResults: boolean;
+  continuous: boolean;
+  start: () => void;
+  stop: () => void;
+  abort: () => void;
+  onresult: ((event: SpeechRecognitionEventLike) => void) | null;
+  onerror: ((event: { error?: string }) => void) | null;
+  onend: (() => void) | null;
+};
+type SpeechRecognitionEventLike = {
+  resultIndex: number;
+  results: ArrayLike<{ isFinal: boolean; 0: { transcript: string } }>;
+};
+type SpeechRecognitionCtor = new () => SpeechRecognitionLike;
 
 const SEED = "(Die Szene beginnt. Sag als Kunde den ersten Satz — kurz, natürlich, passend zur Situation.)";
 
@@ -30,8 +46,18 @@ export function RoleplayRunner({ rp, onClose }: { rp: Rollenspiel; onClose: () =
   const [coach, setCoach] = useState<Coach | null>(null);
   const [err, setErr] = useState<string>("");
   const [input, setInput] = useState("");
+  const [voiceSupported, setVoiceSupported] = useState(false);
+  const [listening, setListening] = useState(false);
+  const [voiceErr, setVoiceErr] = useState("");
+  const [speechSupported, setSpeechSupported] = useState(false);
+  const [speechEnabled, setSpeechEnabled] = useState(false);
+  const [speaking, setSpeaking] = useState(false);
   const chatRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
+  const recognitionRef = useRef<SpeechRecognitionLike | null>(null);
+  const speechBaseRef = useRef("");
+  const speechEnabledRef = useRef(false);
+  const speechSupportedRef = useRef(false);
   const turns = convo.slice(1).filter((m) => m.role === "user").length;
 
   const scrollDown = useCallback(() => {
@@ -44,7 +70,10 @@ export function RoleplayRunner({ rp, onClose }: { rp: Rollenspiel; onClose: () =
     try {
       const r = await aiCall("chat", rp, [{ role: "user", content: SEED }]);
       const j = await r.json().catch(() => ({}));
-      if (r.ok && j.reply) setConvo([{ role: "user", content: SEED }, { role: "assistant", content: j.reply }]);
+      if (r.ok && j.reply) {
+        setConvo([{ role: "user", content: SEED }, { role: "assistant", content: j.reply }]);
+        speakCustomer(j.reply);
+      }
       else setErr(j.error === "no_key" ? "no_key" : "unreachable");
     } catch { setErr("unreachable"); }
     finally { setSending(false); scrollDown(); }
@@ -52,6 +81,24 @@ export function RoleplayRunner({ rp, onClose }: { rp: Rollenspiel; onClose: () =
 
   useEffect(() => { startConversation(); }, [startConversation]);
   useEffect(scrollDown, [convo, sending, scrollDown]);
+
+  useEffect(() => {
+    const w = window as typeof window & {
+      SpeechRecognition?: SpeechRecognitionCtor;
+      webkitSpeechRecognition?: SpeechRecognitionCtor;
+    };
+    setVoiceSupported(Boolean(w.SpeechRecognition || w.webkitSpeechRecognition));
+    const canSpeak = "speechSynthesis" in window && "SpeechSynthesisUtterance" in window;
+    setSpeechSupported(canSpeak);
+    speechSupportedRef.current = canSpeak;
+    return () => {
+      recognitionRef.current?.abort();
+      recognitionRef.current = null;
+      window.speechSynthesis?.cancel();
+    };
+  }, []);
+
+  useEffect(() => { speechEnabledRef.current = speechEnabled; }, [speechEnabled]);
 
   // Escape schließt; Eingabe fokussieren, sobald die KI fertig ist.
   useEffect(() => {
@@ -64,6 +111,7 @@ export function RoleplayRunner({ rp, onClose }: { rp: Rollenspiel; onClose: () =
   async function send() {
     const text = input.trim();
     if (!text || sending) return;
+    stopListening();
     setErr("");
     const next = [...convo, { role: "user" as const, content: text }];
     setConvo(next);
@@ -72,17 +120,98 @@ export function RoleplayRunner({ rp, onClose }: { rp: Rollenspiel; onClose: () =
     try {
       const r = await aiCall("chat", rp, next);
       const j = await r.json().catch(() => ({}));
-      if (r.ok && j.reply) setConvo((c) => [...c, { role: "assistant", content: j.reply }]);
+      if (r.ok && j.reply) {
+        setConvo((c) => [...c, { role: "assistant", content: j.reply }]);
+        speakCustomer(j.reply);
+      }
       else { setConvo(convo); setInput(text); setErr(j.error === "no_key" ? "no_key" : "unreachable"); }
     } catch { setConvo(convo); setInput(text); setErr("unreachable"); }
     finally { setSending(false); }
   }
 
+  function stopSpeech() {
+    window.speechSynthesis?.cancel();
+    setSpeaking(false);
+  }
+
+  function speakCustomer(text: string) {
+    if (!speechEnabledRef.current || !speechSupportedRef.current || !text.trim()) return;
+    stopSpeech();
+    const u = new SpeechSynthesisUtterance(text);
+    u.lang = "de-DE";
+    u.rate = 0.96;
+    u.pitch = 1;
+    u.onend = () => setSpeaking(false);
+    u.onerror = () => setSpeaking(false);
+    setSpeaking(true);
+    window.speechSynthesis.speak(u);
+  }
+
+  function stopListening() {
+    recognitionRef.current?.stop();
+    recognitionRef.current = null;
+    setListening(false);
+  }
+
+  function toggleVoice() {
+    if (listening) { stopListening(); return; }
+    const w = window as typeof window & {
+      SpeechRecognition?: SpeechRecognitionCtor;
+      webkitSpeechRecognition?: SpeechRecognitionCtor;
+    };
+    const Recognition = w.SpeechRecognition || w.webkitSpeechRecognition;
+    if (!Recognition) {
+      setVoiceErr("voice_unsupported");
+      setVoiceSupported(false);
+      return;
+    }
+
+    setVoiceErr("");
+    speechBaseRef.current = input.trim();
+    const recognition = new Recognition();
+    recognition.lang = "de-DE";
+    recognition.interimResults = true;
+    recognition.continuous = false;
+    recognition.onresult = (event) => {
+      let finalText = "";
+      let interimText = "";
+      for (let i = 0; i < event.results.length; i += 1) {
+        const transcript = event.results[i][0]?.transcript || "";
+        if (event.results[i].isFinal) finalText += transcript;
+        else interimText += transcript;
+      }
+      const spoken = `${finalText}${interimText}`.trim();
+      const base = speechBaseRef.current;
+      setInput([base, spoken].filter(Boolean).join(" "));
+    };
+    recognition.onerror = (event) => {
+      setVoiceErr(event.error === "not-allowed" ? "voice_denied" : "voice_failed");
+      setListening(false);
+    };
+    recognition.onend = () => {
+      setListening(false);
+      recognitionRef.current = null;
+      inputRef.current?.focus();
+    };
+
+    recognitionRef.current = recognition;
+    setListening(true);
+    try {
+      recognition.start();
+    } catch {
+      setListening(false);
+      recognitionRef.current = null;
+      setVoiceErr("voice_failed");
+    }
+  }
+
   async function evaluate() {
+    stopListening();
+    stopSpeech();
     if (sending || turns < 1) { if (turns < 1) setErr("min"); return; }
     setPhase("evaluating");
     setErr("");
-    const transcript = convo.slice(1).map((m) => `${m.role === "assistant" ? "KUNDE" : "VERKÄUFER"}: ${m.content}`).join("\n");
+    const transcript = convo.slice(1).map((m) => `${m.role === "assistant" ? "KUNDE" : "MITARBEITER"}: ${m.content}`).join("\n");
     try {
       const r = await aiCall("coach", rp, [{ role: "user", content: transcript }]);
       const j = await r.json().catch(() => ({}));
@@ -92,6 +221,8 @@ export function RoleplayRunner({ rp, onClose }: { rp: Rollenspiel; onClose: () =
   }
 
   function reset() {
+    stopListening();
+    stopSpeech();
     setConvo([{ role: "user", content: SEED }]);
     setCoach(null); setInput(""); setPhase("chat");
     startConversation();
@@ -106,7 +237,22 @@ export function RoleplayRunner({ rp, onClose }: { rp: Rollenspiel; onClose: () =
           <h3 className="text-base font-bold"><Icon name="mic" className="h-5 w-5 inline-block mr-1" />{rp.titel || "Live-Rollenspiel"}</h3>
           <p className="text-xs text-muted-2">{(rp.persona || "").split("(")[0].trim()}{rp.verkaufstechnik ? ` · ${rp.verkaufstechnik}` : ""}</p>
         </div>
-        <IconButton icon="x" label="Schließen" onClick={onClose} tone="default" />
+        <div className="flex items-center gap-1">
+          <button
+            type="button"
+            disabled={!speechSupported}
+            onClick={() => { const next = !speechEnabled; speechEnabledRef.current = next; setSpeechEnabled(next); if (!next) stopSpeech(); }}
+            title={speechSupported ? "Kundenantwort vorlesen" : "Vorlesen wird in diesem Browser nicht unterstützt"}
+            aria-label={speechEnabled ? "Vorlesen ausschalten" : "Vorlesen einschalten"}
+            className={cn(
+              "grid h-10 w-10 place-items-center rounded-lg disabled:opacity-50",
+              speechEnabled ? "bg-accent/15 text-accent" : "text-muted-2 hover:text-ink",
+            )}
+          >
+            <Icon name={speaking ? "dot" : "chat"} className="h-4 w-4" />
+          </button>
+          <IconButton icon="x" label="Schließen" onClick={onClose} tone="default" />
+        </div>
       </div>
 
       {phase === "result" && coach ? (
@@ -119,7 +265,7 @@ export function RoleplayRunner({ rp, onClose }: { rp: Rollenspiel; onClose: () =
         </div>
       ) : (
         <>
-          <p className="mb-2 rounded-lg bg-surface-2 px-3 py-2 text-xs text-muted"><Icon name="bag" className="h-4 w-4 inline-block mr-1" />Du bist der/die VerkäuferIn. Antworte natürlich, wie im Laden. Die KI spielt die Kundin/den Kunden.</p>
+          <p className="mb-2 rounded-lg bg-surface-2 px-3 py-2 text-xs text-muted"><Icon name="chat" className="h-4 w-4 inline-block mr-1" />Du bist der/die HFK-MitarbeiterIn. Antworte natürlich, ruhig und verbindlich. Die KI spielt die Kundin/den Kunden.</p>
           <div ref={chatRef} className="flex max-h-[46vh] min-h-[180px] flex-col gap-2 overflow-y-auto rounded-lg border border-line bg-bg/40 p-3">
             {visible.map((m, i) => (
               <Bubble key={i} seller={m.role === "user"} text={m.content} />
@@ -137,6 +283,13 @@ export function RoleplayRunner({ rp, onClose }: { rp: Rollenspiel; onClose: () =
                 : "KI nicht erreichbar — nochmal senden."}
             </p>
           )}
+          {voiceErr && (
+            <p className="mt-2 rounded-lg bg-amber/10 px-3 py-2 text-xs text-amber">
+              {voiceErr === "voice_unsupported" ? "Spracheingabe wird in diesem Browser nicht unterstützt."
+                : voiceErr === "voice_denied" ? "Mikrofon-Zugriff wurde nicht erlaubt."
+                : "Spracheingabe konnte nicht gestartet werden."}
+            </p>
+          )}
 
           <div className="mt-3 flex items-end gap-2">
             <textarea
@@ -146,12 +299,20 @@ export function RoleplayRunner({ rp, onClose }: { rp: Rollenspiel; onClose: () =
               onKeyDown={(e) => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); send(); } }}
               rows={2}
               disabled={sending}
-              placeholder="Deine Antwort als VerkäuferIn…"
+              placeholder="Deine Antwort als HFK-MitarbeiterIn…"
               className="flex-1 resize-none rounded-lg border border-line bg-surface-2 px-3 py-2.5 text-base text-ink outline-none focus:border-accent disabled:opacity-60"
             />
+            <button onClick={toggleVoice} disabled={sending} aria-label={listening ? "Aufnahme stoppen" : "Antwort diktieren"} title={voiceSupported ? "Antwort diktieren" : "Spracheingabe prüfen"}
+              className={cn(
+                "grid h-11 w-11 shrink-0 place-items-center rounded-lg border font-semibold disabled:opacity-50",
+                listening ? "border-red bg-red/10 text-red" : voiceSupported ? "border-line bg-surface-2 text-ink hover:border-accent" : "border-line bg-surface-2 text-muted-2",
+              )}>
+              <Icon name="mic" className="h-4 w-4" />
+            </button>
             <button onClick={send} disabled={sending || !input.trim()} aria-label="Senden"
               className="rounded-lg bg-accent px-4 py-2.5 font-semibold text-bg disabled:opacity-50"><Icon name="send" className="h-4 w-4" /></button>
           </div>
+          {listening && <p className="mt-1 text-xs font-medium text-red">Aufnahme läuft. Sprich deine Antwort, dann stoppt VEKTRA automatisch.</p>}
           <div className="mt-2 flex items-center justify-between">
             <span className="text-xs text-muted-2">{turns} Wechsel</span>
             <button onClick={evaluate} disabled={sending}

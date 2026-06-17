@@ -28,6 +28,47 @@ export async function callAiChat(systemPrompt: string, messages: ChatMsg[], temp
   return String(t);
 }
 
+const SERVICE_HINTS = [
+  "lieferverzug", "retoure", "reklamation", "beschädigt", "falsch", "rechnung",
+  "zahlung", "vip", "eskalation", "service", "deeskalation", "kundengespräch",
+];
+
+const SERVICE_KRITERIEN = [
+  { kriterium: "Empathie", punkte_max: 3, beschreibung: "Reagiert ruhig, wertschätzend und nimmt den Ärger ernst." },
+  { kriterium: "Problemklärung", punkte_max: 3, beschreibung: "Erkennt das Kernproblem und fragt gezielt nach fehlenden Informationen." },
+  { kriterium: "Keine falsche Zusage", punkte_max: 3, beschreibung: "Verspricht nichts, was nicht geprüft oder durch Policies gedeckt ist." },
+  { kriterium: "DSGVO & Sicherheit", punkte_max: 2, beschreibung: "Fragt nur notwendige Daten ab und vermeidet sensible Offenlegung." },
+  { kriterium: "Eskalation", punkte_max: 2, beschreibung: "Erkennt kritische Fälle und bietet saubere Weitergabe an." },
+  { kriterium: "Nächste Aktion", punkte_max: 3, beschreibung: "Formuliert klar, was als Nächstes passiert und wann der Kunde Rückmeldung bekommt." },
+  { kriterium: "HFK-Tonalität", punkte_max: 2, beschreibung: "Bleibt freundlich, verbindlich und hochwertig im HFK-Stil." },
+];
+
+const SALES_KRITERIEN = [
+  { kriterium: "Bedarf verstehen", punkte_max: 3, beschreibung: "Fragt nach Situation, Budget, Nutzung und Prioritäten." },
+  { kriterium: "Passende Empfehlung", punkte_max: 3, beschreibung: "Leitet die Empfehlung nachvollziehbar aus dem Bedarf ab." },
+  { kriterium: "Einwandbehandlung", punkte_max: 3, beschreibung: "Geht konkret und ruhig auf Bedenken ein." },
+  { kriterium: "Abschlussorientierung", punkte_max: 2, beschreibung: "Führt zu einem klaren nächsten Schritt." },
+  { kriterium: "HFK-Tonalität", punkte_max: 2, beschreibung: "Bleibt hochwertig, beratend und nicht drängend." },
+];
+
+function textOfRoleplay(rp: Rollenspiel): string {
+  return [
+    rp.titel, rp.persona, rp.setting, rp.verkaufstechnik, rp.produkt, rp.marke,
+    ...(rp.einwaende || []).flatMap((e) => [e.einwand, e.psychologie, e.erwartete_technik]),
+  ].filter(Boolean).join(" ").toLowerCase();
+}
+
+function isServiceRoleplay(rp: Rollenspiel): boolean {
+  const t = textOfRoleplay(rp);
+  return SERVICE_HINTS.some((h) => t.includes(h));
+}
+
+function effectiveCriteria(rp: Rollenspiel) {
+  const custom = (rp.bewertungskriterien || []).filter((k) => String(k.kriterium || "").trim());
+  if (custom.length > 0) return custom;
+  return isServiceRoleplay(rp) ? SERVICE_KRITERIEN : SALES_KRITERIEN;
+}
+
 // Leitet aus echten Nachrichten ein kompaktes, wiederverwendbares Stil-Profil ab (Phase 2b).
 export function styleProfileSystem(): string {
   return [
@@ -165,29 +206,46 @@ export function parseReview(raw: string): { score: number; feedback: string; imp
 
 // Die KI spielt die Kundin/den Kunden (Persona) im Rollenspiel.
 export function customerSystem(rp: Rollenspiel): string {
-  const einw = (rp.einwaende || []).map((e, i) => `${i + 1}. „${e.einwand || ""}"`).join("\n");
+  const service = isServiceRoleplay(rp);
+  const einw = (rp.einwaende || []).map((e, i) => {
+    const parts = [`${i + 1}. „${e.einwand || ""}"`];
+    if (e.psychologie) parts.push(`Motiv/Gefühl: ${e.psychologie}`);
+    if (e.erwartete_technik) parts.push(`Nur bei guter Antwort akzeptieren, wenn erkennbar: ${e.erwartete_technik}`);
+    return parts.join(" — ");
+  }).join("\n");
   return [
-    "Du spielst eine Kundin/einen Kunden in einem Verkaufs-Rollenspiel für ein Babyfachgeschäft (HFK – Herr und Frau Klein, Wien/Österreich).",
+    service
+      ? "Du spielst eine Kundin/einen Kunden in einem Service- und Kundengespräch-Rollenspiel für ein Babyfachgeschäft (HFK – Herr und Frau Klein, Wien/Österreich)."
+      : "Du spielst eine Kundin/einen Kunden in einem Verkaufs-Rollenspiel für ein Babyfachgeschäft (HFK – Herr und Frau Klein, Wien/Österreich).",
     "Bleib IMMER in der Kundenrolle. Antworte auf Deutsch, natürlich und menschlich, kurz (1–3 Sätze). Kein Erzähltext, keine Regie-Anweisungen — nur direkte wörtliche Rede.",
+    service ? "Du darfst verärgert, enttäuscht oder skeptisch sein, aber bleib realistisch. Gib sensible Kundendaten nicht von dir aus vollständig preis." : "",
     "",
     `DEINE ROLLE (Persona): ${rp.persona || "interessierte Kundin"}`,
     `SITUATION: ${rp.setting || ""}`,
-    rp.produkt ? `PRODUKTE im Fokus: ${rp.produkt}` : "",
+    rp.produkt ? `${service ? "BETROFFENER ARTIKEL/VORGANG" : "PRODUKTE im Fokus"}: ${rp.produkt}` : "",
     "",
-    "Bring diese Einwände im Lauf des Gesprächs natürlich und nach und nach ein (nicht alle auf einmal, nur wenn es passt):",
-    einw || "(keine speziellen Einwände)",
+    service
+      ? "Bring diese Kundenaussagen/Probleme im Lauf des Gesprächs natürlich und nach und nach ein (nicht alle auf einmal, nur wenn es passt):"
+      : "Bring diese Einwände im Lauf des Gesprächs natürlich und nach und nach ein (nicht alle auf einmal, nur wenn es passt):",
+    einw || (service ? "(kein spezieller Service-Einwand)" : "(keine speziellen Einwände)"),
     "",
-    "Geht der/die VerkäuferIn überzeugend auf einen Einwand ein, akzeptierst du und das Gespräch entwickelt sich weiter. Bei schwachen Antworten bleibst du skeptisch.",
+    service
+      ? "Wenn der/die MitarbeiterIn empathisch reagiert, sauber nachfragt und keine vorschnellen Zusagen macht, wirst du schrittweise ruhiger. Bei ausweichenden oder falschen Antworten bleibst du verärgert."
+      : "Geht der/die VerkäuferIn überzeugend auf einen Einwand ein, akzeptierst du und das Gespräch entwickelt sich weiter. Bei schwachen Antworten bleibst du skeptisch.",
     "Beende das Gespräch NICHT von dir aus und gib KEINE Bewertung ab. Reagiere nur als Kunde auf die letzte Aussage des/der VerkäuferIn.",
   ].filter(Boolean).join("\n");
 }
 
 // Der KI-Coach bewertet das Transkript und liefert JSON.
 export function coachSystem(rp: Rollenspiel): string {
-  const krit = rp.bewertungskriterien || [];
+  const service = isServiceRoleplay(rp);
+  const krit = effectiveCriteria(rp);
   return [
-    "Du bist ein erfahrener, fairer Verkaufstrainer im Babyfachhandel. Bewerte das folgende Verkaufsgespräch.",
-    `Im Transkript ist VERKÄUFER der/die zu bewertende Lernende; KUNDE ist die Trainings-Persona. Zieltechnik: ${rp.verkaufstechnik || "allgemein"}.`,
+    service
+      ? "Du bist ein erfahrener, fairer Service-Coach im Babyfachhandel. Bewerte das folgende Kundengespräch."
+      : "Du bist ein erfahrener, fairer Verkaufstrainer im Babyfachhandel. Bewerte das folgende Verkaufsgespräch.",
+    `Im Transkript ist MITARBEITER der/die zu bewertende Lernende; KUNDE ist die Trainings-Persona. Fokus: ${rp.verkaufstechnik || (service ? "Kundengespräch" : "allgemein")}.`,
+    service ? "Achte besonders auf Empathie, Problemklärung, keine falschen Zusagen, Datenschutz, Eskalation und klare nächste Aktion." : "",
     "Vergib pro Kriterium 0 bis max Punkte (ganzzahlig). Sei konkret und konstruktiv.",
     "Antworte AUSSCHLIESSLICH als JSON ohne Markdown, exakt in diesem Format:",
     '{"kriterien":[{"index":0,"punkte":2,"kommentar":"kurz"}],"gesamt":"2-3 Sätze Gesamtfeedback"}',
@@ -206,7 +264,7 @@ export type CoachResult = {
 };
 
 export function parseCoach(raw: string, rp: Rollenspiel): CoachResult {
-  const krit = rp.bewertungskriterien || [];
+  const krit = effectiveCriteria(rp);
   let t = String(raw || "").trim().replace(/^```(?:json)?/i, "").replace(/```$/, "").trim();
   const s = t.indexOf("{"), e = t.lastIndexOf("}");
   if (s >= 0 && e > s) t = t.slice(s, e + 1);

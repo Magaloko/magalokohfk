@@ -266,13 +266,14 @@ export function antiWipeViolation(current, incoming) {
 }
 
 // Sichert den AKTUELLEN app_state-Stand nach state_history (vor einem Write). Best-effort.
-export async function snapshotState(currentData, updatedAt, clientId) {
+export async function snapshotState(currentData, updatedAt, clientId, actor) {
   try {
     if (!currentData || typeof currentData !== "object") return;
     await db.from("state_history").insert({
       updated_at: Number(updatedAt) || 0,
       client_id: (clientId || "").slice(0, 64) || null,
-      data: currentData
+      data: currentData,
+      actor: actor || null
     });
   } catch (e) { console.error("[snapshotState]", e.message); }
 }

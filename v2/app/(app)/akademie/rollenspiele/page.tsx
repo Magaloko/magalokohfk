@@ -15,7 +15,7 @@ export default async function RollenspielePage() {
   const { rollenspiele } = await getAkademieData();
   if (!rollenspiele.length) return <PageShell title="Rollenspiele" icon="mic" action={admin ? <NewRollenspielButton /> : undefined}><EmptyState title="Noch keine Rollenspiele" /></PageShell>;
   return (
-    <PageShell title="Rollenspiele" icon="mic" subtitle={`${rollenspiele.length} trainer-geführte Szenarien`} action={admin ? <NewRollenspielButton /> : undefined}>
+    <PageShell title="Rollenspiele" icon="mic" subtitle={`${rollenspiele.length} Kundengespräche und Beratungsfälle`} action={admin ? <NewRollenspielButton /> : undefined}>
       <CardGrid>
         {rollenspiele.map((r, i) => (
           <Card key={r.id || i}>

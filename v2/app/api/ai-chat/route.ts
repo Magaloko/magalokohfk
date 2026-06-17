@@ -35,7 +35,11 @@ function sanitizeRp(input: unknown): Rollenspiel {
     verkaufstechnik: str(r.verkaufstechnik, 200),
     gesamtpunkte_max: Number(r.gesamtpunkte_max) || 0,
     einwaende: Array.isArray(r.einwaende)
-      ? (r.einwaende as Record<string, unknown>[]).slice(0, 12).map((e) => ({ einwand: str(e?.einwand, 300) }))
+      ? (r.einwaende as Record<string, unknown>[]).slice(0, 12).map((e) => ({
+          einwand: str(e?.einwand, 300),
+          psychologie: str(e?.psychologie, 400),
+          erwartete_technik: str(e?.erwartete_technik, 250),
+        }))
       : [],
     bewertungskriterien: Array.isArray(r.bewertungskriterien)
       ? (r.bewertungskriterien as Record<string, unknown>[]).slice(0, 12).map((k) => ({

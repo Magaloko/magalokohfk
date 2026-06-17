@@ -22,8 +22,8 @@ produktionsreif/zuverlässig. UI durchgängig **DEUTSCH**, **helles** Theme, mob
 - Produktive App im Unterordner **`v2/`** (Next.js 15 App Router, React 19, TypeScript, Tailwind v4).
 - Vercel V2-Projekt **`magalokohfk-xdnk`**, Root Directory `v2`, URL `https://magalokohfk-xdnk.vercel.app`
   (Team `magalokos-projects`). Hostet **App UND Bot**. (Altes Projekt `magalokohfk` löscht der User selbst.)
-- Supabase-Projekt `iyypazhwloycnfobcqpt` (Postgres). **NICHT per MCP erreichbar** → SQL/Migrationen spielt
-  der **USER** ein; du lieferst nur das SQL (Ordner `supabase/migrations/`).
+- Supabase-Projekt `iyypazhwloycnfobcqpt` (Postgres). Direkter MCP-Zugriff ist **nicht verlässlich vorausgesetzt**;
+  SQL/Migrationen spielt der **USER** ein; du lieferst nur das SQL (Ordner `supabase/migrations/`).
 - KI: **DeepSeek** (`deepseek-chat`), Env `BOT_AI_KEY`. Helfer: `v2/lib/ai.ts` (`callAiChat`); Bot: `callAI` in `handler.mjs`.
 
 ## 3) Architektur (Kurz)
@@ -56,7 +56,7 @@ Mitarbeiter; 4 Runner mit Tastatursteuerung, Spaced-Repetition, Gamification) ·
 Assistent + Guides mit Check-ins + Prompt-Bibliothek; auch im Bot via `/copilot`) · Werkstatt (Vorschläge:
 einreichen→KI-Pre-Check→Team-Votum→Admin-Freigabe→Übernahme in `salesObjections`; Übungs-Schleife; **XP/Badges**) ·
 Cockpit (Tasks/Hebel/Entscheidungen als **Kanban-Boards** + Listen; KPIs; **Verlauf/Timeline** pro Datensatz inkl.
-„wer hat geändert"; org-weiter **Aktivitäts-Feed** `/cockpit/aktivitaet`; **Stephan-Assistent** geerdet;
+„wer hat geändert"; org-weiter **Aktivitäts-Feed** `/cockpit/aktivitaet` + Karte „Letzte Aktivität" auf `/heute`; **Stephan-Assistent** geerdet;
 **Q&A-Audit** `/cockpit/audit` mit feld-genauer Übernahme) · Einstellungen (super-admin User-/Bereichs-Verwaltung).
 Sicherheit gehärtet: fail-closed webhook/cron/session, KI-Rate-Limit (`v2/lib/rate-limit.ts`), Werkstatt-Privacy
 (`toPublic`), Security-Header (`next.config.ts`), Prompt-Injection-Schutz.
@@ -88,8 +88,6 @@ Pflicht: `SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY`, `SESSION_SECRET` (≥32 Ze
 (AGPL-Copyleft). Bereits risikofrei nachgebaut: Kanban-Boards, Timeline/Verlauf, Aktivitäts-Feed, Record-Skill.
 
 ## 8) Offene Punkte (optional)
-- Bot-Actor (Bot-Änderungen tragen noch kein `actor` im Verlauf).
-- „Letzte Aktivität"-Karte aufs Heute-Dashboard.
 - Finale Inhalts-Deutsch-Prüfung über `/cockpit/audit` (User klickt „Alle prüfen" → „Übernehmen").
 - User-Aufgaben: altes Vercel-Projekt löschen, im Chat exponierte Secrets rotieren.
 
