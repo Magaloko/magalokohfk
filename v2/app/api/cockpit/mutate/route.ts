@@ -3,6 +3,7 @@ import { getSession } from "@/lib/session";
 import { isAdmin, isSuperAdmin } from "@/lib/auth-helpers";
 import { createItem, patchItem, replaceItem, deleteItem } from "@/lib/cockpit-write";
 import { STRUCTURED } from "@/lib/struct-sanitize";
+import { basePointsForProcess } from "@/lib/process-game-core";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -28,7 +29,7 @@ const SPEC: Record<string, { fields: string[]; numeric?: string[]; prefix: strin
   mastermindAntworten: { fields: ["frageId", "status", "antwort", "notiz"], prefix: "mma" },
   mastermindVorgaenge: { fields: ["titel", "werkzeug", "status", "wartetAuf", "naechsterSchritt", "notiz", "datum"], prefix: "mmv" },
   mastermindToolStatus: { fields: ["werkzeug", "status", "notiz"], prefix: "mts" },
-  processRuns: { fields: ["datum", "bereich", "prozess", "entscheidung", "einsatz", "nachweis", "risiko", "status", "systemSignal", "naechsterSchritt"], numeric: ["punkte"], prefix: "prun" },
+  processRuns: { fields: ["datum", "bereich", "prozess", "entscheidung", "einsatz", "nachweis", "risiko", "status", "systemSignal", "naechsterSchritt"], prefix: "prun" },
   // Baby-Kompass — kuratiertes Eignungs-Overlay je Produkt (Key: jtlArtikelNr)
   kompassEignung: { fields: ["jtlArtikelNr", "gewichtKlasse", "faltmass", "ohneLift", "kofferraum", "oeffi", "gelaende", "abGeburt", "jogging", "geschwister", "ausschlussHinweis"], prefix: "ke" },
 };
@@ -36,7 +37,7 @@ const DYNAMIC = new Set(["weeklyKpis", "magoKpis"]); // dynamische Metrik-Felder
 const KPI_PREFIX = "kpi";
 const KPI_STRINGS = new Set(["weekStart", "weekLabel", "label", "notes"]);
 
-function cleanFixed(spec: { fields: string[]; numeric?: string[] }, input: unknown): Record<string, unknown> {
+function cleanFixed(collection: string, spec: { fields: string[]; numeric?: string[] }, input: unknown): Record<string, unknown> {
   const o = (input || {}) as Record<string, unknown>;
   const out: Record<string, unknown> = {};
   for (const f of spec.fields) {
@@ -48,6 +49,10 @@ function cleanFixed(spec: { fields: string[]; numeric?: string[] }, input: unkno
     if (o[f] === "") { out[f] = null; continue; } // explizit leeren (Feld zurücksetzen) erlauben
     const n = Number(o[f]);
     if (Number.isFinite(n)) out[f] = n;
+  }
+  if (collection === "processRuns") {
+    if (out.status !== undefined && !["Entwurf", "Geprüft", "Umgesetzt", "Gelernt"].includes(String(out.status))) delete out.status;
+    if (out.prozess !== undefined) out.punkte = basePointsForProcess(out.prozess);
   }
   return out;
 }
@@ -103,7 +108,7 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "bad_action" }, { status: 400 });
   }
 
-  const clean = (v: unknown) => (isDyn ? cleanKpi(v) : cleanFixed(spec, v));
+  const clean = (v: unknown) => (isDyn ? cleanKpi(v) : cleanFixed(collection, spec, v));
   const prefix = isDyn ? KPI_PREFIX : spec.prefix;
 
   let res;
@@ -131,7 +136,7 @@ export async function POST(req: NextRequest) {
   return finish(res);
 }
 
-function finish(res: { ok: boolean; error?: string; updatedAt?: number }) {
+function finish(res: { ok: boolean; error?: string; updatedAt?: number; id?: string }) {
   if (!res.ok) {
     const code = res.error === "conflict" || res.error === "anti-wipe" ? 409
       : res.error === "noop" ? 404
@@ -139,5 +144,5 @@ function finish(res: { ok: boolean; error?: string; updatedAt?: number }) {
       : 500;
     return NextResponse.json({ error: res.error }, { status: code });
   }
-  return NextResponse.json({ ok: true, updatedAt: res.updatedAt });
+  return NextResponse.json({ ok: true, updatedAt: res.updatedAt, id: res.id });
 }

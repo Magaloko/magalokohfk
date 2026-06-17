@@ -86,15 +86,22 @@ function locate(items: any[], idOrIdx: string): number {
   return -1;
 }
 
-export async function createItem(collection: string, item: Record<string, unknown>, idPrefix: string, actor?: string): Promise<MutateResult> {
-  const withId = { id: genId(idPrefix), ...item };
-  return mutateCollection(collection, (items) => [withId, ...items], actor);
+export async function createItem(collection: string, item: Record<string, unknown>, idPrefix: string, actor?: string): Promise<MutateResult & { id?: string }> {
+  const id = genId(idPrefix);
+  const withId = { id, ...item };
+  const res = await mutateCollection(collection, (items) => [withId, ...items], actor);
+  return res.ok ? { ...res, id } : res;
 }
 
 export async function patchItem(collection: string, idOrIdx: string, patch: Record<string, unknown>, actor?: string): Promise<MutateResult> {
   return mutateCollection(collection, (items) => {
     const i = locate(items, idOrIdx);
     if (i < 0) return null;
+    if (collection === "processRuns" && typeof patch.status === "string") {
+      const flow: Record<string, string> = { Entwurf: "Geprüft", Geprüft: "Umgesetzt", Umgesetzt: "Gelernt" };
+      const current = String(items[i]?.status || "Entwurf");
+      if (patch.status !== current && flow[current] !== patch.status) return null;
+    }
     items[i] = { ...items[i], ...patch };
     return items;
   }, actor);

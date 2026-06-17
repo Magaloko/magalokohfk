@@ -7,7 +7,7 @@ import type { TrainingType } from "@/lib/progress";
 type Reward = { xpGain: number; streak: number; level: { level: number }; newBadges: { id: string; icon: string; label: string }[] };
 
 // Verbucht ein Trainingsergebnis (einmalig) und zeigt XP/Streak/neue Badges.
-export function ResultRewards({ type, score, total, itemResults }: { type: TrainingType; score: number; total: number; itemResults?: { key: string; correct: boolean }[] }) {
+export function ResultRewards({ type, score, total, attemptId, itemResults }: { type: TrainingType; score: number; total: number; attemptId: string; itemResults?: { key: string; correct: boolean }[] }) {
   const [r, setR] = useState<Reward | null>(null);
   const [busy, setBusy] = useState(true);
   const sent = useRef(false);
@@ -18,12 +18,12 @@ export function ResultRewards({ type, score, total, itemResults }: { type: Train
     const headers: Record<string, string> = { "Content-Type": "application/json" };
     const init = (typeof window !== "undefined" && (window as any).Telegram?.WebApp?.initData) || "";
     if (init) headers["X-Tg-Init"] = init;
-    fetch("/api/akademie/progress", { method: "POST", headers, body: JSON.stringify({ type, score, total, itemResults }) })
+    fetch("/api/akademie/progress", { method: "POST", headers, body: JSON.stringify({ type, score, total, attemptId, itemResults }) })
       .then((res) => (res.ok ? res.json() : null))
       .then((j) => { if (j && typeof j.xpGain === "number") setR(j); })
       .catch(() => {})
       .finally(() => setBusy(false));
-  }, [type, score, total]);
+  }, [type, score, total, attemptId, itemResults]);
 
   if (busy) return <div className="mt-3 h-9 animate-pulse rounded-lg bg-surface-2" />;
   if (!r) return null;

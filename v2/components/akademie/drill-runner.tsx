@@ -10,6 +10,7 @@ import { IconButton } from "@/components/_primitives/icon-button";
 type Opt = { text: string; correct: boolean; feedback?: string };
 type Q = { id?: string; marke: string; technik?: string; schwierigkeit?: string; frage: string; opts: Opt[]; muster?: string };
 
+const newAttemptId = () => (typeof crypto !== "undefined" && "randomUUID" in crypto ? crypto.randomUUID() : `${Date.now()}-${Math.random().toString(36).slice(2)}`);
 function shuffle<T>(a: T[]): T[] { const r = [...a]; for (let i = r.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [r[i], r[j]] = [r[j], r[i]]; } return r; }
 function tgHaptic(kind: "success" | "error") {
   try { (window as any).Telegram?.WebApp?.HapticFeedback?.notificationOccurred(kind); } catch { /* ignore */ }
@@ -35,6 +36,7 @@ export function DrillRunner({ drills, onClose }: { drills: Drill[]; onClose: () 
   const [best, setBest] = useState(0);
   const [answered, setAnswered] = useState<number | null>(null);
   const [results, setResults] = useState<{ key: string; correct: boolean }[]>([]);
+  const [attemptId, setAttemptId] = useState(() => newAttemptId());
 
   const total = questions.length;
   const done = total > 0 && idx >= total;
@@ -50,7 +52,7 @@ export function DrillRunner({ drills, onClose }: { drills: Drill[]; onClose: () 
     else setStreak(0);
   };
   const next = () => { setAnswered(null); setIdx((i) => i + 1); };
-  const restart = () => { setIdx(0); setScore(0); setStreak(0); setBest(0); setAnswered(null); setResults([]); setRound((r) => r + 1); };
+  const restart = () => { setIdx(0); setScore(0); setStreak(0); setBest(0); setAnswered(null); setResults([]); setAttemptId(newAttemptId()); setRound((r) => r + 1); };
 
   // Tastatur: 1–9 / A–Z zum Antworten, Enter/Leertaste = weiter, Escape = schließen.
   useEffect(() => {
@@ -79,7 +81,7 @@ export function DrillRunner({ drills, onClose }: { drills: Drill[]; onClose: () 
           <div className="flex justify-center"><Icon name={icon} className="h-10 w-10" /></div>
           <div className="mt-2 text-3xl font-extrabold">{score}<span className="text-lg text-muted">/{total}</span></div>
           <div className="text-muted">{pct}% richtig{best >= 2 ? <> · <Icon name="flame" className="h-4 w-4 inline-block" /> beste Serie {best}</> : ""}</div>
-          <ResultRewards type="drill" score={score} total={total} itemResults={results} />
+          <ResultRewards type="drill" score={score} total={total} attemptId={attemptId} itemResults={results} />
           <div className="mt-5 flex justify-center gap-2">
             <button onClick={restart} className="rounded-lg bg-accent px-4 py-3 font-semibold text-bg"><Icon name="repeat" className="h-4 w-4 inline-block mr-1" />Nochmal</button>
             <button onClick={onClose} className="rounded-lg bg-surface-2 px-4 py-3 font-semibold"><Icon name="check" className="h-4 w-4 inline-block mr-1" />Fertig</button>

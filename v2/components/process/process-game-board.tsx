@@ -5,10 +5,16 @@ import { cockpitMutate, errText } from "@/components/cockpit/mutate";
 import { Card, Pill } from "@/components/_primitives/card";
 import { Icon } from "@/components/icon";
 import { cn } from "@/lib/cn";
-import { PROCESS_MISSIONS, scoreRun, type ProcessMission, type ProcessRun, type ProcessRunStatus } from "@/lib/process-game";
+import { PROCESS_MISSIONS, scoreRun, type ProcessMission, type ProcessRun, type ProcessRunStatus } from "@/lib/process-game-core";
 
 const AREAS = ["Einkauf", "Sortiment", "Kundenservice", "Marketing", "Finanzen", "Daten"];
 const STATUS: ProcessRunStatus[] = ["Entwurf", "Geprüft", "Umgesetzt", "Gelernt"];
+const NEXT_STATUS: Record<ProcessRunStatus, ProcessRunStatus | null> = {
+  Entwurf: "Geprüft",
+  Geprüft: "Umgesetzt",
+  Umgesetzt: "Gelernt",
+  Gelernt: null,
+};
 const today = () => new Date().toISOString().slice(0, 10);
 
 const input = "w-full rounded-lg border border-line bg-surface-2 px-3 py-2.5 text-sm text-ink outline-none focus:border-accent";
@@ -60,7 +66,7 @@ export function ProcessGameBoard({ initial }: { initial: ProcessRun[] }) {
     const r = await cockpitMutate({ collection: "processRuns", action: "create", item: form as Record<string, unknown> });
     setBusy(false);
     if (!r.ok) { setMsg(errText(r.error)); return; }
-    const next = { id: `local-${Date.now()}`, ...form };
+    const next = { id: r.id || `local-${Date.now()}`, ...form };
     setRuns((cur) => [next, ...cur]);
     setForm(blank(PROCESS_MISSIONS[0]));
     setMsg("Spielzug protokolliert.");
@@ -116,12 +122,14 @@ export function ProcessGameBoard({ initial }: { initial: ProcessRun[] }) {
                   {r.naechsterSchritt && <p className="mt-2 text-xs font-medium text-accent">Nächster Schritt: {r.naechsterSchritt}</p>}
                 </div>
                 <div className="flex shrink-0 flex-wrap gap-2">
-                  {STATUS.filter((s) => s !== r.status).slice(0, 3).map((s) => (
-                    <button key={s} type="button" onClick={() => advance(r, s)}
-                      className={cn("rounded-lg px-3 py-2 text-xs font-semibold", s === "Gelernt" ? "bg-teal/15 text-teal" : "bg-surface-2 text-muted hover:text-ink")}>
-                      {s}
+                  {NEXT_STATUS[(r.status as ProcessRunStatus) || "Entwurf"] ? (
+                    <button type="button" onClick={() => advance(r, NEXT_STATUS[(r.status as ProcessRunStatus) || "Entwurf"]!)}
+                      className={cn("rounded-lg px-3 py-2 text-xs font-semibold", NEXT_STATUS[(r.status as ProcessRunStatus) || "Entwurf"] === "Gelernt" ? "bg-teal/15 text-teal" : "bg-surface-2 text-muted hover:text-ink")}>
+                      Weiter zu {NEXT_STATUS[(r.status as ProcessRunStatus) || "Entwurf"]}
                     </button>
-                  ))}
+                  ) : (
+                    <span className="rounded-lg bg-green/10 px-3 py-2 text-xs font-semibold text-green">Abgeschlossen</span>
+                  )}
                 </div>
               </div>
             </Card>

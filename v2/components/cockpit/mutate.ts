@@ -5,14 +5,14 @@ export type MutateBody =
   | { collection: string; action: "replace"; id: string; item: Record<string, unknown> }
   | { collection: string; action: "delete"; id: string };
 
-export async function cockpitMutate(body: MutateBody): Promise<{ ok: boolean; error?: string }> {
+export async function cockpitMutate(body: MutateBody): Promise<{ ok: boolean; error?: string; id?: string }> {
   const headers: Record<string, string> = { "Content-Type": "application/json" };
   const init = (typeof window !== "undefined" && (window as any).Telegram?.WebApp?.initData) || "";
   if (init) headers["X-Tg-Init"] = init;
   try {
     const r = await fetch("/api/cockpit/mutate", { method: "POST", headers, body: JSON.stringify(body) });
     const j = await r.json().catch(() => ({}));
-    return { ok: r.ok, error: j?.error };
+    return { ok: r.ok, error: j?.error, id: typeof j?.id === "string" ? j.id : undefined };
   } catch {
     return { ok: false, error: "network" };
   }

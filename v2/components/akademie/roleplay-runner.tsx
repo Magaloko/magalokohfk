@@ -30,6 +30,7 @@ type SpeechRecognitionEventLike = {
 type SpeechRecognitionCtor = new () => SpeechRecognitionLike;
 
 const SEED = "(Die Szene beginnt. Sag als Kunde den ersten Satz — kurz, natürlich, passend zur Situation.)";
+const newAttemptId = () => (typeof crypto !== "undefined" && "randomUUID" in crypto ? crypto.randomUUID() : `${Date.now()}-${Math.random().toString(36).slice(2)}`);
 
 async function aiCall(mode: "chat" | "coach", rp: Rollenspiel, messages: Msg[]): Promise<Response> {
   const headers: Record<string, string> = { "Content-Type": "application/json" };
@@ -52,6 +53,7 @@ export function RoleplayRunner({ rp, onClose }: { rp: Rollenspiel; onClose: () =
   const [speechSupported, setSpeechSupported] = useState(false);
   const [speechEnabled, setSpeechEnabled] = useState(false);
   const [speaking, setSpeaking] = useState(false);
+  const [attemptId, setAttemptId] = useState(() => newAttemptId());
   const chatRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
   const recognitionRef = useRef<SpeechRecognitionLike | null>(null);
@@ -225,6 +227,7 @@ export function RoleplayRunner({ rp, onClose }: { rp: Rollenspiel; onClose: () =
     stopSpeech();
     setConvo([{ role: "user", content: SEED }]);
     setCoach(null); setInput(""); setPhase("chat");
+    setAttemptId(newAttemptId());
     startConversation();
   }
 
@@ -256,7 +259,7 @@ export function RoleplayRunner({ rp, onClose }: { rp: Rollenspiel; onClose: () =
       </div>
 
       {phase === "result" && coach ? (
-        <CoachResult coach={coach} onRetry={reset} onClose={onClose} />
+        <CoachResult coach={coach} attemptId={attemptId} onRetry={reset} onClose={onClose} />
       ) : phase === "evaluating" ? (
         <div className="py-10 text-center">
           <div className="flex justify-center"><Icon name="academy" className="h-8 w-8" /></div>
@@ -324,7 +327,7 @@ export function RoleplayRunner({ rp, onClose }: { rp: Rollenspiel; onClose: () =
   );
 }
 
-function CoachResult({ coach, onRetry, onClose }: { coach: Coach; onRetry: () => void; onClose: () => void }) {
+function CoachResult({ coach, attemptId, onRetry, onClose }: { coach: Coach; attemptId: string; onRetry: () => void; onClose: () => void }) {
   const icon = coach.pct >= 90 ? "party" : coach.pct >= 75 ? "trophy" : coach.pct >= 55 ? "target" : coach.pct >= 35 ? "bolt" : "book";
   return (
     <div>
@@ -334,7 +337,7 @@ function CoachResult({ coach, onRetry, onClose }: { coach: Coach; onRetry: () =>
         <div className="mt-1 text-3xl font-extrabold">{coach.got}<span className="text-lg text-muted">/{coach.max}</span></div>
         <div className="text-muted">{coach.pct}%</div>
       </div>
-      {coach.max > 0 && <ResultRewards type="rollenspiel" score={coach.got} total={coach.max} />}
+      {coach.max > 0 && <ResultRewards type="rollenspiel" score={coach.got} total={coach.max} attemptId={attemptId} />}
       {coach.gesamt && <p className="mt-3 rounded-lg border-l-2 border-accent bg-surface-2 px-3 py-2 text-sm text-muted">{coach.gesamt}</p>}
       <div className="mt-3 flex flex-col gap-2">
         {coach.perKrit.map((k, i) => {

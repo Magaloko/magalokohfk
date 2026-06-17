@@ -14,6 +14,7 @@ export type Stats = {
   pathsAwarded?: string[]; // bereits mit Abschluss-Bonus belohnte Pfade
   proposals?: number; // eingereichte Werkstatt-Vorschläge
   proposalsAccepted?: number; // angenommene Vorschläge
+  awardedAttempts?: string[]; // bereits verbuchte Trainings-Runden (Idempotenz)
 };
 
 export type Progress = {
@@ -66,6 +67,7 @@ function normStats(s: unknown): Stats {
     pathsAwarded: Array.isArray(o.pathsAwarded) ? (o.pathsAwarded as string[]) : [],
     proposals: Number(o.proposals) || 0,
     proposalsAccepted: Number(o.proposalsAccepted) || 0,
+    awardedAttempts: Array.isArray(o.awardedAttempts) ? (o.awardedAttempts as string[]).slice(-300) : [],
   };
 }
 
@@ -166,16 +168,26 @@ export type RecordResult = {
   xpGain: number;
   newBadges: Badge[];
   progress: Progress;
+  duplicate?: boolean;
+};
+
+const MAX_TOTAL_BY_TYPE: Record<TrainingType, number> = {
+  drill: 200,
+  quiz: 10,
+  szenario: 50,
+  rollenspiel: 50,
+  challenge: 5,
 };
 
 // Verbucht ein abgeschlossenes Training. Defensiv: bei DB-Fehler ok:false, aber konsistentes Ergebnis.
 export async function recordResult(
   userKey: string,
   display: string,
-  input: { type: TrainingType; score: number; total: number; itemResults?: { key: string; correct: boolean }[] },
+  input: { type: TrainingType; score: number; total: number; attemptId: string; itemResults?: { key: string; correct: boolean }[] },
 ): Promise<RecordResult> {
-  const score = Math.max(0, Math.round(input.score) || 0);
-  const total = Math.max(0, Math.round(input.total) || 0);
+  const maxTotal = MAX_TOTAL_BY_TYPE[input.type] || 50;
+  const total = Math.max(0, Math.min(maxTotal, Math.round(input.total) || 0));
+  const score = Math.max(0, Math.min(total, Math.round(input.score) || 0));
   const pct = total ? Math.round((score / total) * 100) : 0;
   // 5 Basis-XP fürs Abschließen + 10/richtige Antwort + Bonus bei starkem Ergebnis + Challenge-Bonus.
   const xpGain = 5 + score * 10 + (pct === 100 ? 30 : pct >= 80 ? 15 : 0) + (input.type === "challenge" ? 25 : 0);
@@ -183,6 +195,12 @@ export async function recordResult(
   const today = new Date().toISOString().slice(0, 10);
 
   const prev = (await getProgress(userKey)) || emptyProgress(userKey, display);
+  const attemptId = `${input.type}:${String(input.attemptId || "").slice(0, 80)}`;
+  const awardedAttempts = new Set(prev.stats.awardedAttempts || []);
+  if (!input.attemptId || awardedAttempts.has(attemptId) || (input.type === "challenge" && prev.stats.lastChallenge === today)) {
+    return { ok: true, xpGain: 0, newBadges: [], progress: prev, duplicate: true };
+  }
+  awardedAttempts.add(attemptId);
 
   // Streak
   let streak = prev.streak;
@@ -199,6 +217,7 @@ export async function recordResult(
     byType: { ...prev.stats.byType, [input.type]: (prev.stats.byType[input.type] || 0) + 1 },
     lastChallenge: input.type === "challenge" ? today : prev.stats.lastChallenge,
     weak: updateWeak(prev.stats.weak, input.itemResults),
+    awardedAttempts: [...awardedAttempts].slice(-300),
   };
 
   // Lernpfad-Kopplung: durch dieses Training komplettierte Pfade einmalig mit +60 belohnen.

@@ -9,6 +9,7 @@ import { IconButton } from "@/components/_primitives/icon-button";
 
 type Step = { prompt: string; options: { text: string; feedback?: string }[]; correctIdx: number };
 
+const newAttemptId = () => (typeof crypto !== "undefined" && "randomUUID" in crypto ? crypto.randomUUID() : `${Date.now()}-${Math.random().toString(36).slice(2)}`);
 function tgHaptic(kind: "success" | "error") {
   try { (window as any).Telegram?.WebApp?.HapticFeedback?.notificationOccurred(kind); } catch { /* ignore */ }
 }
@@ -30,6 +31,7 @@ export function SzenarioRunner({ sc, personaName, onClose }: { sc: Szenario; per
   const [streak, setStreak] = useState(0);
   const [best, setBest] = useState(0);
   const [answered, setAnswered] = useState<number | null>(null);
+  const [attemptId, setAttemptId] = useState(() => newAttemptId());
 
   const total = steps.length;
   const done = total > 0 && idx >= total;
@@ -44,7 +46,7 @@ export function SzenarioRunner({ sc, personaName, onClose }: { sc: Szenario; per
     else setStreak(0);
   };
   const next = () => { setAnswered(null); setIdx((i) => i + 1); };
-  const restart = () => { setIdx(0); setScore(0); setStreak(0); setBest(0); setAnswered(null); };
+  const restart = () => { setIdx(0); setScore(0); setStreak(0); setBest(0); setAnswered(null); setAttemptId(newAttemptId()); };
 
   // Tastatur: 1–9 / A–Z antworten, Enter/Leertaste = weiter, Escape = schließen.
   useEffect(() => {
@@ -75,7 +77,7 @@ export function SzenarioRunner({ sc, personaName, onClose }: { sc: Szenario; per
           <div className="mt-2 text-3xl font-extrabold">{score}<span className="text-lg text-muted">/{total}</span></div>
           <div className="text-muted">{pct}%{best >= 2 ? <> · <Icon name="flame" className="h-4 w-4 inline-block" /> beste Serie {best}</> : ""}</div>
           <p className="mt-4 text-sm text-muted">{msg}</p>
-          <ResultRewards type="szenario" score={score} total={total} />
+          <ResultRewards type="szenario" score={score} total={total} attemptId={attemptId} />
           <div className="mt-5 flex justify-center gap-2">
             <button onClick={restart} className="rounded-lg bg-accent px-4 py-3 font-semibold text-bg"><Icon name="repeat" className="h-4 w-4 inline-block mr-1" />Nochmal</button>
             <button onClick={onClose} className="rounded-lg bg-surface-2 px-4 py-3 font-semibold"><Icon name="check" className="h-4 w-4 inline-block mr-1" />Fertig</button>

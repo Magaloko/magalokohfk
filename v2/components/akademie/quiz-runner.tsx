@@ -11,6 +11,7 @@ type Opt = { text: string; correct: boolean; feedback?: string };
 type Q = { type: string; label: string; frage: string; opts: Opt[]; muster?: string; itemKey: string };
 type Weak = Record<string, number>;
 
+const newAttemptId = () => (typeof crypto !== "undefined" && "randomUUID" in crypto ? crypto.randomUUID() : `${Date.now()}-${Math.random().toString(36).slice(2)}`);
 function shuffle<T>(a: T[]): T[] { const r = [...a]; for (let i = r.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [r[i], r[j]] = [r[j], r[i]]; } return r; }
 const pick = <T,>(a: T[]) => a[Math.floor(Math.random() * a.length)];
 // Adaptive Auswahl: schwache Items (häufig falsch) bekommen höheres Gewicht.
@@ -112,6 +113,7 @@ export function QuizRunner({ drills, einwaende, marken, n = 5, onClose, recordTy
   const [best, setBest] = useState(0);
   const [answered, setAnswered] = useState<number | null>(null);
   const resultsRef = useRef<{ key: string; correct: boolean }[]>([]);
+  const [attemptId, setAttemptId] = useState(() => newAttemptId());
 
   const done = questions.length > 0 && idx >= questions.length;
   const q = questions[idx];
@@ -126,7 +128,7 @@ export function QuizRunner({ drills, einwaende, marken, n = 5, onClose, recordTy
   };
   const next = () => { setAnswered(null); setIdx((i) => i + 1); };
   // „Nochmal": frisches Schwächen-Profil laden (round++) -> Fragen werden neu generiert.
-  const restart = () => { resultsRef.current = []; setIdx(0); setScore(0); setStreak(0); setBest(0); setAnswered(null); setWeak(null); setRound((r) => r + 1); };
+  const restart = () => { resultsRef.current = []; setIdx(0); setScore(0); setStreak(0); setBest(0); setAnswered(null); setAttemptId(newAttemptId()); setWeak(null); setRound((r) => r + 1); };
 
   // Tastatur: 1–9 / A–Z zum Antworten, Enter/Leertaste = weiter, Escape = schließen.
   useEffect(() => {
@@ -156,7 +158,7 @@ export function QuizRunner({ drills, einwaende, marken, n = 5, onClose, recordTy
           <div className="flex justify-center"><Icon name={resultIcon} className="h-12 w-12" /></div>
           <div className="mt-2 text-3xl font-extrabold">{score}<span className="text-lg text-muted">/{questions.length}</span></div>
           <div className="text-muted flex items-center justify-center gap-1">{pct}% richtig{best >= 2 ? <><span> · </span><Icon name="flame" className="h-4 w-4" /><span> beste Serie {best}</span></> : ""}</div>
-          <ResultRewards type={recordType} score={score} total={questions.length} itemResults={resultsRef.current} />
+          <ResultRewards type={recordType} score={score} total={questions.length} attemptId={attemptId} itemResults={resultsRef.current} />
           <div className="mt-5 flex justify-center gap-2">
             <button onClick={restart} className="rounded-lg bg-accent px-4 py-3 font-semibold text-bg flex items-center gap-1.5"><Icon name="repeat" className="h-4 w-4" /> Nochmal</button>
             <button onClick={onClose} className="rounded-lg bg-surface-2 px-4 py-3 font-semibold flex items-center gap-1.5"><Icon name="check" className="h-4 w-4" /> Fertig</button>

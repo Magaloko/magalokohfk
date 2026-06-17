@@ -10,6 +10,13 @@ const TYPE_AREA: Record<TrainingType, string> = {
   drill: "drills", quiz: "drills", szenario: "szenarien", rollenspiel: "rollenspiele", challenge: "drills",
 };
 const TYPES: TrainingType[] = ["drill", "quiz", "szenario", "rollenspiel", "challenge"];
+const MAX_TOTAL_BY_TYPE: Record<TrainingType, number> = {
+  drill: 200,
+  quiz: 10,
+  szenario: 50,
+  rollenspiel: 50,
+  challenge: 5,
+};
 
 export async function GET() {
   const sess = await getSession();
@@ -22,7 +29,7 @@ export async function POST(req: NextRequest) {
   const sess = await getSession();
   if (!sess) return NextResponse.json({ error: "unauthorized" }, { status: 401 });
 
-  let body: { type?: string; score?: unknown; total?: unknown; itemResults?: unknown };
+  let body: { type?: string; score?: unknown; total?: unknown; attemptId?: unknown; itemResults?: unknown };
   try { body = await req.json(); } catch { return NextResponse.json({ error: "bad_request" }, { status: 400 }); }
 
   const itemResults = Array.isArray(body?.itemResults)
@@ -37,13 +44,19 @@ export async function POST(req: NextRequest) {
   // Bereichs-Gate: nur Trainings aus freigeschalteten Bereichen zählen.
   if (!allowedAreas(sess).includes(TYPE_AREA[type] as any)) return NextResponse.json({ error: "forbidden" }, { status: 403 });
 
-  const score = Math.max(0, Math.min(10000, Math.round(Number(body?.score) || 0)));
-  const total = Math.max(0, Math.min(10000, Math.round(Number(body?.total) || 0)));
+  const attemptId = String(body?.attemptId || "").replace(/[^a-zA-Z0-9:_-]/g, "").slice(0, 80);
+  if (!attemptId) return NextResponse.json({ error: "bad_attempt" }, { status: 400 });
+  const rawScore = Math.round(Number(body?.score) || 0);
+  const rawTotal = Math.round(Number(body?.total) || 0);
+  if (rawTotal > MAX_TOTAL_BY_TYPE[type]) return NextResponse.json({ error: "bad_score" }, { status: 400 });
+  const score = Math.max(0, rawScore);
+  const total = Math.max(0, rawTotal);
   if (!total || score > total) return NextResponse.json({ error: "bad_score" }, { status: 400 });
 
-  const res = await recordResult(sess.email, "Du", { type, score, total, itemResults });
+  const res = await recordResult(sess.email, "Du", { type, score, total, attemptId, itemResults });
   return NextResponse.json({
     ok: res.ok,
+    duplicate: res.duplicate === true,
     xpGain: res.xpGain,
     newBadges: res.newBadges,
     xp: res.progress.xp,
