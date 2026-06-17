@@ -28,6 +28,7 @@ const SPEC: Record<string, { fields: string[]; numeric?: string[]; prefix: strin
   mastermindAntworten: { fields: ["frageId", "status", "antwort", "notiz"], prefix: "mma" },
   mastermindVorgaenge: { fields: ["titel", "werkzeug", "status", "wartetAuf", "naechsterSchritt", "notiz", "datum"], prefix: "mmv" },
   mastermindToolStatus: { fields: ["werkzeug", "status", "notiz"], prefix: "mts" },
+  processRuns: { fields: ["datum", "bereich", "prozess", "entscheidung", "einsatz", "nachweis", "risiko", "status", "systemSignal", "naechsterSchritt"], numeric: ["punkte"], prefix: "prun" },
   // Baby-Kompass — kuratiertes Eignungs-Overlay je Produkt (Key: jtlArtikelNr)
   kompassEignung: { fields: ["jtlArtikelNr", "gewichtKlasse", "faltmass", "ohneLift", "kofferraum", "oeffi", "gelaende", "abGeburt", "jogging", "geschwister", "ausschlussHinweis"], prefix: "ke" },
 };

@@ -18,6 +18,7 @@ const SECTIONS: Section[] = [
   { title: "Steuerung", adminOnly: true, items: [
     { href: "/heute", label: "Heute", icon: "home", adminOnly: true },
     { href: "/cockpit", label: "Lieferung", icon: "cockpit", adminOnly: true },
+    { href: "/prozesse", label: "Prozess-Spiel", icon: "package", adminOnly: true },
     { href: "/kalender", label: "Kalender", icon: "calendar", adminOnly: true },
   ] },
   { title: "Beratung", adminOnly: true, items: [
