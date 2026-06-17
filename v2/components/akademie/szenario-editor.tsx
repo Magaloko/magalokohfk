@@ -92,13 +92,13 @@ function SzenarioForm({ id, szenario, personas, onClose }: { id?: string; szenar
                 <span className="text-xs font-bold uppercase tracking-wide text-muted-2">Schritt {i + 1}</span>
                 <button onClick={() => setSteps(steps.filter((_, j) => j !== i))} className="text-xs text-muted-2 hover:text-red">entfernen</button>
               </div>
-              <textarea value={s.prompt} onChange={(e) => upd(i, { prompt: e.target.value })} rows={2} placeholder="Prompt / Situation" className={`${sel} mb-2`} />
+              <textarea value={s.prompt} onChange={(e) => upd(i, { prompt: e.target.value })} rows={2} placeholder="Ausgangslage / Situation" className={`${sel} mb-2`} />
               <div className="flex flex-col gap-2">
                 {s.options.map((o, j) => (
                   <div key={j} className="flex flex-wrap items-center gap-2">
                     <input type="radio" name={`correct-${i}`} checked={s.correctIdx === j} onChange={() => upd(i, { correctIdx: j })} title="richtige Antwort" className="accent-green" />
                     <input value={o.text} onChange={(e) => updOpt(i, j, { text: e.target.value })} placeholder={`Option ${String.fromCharCode(65 + j)}`} className={`${sel} w-full sm:flex-1`} />
-                    <input value={o.feedback} onChange={(e) => updOpt(i, j, { feedback: e.target.value })} placeholder="Feedback" className={`${sel} w-full sm:flex-1`} />
+                    <input value={o.feedback} onChange={(e) => updOpt(i, j, { feedback: e.target.value })} placeholder="Rückmeldung" className={`${sel} w-full sm:flex-1`} />
                     <IconButton icon="x" label="Option entfernen" onClick={() => upd(i, { options: s.options.filter((_, k) => k !== j), correctIdx: Math.min(s.correctIdx, Math.max(0, s.options.length - 2)) })} />
                   </div>
                 ))}

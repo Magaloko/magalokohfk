@@ -31,7 +31,7 @@ export async function collectQA(): Promise<QAItem[]> {
     out.push({ key: `${collection}:${id}:${field}`, type, label: `${label} · ${FIELD_LABEL[field] || field}`, collection, id: String(id), field, text });
   };
 
-  a.drills.forEach((d, i) => { const id = d.id ?? i; const lbl = clean(d.marke) || "allgemein"; push("Drill", lbl, "akademieDrills", id, "frage", d.frage); push("Drill", lbl, "akademieDrills", id, "musterantwort", d.musterantwort); });
+  a.drills.forEach((d, i) => { const id = d.id ?? i; const lbl = clean(d.marke) || "allgemein"; push("Übung", lbl, "akademieDrills", id, "frage", d.frage); push("Übung", lbl, "akademieDrills", id, "musterantwort", d.musterantwort); });
   a.einwaende.forEach((e, i) => { const id = e.id ?? i; const lbl = clean(e.kategorie) || "Einwand"; push("Einwand", lbl, "salesObjections", id, "einwand", e.einwand); push("Einwand", lbl, "salesObjections", id, "antwort", e.antwort); push("Einwand", lbl, "salesObjections", id, "beweis", e.beweis); });
   a.marken.forEach((m, i) => { const id = m.id ?? i; push("Marke", clean(m.name) || "Marke", "akademieMarken", id, "philosophie", m.philosophie); });
   a.szenarien.forEach((s, i) => { const id = s.id ?? i; push("Szenario", clean(s.name) || "Szenario", "trainingScenarios", id, "situation", s.situation); });

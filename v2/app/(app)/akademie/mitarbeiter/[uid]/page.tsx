@@ -99,7 +99,7 @@ export default async function MitarbeiterDetail({ params }: { params: Promise<{ 
           </div>
         </Section>
 
-        <Section title="Antwort-Quote (Bot-Drills)">
+        <Section title="Antwort-Quote (Bot-Übungen)">
           {totPct == null ? <p className="text-sm text-muted-2">Noch keine Bot-Antworten.</p> : (
             <>
               <div className="text-sm">Gesamt: <span className="font-bold">{totC}/{totT} · {totPct}%</span></div>

@@ -16,7 +16,7 @@ const blankOpt = (): Opt => ({ text: "", ist_richtig: false, punkte: "", feedbac
 export function NewDrillButton() {
   const [open, setOpen] = useState(false);
   return (<>
-    <button onClick={() => setOpen(true)} className="rounded-lg bg-accent px-4 py-2.5 text-sm font-semibold text-bg hover:opacity-90 min-h-11">+ Neuer Drill</button>
+    <button onClick={() => setOpen(true)} className="rounded-lg bg-accent px-4 py-2.5 text-sm font-semibold text-bg hover:opacity-90 min-h-11">+ Neue Übung</button>
     {open && <DrillForm onClose={() => setOpen(false)} />}
   </>);
 }
@@ -26,7 +26,7 @@ export function DrillRowActions({ id, drill }: { id: string; drill: Drill }) {
   const [busy, setBusy] = useState(false);
   const [edit, setEdit] = useState(false);
   async function del() {
-    if (busy || !confirm("Diesen Drill wirklich löschen?")) return;
+    if (busy || !confirm("Diese Übung wirklich löschen?")) return;
     setBusy(true);
     const r = await cockpitMutate({ collection: COL, action: "delete", id });
     setBusy(false);
@@ -65,7 +65,7 @@ function DrillForm({ id, drill, onClose }: { id?: string; drill?: Drill; onClose
   }
 
   return (
-    <Modal onClose={onClose} title={id ? "Drill bearbeiten" : "Neuer Drill"}>
+    <Modal onClose={onClose} title={id ? "Übung bearbeiten" : "Neue Übung"}>
       <div className="flex max-h-[72vh] flex-col gap-3 overflow-y-auto pr-1">
         <label className="block">{L("Frage *")}<textarea value={b.frage} onChange={set("frage")} rows={2} className={sel} /></label>
         <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
@@ -85,7 +85,7 @@ function DrillForm({ id, drill, onClose }: { id?: string; drill?: Drill; onClose
                   <input value={o.punkte} onChange={(e) => updOpt(i, { punkte: e.target.value })} placeholder="Pkt" inputMode="numeric" className={`${sel} w-16`} />
                   <IconButton icon="x" label="entfernen" onClick={() => setOpts(opts.filter((_, j) => j !== i))} tone="danger" />
                 </div>
-                <input value={o.feedback} onChange={(e) => updOpt(i, { feedback: e.target.value })} placeholder="Feedback" className={`${sel} mt-2`} />
+                <input value={o.feedback} onChange={(e) => updOpt(i, { feedback: e.target.value })} placeholder="Rückmeldung" className={`${sel} mt-2`} />
               </div>
             ))}
           </div>

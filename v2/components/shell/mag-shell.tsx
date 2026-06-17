@@ -85,7 +85,7 @@ export function MagShell({ role, superAdmin = false, children }: { role: string;
       <aside className="hidden h-full w-60 shrink-0 overflow-y-auto border-r border-line bg-surface md:block">
         <Link href={homeHref} className="flex items-center gap-2 px-4 py-5 transition hover:opacity-80">
           <div className="grid h-9 w-9 place-items-center rounded-lg bg-accent/20 font-extrabold text-accent">V</div>
-          <div><div className="text-sm font-extrabold">VEKTRA</div><div className="text-xs text-muted-2">{isAdmin ? "Admin" : "Sales-Training"}</div></div>
+          <div><div className="text-sm font-extrabold">VEKTRA</div><div className="text-xs text-muted-2">{isAdmin ? "Admin" : "Verkaufstraining"}</div></div>
         </Link>
         {Nav}
       </aside>

@@ -86,7 +86,7 @@ export function NewProposal({ prefill, onClose, onDone }: { prefill?: { type?: P
         </label>
         <label className="block">{L(type === "einwand" ? "Einwand (Titel) *" : "Titel *")}<input value={title} onChange={(e) => setTitle(e.target.value)} className={sel} placeholder={type === "einwand" ? "z. B. „Das ist mir zu teuer“" : "Kurz & prägnant"} /></label>
         <label className="block">{L(type === "einwand" ? "Deine Antwort / Lösung" : "Inhalt")}<textarea value={content} onChange={(e) => setContent(e.target.value)} rows={6} className={sel} /></label>
-        <p className="text-[11px] text-muted-2">Die KI prüft deinen Vorschlag automatisch und gibt Feedback. Einwand-Antworten können bei Annahme in die Einwände-Bibliothek übernommen werden.</p>
+        <p className="text-[11px] text-muted-2">Die KI prüft deinen Vorschlag automatisch und gibt Rückmeldung. Einwand-Antworten können bei Annahme in die Einwände-Bibliothek übernommen werden.</p>
         {err && <p className="text-sm text-red">{err}</p>}
         {done && <p className="flex items-center gap-1.5 rounded-lg bg-green/10 px-3 py-2 text-sm font-semibold text-green"><Icon name="party" className="h-4 w-4" />{done}</p>}
         <div className="flex justify-end gap-2">

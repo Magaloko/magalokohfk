@@ -22,7 +22,7 @@ export default async function AkademieHub() {
   const d = await getAkademieData();
 
   const all: Tile[] = [
-    { area: "drills", icon: "bolt", title: "Daily-Drills", desc: "Mikro-Training mit Sofort-Feedback", count: d.drills.length, tone: "from-sky-500/15" },
+    { area: "drills", icon: "bolt", title: "Tagesübungen", desc: "Kurzes Training mit Sofort-Rückmeldung", count: d.drills.length, tone: "from-sky-500/15" },
     { area: "szenarien", icon: "scenario", title: "Szenarien", desc: "Mehrstufige Gesprächsübungen", count: d.szenarien.length, tone: "from-violet-500/15" },
     { area: "rollenspiele", icon: "mic", title: "Rollenspiele", desc: "Kundengespräche mit KI-Kunde", count: d.rollenspiele.length, tone: "from-pink-500/15" },
     { area: "marken", icon: "tag", title: "Marken-Bibel", desc: "Herkunft, USPs, Hero-Produkte", count: d.marken.length, tone: "from-teal-500/15" },

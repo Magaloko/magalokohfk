@@ -44,7 +44,7 @@ export function PracticeTrainer({ einwaende, configured }: { einwaende: Ein[]; c
         <textarea value={answer} onChange={(e) => setAnswer(e.target.value)} rows={5} placeholder="Wie reagierst du auf diesen Einwand?" className={sel} />
         <div className="mt-3 flex items-center gap-3">
           <button disabled={busy || !answer.trim() || !configured} onClick={grade} className="rounded-lg bg-accent px-4 py-2 text-sm font-semibold text-bg disabled:opacity-50">{busy ? "KI bewertet …" : "Bewerten lassen"}</button>
-          <span className="text-xs text-muted-2">Die KI gibt dir Feedback und einen Verbesserungsvorschlag.</span>
+          <span className="text-xs text-muted-2">Die KI gibt dir Rückmeldung und einen Verbesserungsvorschlag.</span>
         </div>
         {!configured && <p className="mt-2 text-sm text-amber">KI ist nicht konfiguriert (BOT_AI_KEY fehlt).</p>}
         {err && <p className="mt-2 text-sm text-red">{err}</p>}
@@ -52,7 +52,7 @@ export function PracticeTrainer({ einwaende, configured }: { einwaende: Ein[]; c
 
       {review && (
         <div className="rounded-xl border border-line bg-surface p-4 shadow-sm">
-          <h2 className="mb-2 flex items-center gap-1.5 text-xs font-bold uppercase tracking-wide text-muted-2"><Icon name="sparkles" className="h-3.5 w-3.5 text-accent" />Dein Feedback · {review.score}/100</h2>
+          <h2 className="mb-2 flex items-center gap-1.5 text-xs font-bold uppercase tracking-wide text-muted-2"><Icon name="sparkles" className="h-3.5 w-3.5 text-accent" />Deine Rückmeldung · {review.score}/100</h2>
           <p className="text-sm text-muted">{review.feedback}</p>
           {review.improved && (
             <div className="mt-2 rounded-lg border border-line bg-surface-2/50 p-2.5 text-sm">

@@ -81,7 +81,7 @@ function hasModule(uid, mod) { return isAdmin(uid) || mod === "akademie"; }
 
 // Variante B: feingranulare Akademie-Bereiche pro Person (bot_users.modules; leer = alle).
 const AKADEMIE_AREAS = ["angebote", "personas", "einwaende", "szenarien", "drills", "rollenspiele", "marken"];
-const AREA_LABEL = { angebote: "Angebote", personas: "Personas", einwaende: "Einwände", szenarien: "Szenarien", drills: "Drills", rollenspiele: "Rollenspiele", marken: "Marken" };
+const AREA_LABEL = { angebote: "Angebote", personas: "Personas", einwaende: "Einwände", szenarien: "Szenarien", drills: "Übungen", rollenspiele: "Rollenspiele", marken: "Marken" };
 function getUserAreas(uid) {
   if (isAdmin(uid)) return AKADEMIE_AREAS.slice();
   const m = USERS[Number(uid)]?.modules;
@@ -156,7 +156,7 @@ function makeDrillQ(drills, chooser = pick) {
   const drill = chooser(pool);
   const opts = shuffleArr(drill.optionen.map((o) => ({ text: (o.text || "").slice(0, 110), correct: o.ist_richtig === true || (o.punkte || 0) > 0, feedback: o.feedback || "" })));
   if (!opts.some((o) => o.correct)) return null;
-  return { type: "drill", label: "⚡ Drill", itemId: drill.id || drill.frage || "", frage: `⚡ <b>Drill — ${esc(drill.marke || "allgemein")}</b>\n\n${esc(drill.frage || "")}`, opts, muster: drill.musterantwort ? `\n📝 <b>Musterantwort:</b> ${esc(drill.musterantwort)}` : "" };
+  return { type: "drill", label: "⚡ Übung", itemId: drill.id || drill.frage || "", frage: `⚡ <b>Übung — ${esc(drill.marke || "allgemein")}</b>\n\n${esc(drill.frage || "")}`, opts, muster: drill.musterantwort ? `\n📝 <b>Musterantwort:</b> ${esc(drill.musterantwort)}` : "" };
 }
 function makeEinwandQ(einwaende, chooser = pick) {
   const pool = einwaende.filter((e) => e.antwort && e.antwort.trim().length >= 8);
@@ -199,7 +199,7 @@ function makeMarkenQ(marken, chooser = pick) {
 
 // === Adaptiv + Spaced Repetition (pur) ===
 function scoreTopic(rec) { const t = String(rec.type || ""); if (t === "drill" || t === "quiz_drill") return "drill"; if (t === "einwand_mc" || t === "quiz_einwand_mc") return "einwand"; if (t === "marken_quiz" || t === "quiz_marken_quiz") return "marken"; return null; }
-const TOPIC_LABEL = { drill: "⚡ Drills", einwand: "💬 Einwände", marken: "🏷 Marken" };
+const TOPIC_LABEL = { drill: "⚡ Übungen", einwand: "💬 Einwände", marken: "🏷 Marken" };
 async function computeSkillProfile(userId) {
   const uid = Number(userId);
   const scores = (await loadScores()).filter((r) => Number(r.uid) === uid);
@@ -318,7 +318,7 @@ async function sendMenu(chatId, userId) {
   setUserMenuButton(chatId, userId);
   const areas = getUserAreas(userId);
   const btns = [];
-  if (areas.includes("drills")) btns.push({ text: "⚡ Drill", callback_data: "menu|drill" });
+  if (areas.includes("drills")) btns.push({ text: "⚡ Übung", callback_data: "menu|drill" });
   if (areas.includes("marken")) btns.push({ text: "🏷️ Marke", callback_data: "menu|marken" });
   if (areas.includes("einwaende")) btns.push({ text: "💬 Einwand", callback_data: "menu|einwand" });
   if (areas.includes("rollenspiele")) btns.push({ text: "🎭 Rollenspiel", callback_data: "menu|rollenspiel" });
@@ -332,9 +332,9 @@ async function sendMenu(chatId, userId) {
   return tgApi("sendMessage", { chat_id: chatId, text: "<b>🎯 VEKTRA</b> — Was möchtest du tun?", parse_mode: "HTML", reply_markup: { inline_keyboard: rows } });
 }
 async function cmdStart(chatId, userId) {
-  const lines = ["🎓 <b>HFK VEKTRA</b>", "", "Trainiere Produktwissen & Verkauf — direkt im Chat.", "", "<b>🎯 Training:</b>", "/drill — Zufalls-Quiz", "/quiz — Gemischtes Quiz (z.B. <code>/quiz 7</code>)", "/tagesaufgabe — Tägliche Challenge ☀️", "/marke <i>LIEWOOD</i> · /einwand <i>preis</i> · /persona <i>anna</i>", "/rollenspiel · /score · /lern", "/check — Wissens-Check · /fortschritt — Skill-Profil", "", "<b>🧠 Microsoft Copilot:</b>", "/copilot — Hilfe & Schritt-für-Schritt zu Outlook, Excel, Word, Teams"];
+  const lines = ["🎓 <b>HFK VEKTRA</b>", "", "Trainiere Produktwissen & Verkauf — direkt im Chat.", "", "<b>🎯 Training:</b>", "/drill — Zufallsübung", "/quiz — Gemischtes Quiz (z.B. <code>/quiz 7</code>)", "/tagesaufgabe — Tägliche Aufgabe ☀️", "/marke <i>LIEWOOD</i> · /einwand <i>preis</i> · /persona <i>anna</i>", "/rollenspiel · /score · /lern", "/check — Wissens-Check · /fortschritt — Skill-Profil", "", "<b>🧠 Microsoft Copilot:</b>", "/copilot — Hilfe & Schritt-für-Schritt zu Outlook, Excel, Word, Teams"];
   if (hasModule(userId, "ai")) lines.push("/frag <i>…</i> — KI-Assistent");
-  if (isAdmin(userId)) lines.push("", "<b>⚙️ Admin:</b>", "/admin — Panel (User + Bereiche)", "/adduser <i>ID Name</i> · /setrole <i>ID admin|mitarbeiter</i> · /removeuser <i>ID</i>", "/grant <i>ID bereich</i> · /revoke <i>ID bereich</i> — Akademie-Bereiche je Person", "/webcode <i>ID</i> — Web-Login-Code für Browser-Zugang");
+  if (isAdmin(userId)) lines.push("", "<b>⚙️ Admin:</b>", "/admin — Panel (Nutzer + Bereiche)", "/adduser <i>ID Name</i> · /setrole <i>ID admin|mitarbeiter</i> · /removeuser <i>ID</i>", "/grant <i>ID bereich</i> · /revoke <i>ID bereich</i> — Akademie-Bereiche je Person", "/webcode <i>ID</i> — Browser-Zugangscode");
   await send(chatId, lines.join("\n"));
   return sendMenu(chatId, userId);
 }
@@ -364,22 +364,22 @@ async function cmdPersonaMenu(chatId) {
 async function cmdDrill(chatId, markeArg) {
   const d = await loadData(); let pool = d.drills;
   if (markeArg) pool = pool.filter((x) => norm(x.marke).includes(norm(markeArg)));
-  if (!pool.length) return send(chatId, "Keine Drills gefunden" + (markeArg ? ` für „${esc(markeArg)}"` : "") + ".");
+  if (!pool.length) return send(chatId, "Keine Übungen gefunden" + (markeArg ? ` für „${esc(markeArg)}"` : "") + ".");
   const drill = pick(pool);
   const keyboard = (drill.optionen || []).map((o, i) => [{ text: `${String.fromCharCode(65 + i)}) ${(o.text || "").slice(0, 60)}`, callback_data: `drill|${drill.id}|${i}` }]);
-  await send(chatId, `<b>⚡ Drill — ${esc(drill.marke || "allgemein")}</b>\n\n${esc(drill.frage || "")}`, { reply_markup: { inline_keyboard: keyboard } });
+  await send(chatId, `<b>⚡ Übung — ${esc(drill.marke || "allgemein")}</b>\n\n${esc(drill.frage || "")}`, { reply_markup: { inline_keyboard: keyboard } });
 }
 async function handleDrillAnswer(cbq) {
   const [, drillId, optIdxStr] = (cbq.data || "").split("|");
   const d = await loadData(); const drill = d.drills.find((x) => x.id === drillId);
-  if (!drill) return tgApi("answerCallbackQuery", { callback_query_id: cbq.id, text: "Drill nicht mehr verfügbar" });
+  if (!drill) return tgApi("answerCallbackQuery", { callback_query_id: cbq.id, text: "Übung nicht mehr verfügbar" });
   const opt = (drill.optionen || [])[parseInt(optIdxStr, 10)];
   const correct = opt && (opt.ist_richtig === true || opt.punkte > 0);
   tgApi("answerCallbackQuery", { callback_query_id: cbq.id, text: correct ? "✓ Richtig!" : "✗ Leider falsch" }).catch(() => {});
   await appendScore({ ts: new Date().toISOString(), uid: cbq.from?.id, name: tgUserName(cbq.from), type: "drill", drillId, marke: drill.marke || "", correct: !!correct });
   const fb = opt?.feedback || (correct ? "Richtig!" : "Leider falsch.");
   const muster = drill.musterantwort ? `\n\n<b>Musterantwort:</b>\n${esc(drill.musterantwort)}` : "";
-  await send(cbq.message.chat.id, `${correct ? "✅" : "❌"} <b>${esc(drill.frage || "")}</b>\n\n${esc(fb)}${muster}`, { reply_markup: { inline_keyboard: [[{ text: "⚡ Nächster Drill", callback_data: "menu|drill" }], [{ text: "⬅️ Menü", callback_data: "menu|main" }]] } });
+  await send(cbq.message.chat.id, `${correct ? "✅" : "❌"} <b>${esc(drill.frage || "")}</b>\n\n${esc(fb)}${muster}`, { reply_markup: { inline_keyboard: [[{ text: "⚡ Nächste Übung", callback_data: "menu|drill" }], [{ text: "⬅️ Menü", callback_data: "menu|main" }]] } });
 }
 
 async function cmdMarke(chatId, arg) {
@@ -440,7 +440,7 @@ async function cmdScore(chatId, userId, userName) {
 async function cmdRollenspiel(chatId) {
   const d = await loadData(); if (!d.roleplays.length) return send(chatId, "Keine Rollenspiele verfügbar.");
   const rp = pick(d.roleplays);
-  let txt = `<b>🎭 ${esc(rp.titel || "Rollenspiel")}</b>\n\n<b>Persona:</b> ${esc(rp.persona || "")}\n<b>Setting:</b> ${esc(rp.setting || "")}\n<b>Technik:</b> ${esc(rp.verkaufstechnik || "")} · <b>Ziel-AOV:</b> €${esc(String(rp.ziel_aov || "—"))}\n\n`;
+  let txt = `<b>🎭 ${esc(rp.titel || "Rollenspiel")}</b>\n\n<b>Persona:</b> ${esc(rp.persona || "")}\n<b>Situation/Rahmen:</b> ${esc(rp.setting || "")}\n<b>Technik:</b> ${esc(rp.verkaufstechnik || "")} · <b>Ziel-AOV:</b> €${esc(String(rp.ziel_aov || "—"))}\n\n`;
   if ((rp.ablauf || []).length) txt += `<b>Ablauf:</b>\n${rp.ablauf.map((s) => `${s.schritt || "•"}. <b>${esc(s.name || "")}</b> — ${esc((s.beschreibung || "").slice(0, 120))}`).join("\n")}\n\n`;
   if ((rp.einwaende || []).length) txt += `<b>Einwände:</b>\n${rp.einwaende.map((e) => `• „${esc(e.einwand)}" → <i>${esc(e.erwartete_technik || "")}</i>`).join("\n")}`;
   await send(chatId, txt.slice(0, 4000), { reply_markup: { inline_keyboard: [[{ text: "🎭 Nächstes", callback_data: "menu|rollenspiel" }], [{ text: "⬅️ Menü", callback_data: "menu|main" }]] } });
@@ -558,7 +558,7 @@ async function cmdTagesaufgabe(chatId, userId) {
 }
 async function cmdCheck(chatId, userId, from) {
   const types = allowedQuizTypes(userId);
-  if (!["drill", "einwand", "marken"].every((t) => types.includes(t))) return send(chatId, "🔒 Der Wissens-Check braucht Zugriff auf Drills, Einwände und Marken.", BACK_KB);
+  if (!["drill", "einwand", "marken"].every((t) => types.includes(t))) return send(chatId, "🔒 Der Wissens-Check braucht Zugriff auf Übungen, Einwände und Marken.", BACK_KB);
   const sess = await getSess(userId); const stored = sess.check; const now = Date.now();
   if (stored?.preTs && !stored.postTs) {
     const daysSince = (now - stored.preTs) / 86400000;
@@ -589,7 +589,7 @@ async function cmdFortschritt(chatId, userId, userName) {
   }
   if (stored?.postTs) {
     lines.push("\n<b>Pre→Post-Check:</b>");
-    [checkTopicLine("Drills", "⚡", stored.preTopics?.drill || { c: 0, t: 0 }, stored.postTopics?.drill || { c: 0, t: 0 }),
+    [checkTopicLine("Übungen", "⚡", stored.preTopics?.drill || { c: 0, t: 0 }, stored.postTopics?.drill || { c: 0, t: 0 }),
      checkTopicLine("Einwände", "💬", stored.preTopics?.einwand_mc || { c: 0, t: 0 }, stored.postTopics?.einwand_mc || { c: 0, t: 0 }),
      checkTopicLine("Marken", "🏷", stored.preTopics?.marken_quiz || { c: 0, t: 0 }, stored.postTopics?.marken_quiz || { c: 0, t: 0 })].filter(Boolean).forEach((l) => lines.push(l));
   } else if (stored?.preTs) {
@@ -672,7 +672,7 @@ async function tgMsgOrEdit(chatId, msgId, text, extra = {}) {
 async function sendAdminPanel(chatId, msgId = null) {
   const cnt = Object.keys(USERS).length;
   return tgMsgOrEdit(chatId, msgId, `<b>⚙️ Admin-Panel</b>\n\n👥 <b>${cnt} Nutzer</b> bekannt\n\nBefehle:\n<code>/adduser ID Name</code> · <code>/setrole ID admin|mitarbeiter</code> · <code>/removeuser ID</code>`, {
-    reply_markup: { inline_keyboard: [[{ text: "👥 User-Liste", callback_data: "admin|users" }, { text: "➕ Hinzufügen", callback_data: "admin|addhelp" }], [{ text: "⬅️ Menü", callback_data: "menu|main" }]] }
+    reply_markup: { inline_keyboard: [[{ text: "👥 Nutzerliste", callback_data: "admin|users" }, { text: "➕ Hinzufügen", callback_data: "admin|addhelp" }], [{ text: "⬅️ Menü", callback_data: "menu|main" }]] }
   });
 }
 async function sendUserList(chatId, msgId = null) {
@@ -684,7 +684,7 @@ async function sendUserList(chatId, msgId = null) {
 }
 async function sendManageUser(chatId, targetId, msgId = null) {
   const id = Number(targetId); const u = USERS[id];
-  if (!u) return tgMsgOrEdit(chatId, msgId, `❌ User <code>${id}</code> nicht gefunden.`, { reply_markup: { inline_keyboard: [[{ text: "⬅️ User-Liste", callback_data: "admin|users" }]] } });
+  if (!u) return tgMsgOrEdit(chatId, msgId, `❌ Nutzer <code>${id}</code> nicht gefunden.`, { reply_markup: { inline_keyboard: [[{ text: "⬅️ Nutzerliste", callback_data: "admin|users" }]] } });
   const adminFlag = isAdmin(id);
   const envFixed = ENV_ADMINS.includes(id) || ENV_ALLOWED.includes(id);
   const kb = [];
@@ -700,8 +700,8 @@ async function sendManageUser(chatId, targetId, msgId = null) {
   }
   if (!adminFlag) kb.push([{ text: "🔑 Zu Admin machen", callback_data: `admin|promote|${id}` }]);
   else if (ADMINS.size > 1) kb.push([{ text: "🔓 Admin-Rechte entziehen", callback_data: `admin|demote|${id}` }]);
-  if (!envFixed) kb.push([{ text: "🗑 User entfernen", callback_data: `admin|remove|${id}` }]);
-  kb.push([{ text: "⬅️ User-Liste", callback_data: "admin|users" }]);
+  if (!envFixed) kb.push([{ text: "🗑 Nutzer entfernen", callback_data: `admin|remove|${id}` }]);
+  kb.push([{ text: "⬅️ Nutzerliste", callback_data: "admin|users" }]);
   return tgMsgOrEdit(chatId, msgId, `<b>⚙️ ${esc(u.name || id)}</b>\nID: <code>${id}</code>\nRolle: ${adminFlag ? "🔑 Admin (sieht alles)" : "👤 Mitarbeiter"}${areaInfo}${envFixed ? "\n<i>(via Vercel-Env fixiert)</i>" : ""}`, { reply_markup: { inline_keyboard: kb } });
 }
 async function handleAdminCallback(cbq) {
@@ -709,7 +709,7 @@ async function handleAdminCallback(cbq) {
   if (!isAdmin(cbq.from?.id)) return;
   if (data === "admin|panel") return sendAdminPanel(chatId, msgId);
   if (data === "admin|users") return sendUserList(chatId, msgId);
-  if (data === "admin|addhelp") return tgMsgOrEdit(chatId, msgId, "➕ <b>User hinzufügen</b>\n\n<code>/adduser [Telegram-ID] [Name]</code>\nBeispiel: <code>/adduser 8715824144 Lorna</code>\n\n💡 ID bekommt der User via <b>/myid</b>.", { reply_markup: { inline_keyboard: [[{ text: "⬅️ User-Liste", callback_data: "admin|users" }]] } });
+  if (data === "admin|addhelp") return tgMsgOrEdit(chatId, msgId, "➕ <b>Nutzer hinzufügen</b>\n\n<code>/adduser [Telegram-ID] [Name]</code>\nBeispiel: <code>/adduser 8715824144 Lorna</code>\n\n💡 ID bekommt die Person via <b>/myid</b>.", { reply_markup: { inline_keyboard: [[{ text: "⬅️ Nutzerliste", callback_data: "admin|users" }]] } });
   if (data.startsWith("admin|manage|")) return sendManageUser(chatId, data.slice("admin|manage|".length), msgId);
   if (data.startsWith("admin|promote|")) { const id = Number(data.slice("admin|promote|".length)); const ex = USERS[id] || {}; await dbUpsertUser(id, { name: ex.name || ("User" + id), role: "admin", modules: ex.modules || [] }); await loadAccess(); setUserMenuButton(id, id); return sendManageUser(chatId, id, msgId); }
   if (data.startsWith("admin|demote|")) { const id = Number(data.slice("admin|demote|".length)); if (ADMINS.size > 1 && !ENV_ADMINS.includes(id)) { const ex = USERS[id] || {}; await dbUpsertUser(id, { name: ex.name || ("User" + id), role: "mitarbeiter", modules: ex.modules || [] }); await loadAccess(); setUserMenuButton(id, id); } return sendManageUser(chatId, id, msgId); }
@@ -757,7 +757,7 @@ async function cmdSetRole(chatId, arg) {
 async function cmdSetArea(chatId, arg, grant) {
   const [idStr, areaRaw] = arg.trim().split(/\s+/); const id = Number(idStr); const area = (areaRaw || "").toLowerCase();
   if (!id || isNaN(id) || !AKADEMIE_AREAS.includes(area)) return send(chatId, `❌ Syntax: <code>/${grant ? "grant" : "revoke"} 123456789 bereich</code>\nBereiche: ${AKADEMIE_AREAS.join(", ")}`);
-  if (!USERS[id]) return send(chatId, `❌ User <code>${id}</code> nicht gefunden. Zuerst <code>/adduser ${id} Name</code>.`);
+  if (!USERS[id]) return send(chatId, `❌ Nutzer <code>${id}</code> nicht gefunden. Zuerst <code>/adduser ${id} Name</code>.`);
   if (isAdmin(id)) return send(chatId, "ℹ️ Admin sieht ohnehin alle Bereiche.");
   const eff = getUserAreas(id);
   let next = grant ? [...new Set([...eff, area])] : eff.filter((a) => a !== area);
@@ -770,7 +770,7 @@ async function cmdSetArea(chatId, arg, grant) {
 async function cmdWebCode(chatId, arg) {
   const id = Number(arg.trim());
   if (!id || isNaN(id)) return send(chatId, "❌ Syntax: <code>/webcode 123456789</code>");
-  if (!USERS[id]) return send(chatId, `❌ User <code>${id}</code> nicht gefunden. Zuerst <code>/adduser ${id} Name</code>.`);
+  if (!USERS[id]) return send(chatId, `❌ Nutzer <code>${id}</code> nicht gefunden. Zuerst <code>/adduser ${id} Name</code>.`);
   const code = genWebCode();
   await db.from("bot_users").update({ web_code_hash: webCodeHash(code) }).eq("uid", id);
   await loadAccess();
@@ -818,7 +818,7 @@ async function handleUpdate(u) {
   if (!msg || !msg.text) return;
   const chatId = msg.chat.id, userId = msg.from?.id;
   if (!isPrivateChat(msg.chat)) return;
-  if (msg.text.trim().toLowerCase().startsWith("/myid")) return send(chatId, `🪪 <b>Deine Telegram-User-ID:</b> <code>${userId}</code>\n\nSchick diese Zahl an Mago zur Freischaltung.`);
+  if (msg.text.trim().toLowerCase().startsWith("/myid")) return send(chatId, `🪪 <b>Deine Telegram-Nutzer-ID:</b> <code>${userId}</code>\n\nSchick diese Zahl an Mago zur Freischaltung.`);
   if (!isAllowed(userId)) return send(chatId, `⛔ Kein Zugriff.\n\nDeine ID: <code>${userId}</code>\nBitte bei Mago melden.`);
   const text = msg.text.trim();
   if (!text.startsWith("/")) {
@@ -844,7 +844,7 @@ async function handleUpdate(u) {
     if (cmd === "/copilot" || cmd === "/cp") return cmdCopilotStart(chatId, userId);
     if (cmd === "/stop" || cmd === "/ende") { await patchSess(userId, { copilot: null }); return send(chatId, "✅ Cockpilot beendet. Mit /copilot jederzeit wieder starten."); }
     if (cmd === "/frag" || cmd === "/ask" || cmd === "/ai") { if (!hasModule(userId, "ai")) return denyModule(chatId, "KI-Assistent"); return cmdFrag(chatId, arg, msg.from); }
-    if (cmd === "/produkt" || cmd === "/p") return send(chatId, "🔍 Produkt-Lookup ist im Cloud-Deployment deaktiviert (JTL-Daten liegen lokal). Nutze /marke für Marken-Infos.");
+    if (cmd === "/produkt" || cmd === "/p") return send(chatId, "🔍 Produktsuche ist in der Cloud-Bereitstellung deaktiviert (JTL-Daten liegen lokal). Nutze /marke für Marken-Infos.");
     const akademieCmds = ["/drill", "/marke", "/einwand", "/persona", "/rollenspiel", "/rollenspiele", "/score", "/punkte", "/lern", "/learn", "/korrektur", "/quiz", "/tagesaufgabe", "/ta"];
     if (akademieCmds.includes(cmd) && !hasModule(userId, "akademie")) return denyModule(chatId, "Akademie");
     // Variante B: Befehl nach Akademie-Bereich gaten

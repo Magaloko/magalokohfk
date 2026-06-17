@@ -30,9 +30,9 @@ export async function GET(req) {
   results.setMyCommands = await tg("setMyCommands", {
     commands: [
       { command: "start", description: "Menü & Hilfe" },
-      { command: "drill", description: "Zufalls-Quiz mit Buttons" },
+      { command: "drill", description: "Zufallsübung mit Buttons" },
       { command: "quiz", description: "Gemischtes Quiz (3–10 Fragen)" },
-      { command: "tagesaufgabe", description: "Tägliche 3-Fragen-Challenge" },
+      { command: "tagesaufgabe", description: "Tägliche 3-Fragen-Aufgabe" },
       { command: "check", description: "Wissens-Check (Pre/Post)" },
       { command: "fortschritt", description: "Skill-Profil & Lernzuwachs" },
       { command: "marke", description: "Marken-Steckbrief" },

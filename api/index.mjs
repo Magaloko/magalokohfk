@@ -358,7 +358,7 @@ async function tgAuth(req, res) {
 
   let tgUser; try { tgUser = JSON.parse(params.get("user") || "{}"); } catch { tgUser = {}; }
   const userId = Number(tgUser.id);
-  if (!Number.isInteger(userId)) return send(res, 400, { error: "Ungültige User-ID" });
+  if (!Number.isInteger(userId)) return send(res, 400, { error: "Ungültige Nutzer-ID" });
 
   const allowAll = tgCfg.allowAllUsers === true;
   const adminEnv = tgCfg.adminUserIds.length ? tgCfg.adminUserIds : tgCfg.allowedUserIds;

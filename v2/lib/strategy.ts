@@ -78,7 +78,7 @@ export const MASTERMIND: MasterMindPlan = {
     {
       titel: "Skalierung der Beratungs-Kompetenz",
       beschreibung:
-        "Marken-Wissen, Argumente und Empfehlungs-Logik werden digital verfügbar gemacht — für das Sales-Team, " +
+        "Marken-Wissen, Argumente und Empfehlungs-Logik werden digital verfügbar gemacht — für das Verkaufsteam, " +
         "das Service-Team, perspektivisch für Kunden direkt.",
     },
     {
@@ -149,7 +149,7 @@ export const MASTERMIND: MasterMindPlan = {
         "Mail-Triage (klassifiziert & priorisiert)",
         "Proaktive Reminder (Skonto-Fristen, Steuern, Lieferungen)",
         "Team-Task-Sub (delegiert an die richtige Person)",
-        "Quick-Step (vorbereitete Routine-Antworten)",
+        "Schnellschritt (vorbereitete Routine-Antworten)",
         "Anruf & WhatsApp werden Tasks (mit Kalender-Eintrag)",
         "Mail diktieren — VIPA formuliert im HFK-Ton aus",
       ],
@@ -183,8 +183,8 @@ export const MASTERMIND: MasterMindPlan = {
       rolle: "der Verkaufstrainer",
       icon: "academy",
       zweck:
-        "Mobile App für das Sales-Team: trainiert Marken-Wissen, simuliert Beratungsgespräche, coacht " +
-        "Einwand-Behandlung. Premium-Ästhetik. Perspektivisch erweiterbar zum Sales-Cockpit mit Live-Lookup.",
+        "Mobile App für das Verkaufsteam: trainiert Marken-Wissen, simuliert Beratungsgespräche, coacht " +
+        "Einwand-Behandlung. Premium-Ästhetik. Perspektivisch erweiterbar zum Verkaufs-Cockpit mit Live-Abfrage.",
       faehigkeiten: [
         "Wissens-Quiz (KI-generiert je Marke, mit Erklärung)",
         "Beratungs-Rollenspiel (3 Längen: Kurz / Standard / Frei)",
@@ -235,7 +235,7 @@ export const MASTERMIND: MasterMindPlan = {
   ziele2028: [
     "Die Liquidität ist nachhaltig stabilisiert — Kontokorrent kontrolliert reduziert, Skonti systematisch genutzt, Forecast-Genauigkeit auf belastbarem Niveau.",
     "Der Einkauf ist datenbasiert — Sortiment auf DB1 optimiert, Penner gezielt abverkauft, Renner zuverlässig nachbestockt, Marken-Schwerpunkte saisonal gesetzt.",
-    "Das Team ist entlastet und befähigt — Routine-Mails reduziert, Service-Bearbeitung schneller, Sales-Training systematisch, alle Tools sprechen miteinander.",
+    "Das Team ist entlastet und befähigt — Routine-Mails reduziert, Service-Bearbeitung schneller, Verkaufstraining systematisch, alle Tools sprechen miteinander.",
     "Die Kunden erleben uns digital konsistent — bei Umsetzung der Customer-App-Vision bekommt jede Familie einen digitalen Concierge.",
     "Die Architektur trägt — ERP-Wechsel wäre möglich (nicht zwingend), Wachstum nach Ungarn technisch vorbereitet, Investor-Pitch mit echter Produkt-Substanz.",
   ],

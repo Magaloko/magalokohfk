@@ -25,7 +25,7 @@ export function DrillLauncher({ drills }: { drills: Drill[] }) {
         disabled={!playable}
         className="rounded-lg bg-accent px-4 py-2.5 text-sm font-semibold text-bg transition hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-40 flex items-center gap-1.5 min-h-11"
       >
-        <Icon name="bolt" className="h-4 w-4" /> Drill-Training starten{playable ? ` (${playable})` : ""}
+        <Icon name="bolt" className="h-4 w-4" /> Übungstraining starten{playable ? ` (${playable})` : ""}
       </button>
       {marken.length > 0 && (
         <select

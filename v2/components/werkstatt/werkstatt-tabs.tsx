@@ -6,7 +6,7 @@ import { Icon } from "@/components/icon";
 
 const TABS = [
   { href: "/werkstatt", icon: "bulb", label: "Vorschläge" },
-  { href: "/werkstatt/ueben", icon: "target", label: "Üben & Feedback" },
+  { href: "/werkstatt/ueben", icon: "target", label: "Üben & Rückmeldung" },
 ];
 
 export function WerkstattTabs() {

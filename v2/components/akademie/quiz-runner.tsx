@@ -28,7 +28,7 @@ function makeDrillQ(drills: Drill[], weak: Weak, only?: Set<string>): Q | null {
   const d = pickWeighted(pool, (x) => `drill:${x.id || ""}`, weak);
   const opts = shuffle((d.optionen || []).map((o) => ({ text: (o.text || "").slice(0, 140), correct: o.ist_richtig === true || (o.punkte || 0) > 0, feedback: o.feedback })));
   if (!opts.some((o) => o.correct)) return null;
-  return { type: "drill", label: `Drill — ${d.marke || "allgemein"}`, frage: d.frage || "", opts, muster: d.musterantwort, itemKey: `drill:${d.id || ""}` };
+  return { type: "drill", label: `Übung — ${d.marke || "allgemein"}`, frage: d.frage || "", opts, muster: d.musterantwort, itemKey: `drill:${d.id || ""}` };
 }
 function makeEinwandQ(einw: Einwand[], weak: Weak, only?: Set<string>): Q | null {
   const all = einw.filter((e) => e.antwort && e.antwort.trim().length >= 8);

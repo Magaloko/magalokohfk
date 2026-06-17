@@ -11,7 +11,7 @@ export default async function UebenPage() {
   const { einwaende } = await getAkademieData();
   const slim = einwaende.filter((e) => e.einwand).map((e) => ({ einwand: e.einwand || "", antwort: e.antwort || "" }));
   return (
-    <PageShell title="Üben & Feedback" icon="target" subtitle="Formuliere deine eigene Antwort auf einen Einwand — die KI bewertet sie und schlägt Verbesserungen vor">
+    <PageShell title="Üben & Rückmeldung" icon="target" subtitle="Formuliere deine eigene Antwort auf einen Einwand — die KI bewertet sie und schlägt Verbesserungen vor">
       <PracticeTrainer einwaende={slim} configured={aiConfigured()} />
     </PageShell>
   );

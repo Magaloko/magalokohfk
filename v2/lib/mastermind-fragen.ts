@@ -18,7 +18,7 @@ export const MASTERMIND_FRAGEN: MasterMindFrage[] = [
   { id: "qs-2", werkzeug: "querschnitt", prio: "P0", ebene: "GF-SAFE", frage: "ERP-Connector: Aktuelles ERP = JTL Wawi? Welche Tabellen/Felder sind verlässlich gepflegt (tBestellung, tBestellpos, tArtikel, tWarenLager)? Wo ist die Datenqualität schwach?" },
   { id: "qs-3", werkzeug: "querschnitt", prio: "P0", frage: "Vertrauensebenen konkret: Wer hat GF-SAFE-Zugriff (nur Stephan/Beate? Lorna? Sarah?)? Wie werden TEAM- und PUBLIC-Felder operativ getrennt? Wer vergibt Rechte?" },
   { id: "qs-4", werkzeug: "querschnitt", prio: "P0", ebene: "GF-SAFE", frage: "Hosting & Datenschutz: Wo dürfen GF-SAFE-Daten (Margen, Konditionen, Bankdaten) liegen — Cloud-Region, DSGVO-Auflagen, Auftragsverarbeitung?" },
-  { id: "qs-5", werkzeug: "querschnitt", prio: "P0", frage: "Daten-Ownership & Pflege-Rhythmus: Wer pflegt welche Daten und wie oft (Marken = Lorna? Finanzen = Beate? Sales-Daten = Sarah? Marketing = Adnan?)?" },
+  { id: "qs-5", werkzeug: "querschnitt", prio: "P0", frage: "Datenverantwortung & Pflege-Rhythmus: Wer pflegt welche Daten und wie oft (Marken = Lorna? Finanzen = Beate? Verkaufsdaten = Sarah? Marketing = Adnan?)?" },
   { id: "qs-6", werkzeug: "querschnitt", prio: "P0", frage: 'Abnahme-Standard: Was ist dein Abnahme-Kriterium pro Werkzeug (wer testet, wie lange Pilot, was muss erfüllt sein für „live")?' },
   { id: "qs-7", werkzeug: "querschnitt", prio: "P0", frage: "Reihenfolge-Bestätigung: Bleibt es bei Foundation → Treasury → Einkauf? Oder zwingt der Liquiditäts-Druck zu einem schlanken Treasury-Vorlauf parallel zur Foundation?" },
 
@@ -47,7 +47,7 @@ export const MASTERMIND_FRAGEN: MasterMindFrage[] = [
   { id: "vip-1", werkzeug: "vipa", prio: "P2", ebene: "GF-SAFE", frage: "Mail-Zugang: Welches Postfach, welche Rechte (nur Lesen/Triage vs. auch Senden)?" },
   { id: "vip-2", werkzeug: "vipa", prio: "P2", frage: 'Mail-Klassen: Welche Kategorien priorisieren (Lieferant, Steuer/Behörde, Kunde, intern, Bank)? Was ist „kritisch"?' },
   { id: "vip-3", werkzeug: "vipa", prio: "P2", ebene: "GF-SAFE", frage: "Reminder-Quellen: Welche Fristen proaktiv (Skonto, Steuertermine, Lieferungen) — woher kommen die Termine (Kalender, Buchhaltung)?" },
-  { id: "vip-4", werkzeug: "vipa", prio: "P2", frage: 'Delegation (Team-Task-Sub): Wer ist für was die „richtige Person" (Lorna/Marken, Sarah/Sales-Service, Adnan/Marketing, Beate/Finanzen)? Delegations-Regeln?' },
+  { id: "vip-4", werkzeug: "vipa", prio: "P2", frage: 'Delegation (Team-Aufgaben-Zuordnung): Wer ist für was die „richtige Person" (Lorna/Marken, Sarah/Kundenservice, Adnan/Marketing, Beate/Finanzen)? Delegations-Regeln?' },
   { id: "vip-5", werkzeug: "vipa", prio: "P2", frage: "HFK-Ton: 2–3 Referenz-Mails, an denen VIPA den Schreibstil lernt?" },
   { id: "vip-6", werkzeug: "vipa", prio: "P2", frage: "Kanäle: Sollen Anruf & WhatsApp wirklich zu Tasks werden — welche Nummern/Accounts (WhatsApp Business)?" },
   { id: "vip-7", werkzeug: "vipa", prio: "P2", ebene: "GF-SAFE", frage: "Autonomie-Grenze: Was darf VIPA selbst senden vs. nur vorbereiten (Mensch-im-Loop)?" },
@@ -61,7 +61,7 @@ export const MASTERMIND_FRAGEN: MasterMindFrage[] = [
 
   // VEKTRA (P3, live — Ausbau)
   { id: "vek-1", werkzeug: "vektra", prio: "P3", ebene: "TEAM", frage: "Inhalts-Lücken: Welche Marken-Profile fehlen noch / sind veraltet? Wer pflegt sie verbindlich (Lorna)?" },
-  { id: "vek-2", werkzeug: "vektra", prio: "P3", ebene: "TEAM", frage: "Sales-Cockpit / Live-Lookup: Welche Live-Daten braucht das Team im Verkaufsgespräch (Bestand, Größe/Schnitt, Liefertermin, Preis)?" },
+  { id: "vek-2", werkzeug: "vektra", prio: "P3", ebene: "TEAM", frage: "Verkaufs-Cockpit / Live-Abfrage: Welche Live-Daten braucht das Team im Verkaufsgespräch (Bestand, Größe/Schnitt, Liefertermin, Preis)?" },
   { id: "vek-3", werkzeug: "vektra", prio: "P3", frage: 'Verbindlicher Rollout: Wer nutzt VEKTRA verpflichtend, mit welchem Ziel? Wie messen wir „neue Mitarbeitende in 3 statt 12 Monaten einsatzbereit"?' },
   { id: "vek-4", werkzeug: "vektra", prio: "P3", frage: "Management-Sicht: Welche KPIs will das Store-Management je Mitarbeiter sehen (Trainings, Quote, Schwächen)?" },
 

@@ -67,7 +67,7 @@ export function DrillRunner({ drills, onClose }: { drills: Drill[]; onClose: () 
     return () => window.removeEventListener("keydown", onKey);
   }, [answered, idx, done, q, onClose]);
 
-  if (!questions.length) return <Modal onClose={onClose}><p className="text-center text-muted">Keine spielbaren Drills für diese Auswahl.</p><div className="mt-4 text-center"><button onClick={onClose} className="rounded-lg bg-surface-2 px-4 py-2 font-semibold">Schließen</button></div></Modal>;
+  if (!questions.length) return <Modal onClose={onClose}><p className="text-center text-muted">Keine spielbaren Übungen für diese Auswahl.</p><div className="mt-4 text-center"><button onClick={onClose} className="rounded-lg bg-surface-2 px-4 py-2 font-semibold">Schließen</button></div></Modal>;
 
   if (done) {
     const pct = Math.round((score / total) * 100);
@@ -95,7 +95,7 @@ export function DrillRunner({ drills, onClose }: { drills: Drill[]; onClose: () 
   return (
     <Modal onClose={onClose}>
       <div className="mb-3 flex items-start justify-between gap-3">
-        <h3 className="text-base font-bold"><Icon name="bolt" className="h-5 w-5 inline-block mr-1" />Drill-Training</h3>
+        <h3 className="text-base font-bold"><Icon name="bolt" className="h-5 w-5 inline-block mr-1" />Übungstraining</h3>
         <IconButton icon="x" label="Schließen" onClick={onClose} tone="default" />
       </div>
       <div className="mb-2 h-1.5 overflow-hidden rounded-full bg-surface-2">
@@ -132,7 +132,7 @@ export function DrillRunner({ drills, onClose }: { drills: Drill[]; onClose: () 
           )}
           {q.muster && <div className="mt-2 rounded-lg border-l-2 border-accent bg-surface-2 px-3 py-2 text-sm text-muted"><Icon name="bulb" className="h-4 w-4 inline-block mr-1" />Musterantwort: {q.muster}</div>}
           <button onClick={next} className="mt-3 w-full rounded-lg bg-accent px-4 py-3 text-base font-semibold text-bg">
-            {idx === total - 1 ? "Ergebnis →" : "Nächster Drill →"}
+            {idx === total - 1 ? "Ergebnis →" : "Nächste Übung →"}
           </button>
         </div>
       )}

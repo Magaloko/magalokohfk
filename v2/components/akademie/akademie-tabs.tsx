@@ -11,7 +11,7 @@ const TABS: { area: string; label: string; adminOnly?: boolean; always?: boolean
   { area: "personas", label: "Personas" },
   { area: "einwaende", label: "Einwände" },
   { area: "szenarien", label: "Szenarien" },
-  { area: "drills", label: "Drills" },
+  { area: "drills", label: "Übungen" },
   { area: "rollenspiele", label: "Rollenspiele" },
   { area: "marken", label: "Marken" },
   { area: "mitarbeiter", label: "Mitarbeiter", adminOnly: true },

@@ -13,7 +13,7 @@ Bevor du irgendetwas änderst, **verifiziere, dass du im richtigen Projekt bist*
    (fremder Referenz-Clone, AGPLv3) oder andere Repos auf der Maschine.
 
 ## 1) Was ist MAGALOKO
-Sales-Training-Cockpit + Telegram-Mini-App + Telegram-Bot für **HFK** („Herr und Frau Klein",
+Verkaufstrainings-Cockpit + Telegram-Mini-App + Telegram-Bot für **HFK** („Herr und Frau Klein",
 Babyfachhandel Wien/Österreich). „Mago" ist der Dienstleister; das ist **Magos erstes HFK-Projekt** →
 produktionsreif/zuverlässig. UI durchgängig **DEUTSCH**, **helles** Theme, mobil-first (bis 360px, Telegram-Webview).
 
@@ -51,7 +51,7 @@ produktionsreif/zuverlässig. UI durchgängig **DEUTSCH**, **helles** Theme, mob
 
 ## 4) Feature-Stand (alles gebaut & deployt)
 Heute (Dashboard+Agenda) · Kalender (Ansichten Woche/2-Wochen/Monat/Quartal/Jahr, Drag&Drop, Hebel-Balken,
-Ebenen-Filter, mobil Punkte) · Akademie (Drills/Marken/Einwände/Personas/Szenarien/Rollenspiele/Angebote/Lernpfade/
+Ebenen-Filter, mobil Punkte) · Akademie (Übungen/Marken/Einwände/Personas/Szenarien/Rollenspiele/Angebote/Lernpfade/
 Mitarbeiter; 4 Runner mit Tastatursteuerung, Spaced-Repetition, Gamification) · Cockpilot (MS-365-Copilot-Hilfe:
 Assistent + Guides mit Check-ins + Prompt-Bibliothek; auch im Bot via `/copilot`) · Werkstatt (Vorschläge:
 einreichen→KI-Pre-Check→Team-Votum→Admin-Freigabe→Übernahme in `salesObjections`; Übungs-Schleife; **XP/Badges**) ·
@@ -89,7 +89,7 @@ Pflicht: `SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY`, `SESSION_SECRET` (≥32 Ze
 
 ## 8) Offene Punkte (optional)
 - Finale Inhalts-Deutsch-Prüfung über `/cockpit/audit` (User klickt „Alle prüfen" → „Übernehmen").
-- User-Aufgaben: altes Vercel-Projekt löschen, im Chat exponierte Secrets rotieren.
+- Nutzer-Aufgaben: altes Vercel-Projekt löschen, im Chat exponierte Secrets rotieren.
 
 ---
 **Start:** Identitäts-Check (§0) ausführen, dann Stand kurz bestätigen und fragen, woran weitergearbeitet werden

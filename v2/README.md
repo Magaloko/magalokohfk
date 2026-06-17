@@ -5,7 +5,7 @@ TypeScript + Tailwind v4. Isolierte Shell, Hub-Navigation, Server/Client-Split,
 wiederverwendbare Primitives (`PageShell`, `DataTable`, `Card`, `EmptyState`), Design-Tokens.
 
 **Läuft parallel zur Live-App** (Repo-Root) und liest **dieselbe Supabase**. Phase 0 = POC
-mit dem **Akademie-Hub** (Drills/Marken/Einwände/Personas/Szenarien/Rollenspiele/Angebote +
+mit dem **Akademie-Hub** (Übungen/Marken/Einwände/Personas/Szenarien/Rollenspiele/Angebote +
 interaktiver Quiz-Runner) + Login (Admin-Passwort / Mitarbeiter-Code / Telegram).
 
 ## Struktur

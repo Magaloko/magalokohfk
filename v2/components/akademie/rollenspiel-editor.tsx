@@ -36,7 +36,7 @@ const SERVICE_KRIT: Krit[] = [
 const SERVICE_ABLAUF: Ablauf[] = [
   { schritt: 1, name: "Beruhigen", beschreibung: "Emotion aufnehmen, Verständnis zeigen, Gespräch öffnen." },
   { schritt: 2, name: "Klären", beschreibung: "Relevante Daten und Ursache strukturiert abfragen." },
-  { schritt: 3, name: "Grenzen halten", beschreibung: "Keine ungeprüften Zusagen machen, Policy und Prüfung sauber trennen." },
+  { schritt: 3, name: "Grenzen halten", beschreibung: "Keine ungeprüften Zusagen machen, Regelwerk und Prüfung sauber trennen." },
   { schritt: 4, name: "Nächster Schritt", beschreibung: "Konkrete Folgeaktion, Eskalation oder Rückmeldung verbindlich formulieren." },
 ];
 
@@ -49,7 +49,7 @@ const PRESETS: RoleplayPreset[] = [
       setting: "Der Kunde meldet sich, weil eine Bestellung seit mehreren Tagen überfällig ist. Er ist enttäuscht und erwartet sofort eine klare Antwort.",
       verkaufstechnik: "Deeskalation",
       produkt: "Online-Bestellung mit Kinder-/Babyartikel",
-      marke: "HFK Service",
+      marke: "HFK-Kundenservice",
       ziel_aov: "",
     },
     ablauf: SERVICE_ABLAUF,
@@ -67,7 +67,7 @@ const PRESETS: RoleplayPreset[] = [
       setting: "Der Kunde möchte einen Artikel zurückgeben, obwohl die reguläre Rückgabefrist überschritten ist.",
       verkaufstechnik: "Retoure",
       produkt: "Retourenfall",
-      marke: "HFK Service",
+      marke: "HFK-Kundenservice",
       ziel_aov: "",
     },
     ablauf: SERVICE_ABLAUF,
@@ -75,7 +75,7 @@ const PRESETS: RoleplayPreset[] = [
       { einwand: "Ich habe es einfach nicht früher geschafft, können Sie nicht eine Ausnahme machen?", psychologie: "Hoffnung auf Kulanz", erwartete_technik: "Verständnis zeigen, Frist/Artikelzustand abfragen, manuelle Prüfung statt Sofortzusage." },
       { einwand: "Bei anderen Shops geht das aber problemlos.", psychologie: "Vergleichsdruck", erwartete_technik: "Ruhig bleiben, HFK-Regel erklären, mögliche Prüfung anbieten." },
     ],
-    erfolgskriterien: ["Kulanz nicht vorschnell zusagen", "Artikelzustand und Kaufdatum abfragen", "Policy freundlich erklären", "Manuelle Prüfung korrekt anbieten"],
+    erfolgskriterien: ["Kulanz nicht vorschnell zusagen", "Artikelzustand und Kaufdatum abfragen", "Regel freundlich erklären", "Manuelle Prüfung korrekt anbieten"],
   },
   {
     label: "Beschädigter Artikel",
@@ -85,7 +85,7 @@ const PRESETS: RoleplayPreset[] = [
       setting: "Der Kunde sagt, der gelieferte Artikel sei beschädigt oder falsch. Er erwartet Ersatz oder Erstattung.",
       verkaufstechnik: "Reklamation",
       produkt: "Reklamierter Artikel",
-      marke: "HFK Service",
+      marke: "HFK-Kundenservice",
       ziel_aov: "",
     },
     ablauf: SERVICE_ABLAUF,
@@ -103,7 +103,7 @@ const PRESETS: RoleplayPreset[] = [
       setting: "Der Kunde versteht eine Rechnung, Zahlung oder Zahlungsaufforderung nicht und fragt nach Klärung.",
       verkaufstechnik: "Rechnungsklärung",
       produkt: "Rechnung/Zahlung",
-      marke: "HFK Service",
+      marke: "HFK-Kundenservice",
       ziel_aov: "",
     },
     ablauf: SERVICE_ABLAUF,
@@ -121,7 +121,7 @@ const PRESETS: RoleplayPreset[] = [
       setting: "Ein wichtiger Kunde ist mit einem Servicefall unzufrieden und verlangt eine schnelle, persönliche Lösung.",
       verkaufstechnik: "Eskalation",
       produkt: "VIP-Servicefall",
-      marke: "HFK Service",
+      marke: "HFK-Kundenservice",
       ziel_aov: "",
     },
     ablauf: SERVICE_ABLAUF,
@@ -134,12 +134,12 @@ const PRESETS: RoleplayPreset[] = [
   {
     label: "Beratung nach Problem",
     b: {
-      titel: "Servicefall: Beratung nach Serviceproblem",
+      titel: "Servicefall: Beratung nach Kundenproblem",
       persona: "Kunde ist skeptisch, braucht aber weiterhin eine passende Empfehlung",
       setting: "Nach einem Problem mit einer Bestellung möchte der Kunde wissen, ob HFK eine bessere Alternative empfehlen kann.",
       verkaufstechnik: "Beratung nach Serviceproblem",
       produkt: "Alternative Produktempfehlung",
-      marke: "HFK Service",
+      marke: "HFK-Kundenservice",
       ziel_aov: "",
     },
     ablauf: SERVICE_ABLAUF,
@@ -256,7 +256,7 @@ function RpForm({ id, rp, onClose }: { id?: string; rp?: Rollenspiel; onClose: (
           <label className="block">{L("Marke")}<input value={b.marke} onChange={set("marke")} className={sel} /></label>
         </div>
         <label className="block">{L("Persona")}<input value={b.persona} onChange={set("persona")} className={sel} /></label>
-        <label className="block">{L("Setting")}<textarea value={b.setting} onChange={set("setting")} rows={2} className={sel} /></label>
+        <label className="block">{L("Situation / Rahmen")}<textarea value={b.setting} onChange={set("setting")} rows={2} className={sel} /></label>
 
         <div>{L("Ablauf (Schritte)")}
           <RowList items={ablauf} setItems={setAblauf} blank={() => ({ name: "", beschreibung: "" })}
@@ -280,7 +280,7 @@ function RpForm({ id, rp, onClose }: { id?: string; rp?: Rollenspiel; onClose: (
             render={(k, s) => (<div className="flex flex-col gap-1">
               <div className="flex gap-1">
                 <input value={k.kriterium} onChange={(e) => s({ kriterium: e.target.value })} placeholder="Kriterium" className={`${sel} flex-1`} />
-                <input value={k.punkte_max} onChange={(e) => s({ punkte_max: e.target.value })} placeholder="max" inputMode="numeric" className={`${sel} w-20`} />
+                <input value={k.punkte_max} onChange={(e) => s({ punkte_max: e.target.value })} placeholder="max." inputMode="numeric" className={`${sel} w-20`} />
               </div>
               <input value={k.beschreibung} onChange={(e) => s({ beschreibung: e.target.value })} placeholder="Beschreibung" className={sel} />
             </div>)} />

@@ -9,7 +9,7 @@ export const PHASES: Phase[] = [
   { key: "Einkaufssystem", label: "Einkaufssystem", desc: "Margensteuerung", roadmap: 3, icon: "bag" },
   { key: "VIPA", label: "VIPA", desc: "GF-Assistent", roadmap: 4, icon: "send" },
   { key: "SeBo", label: "SeBo", desc: "Service-Bot", roadmap: 4, icon: "chat" },
-  { key: "VEKTRA", label: "VEKTRA", desc: "Sales-Training", roadmap: 5, icon: "academy" },
+  { key: "VEKTRA", label: "VEKTRA", desc: "Verkaufstraining", roadmap: 5, icon: "academy" },
 ];
 
 export const PHASE_KEYS: string[] = PHASES.map((p) => p.key);
@@ -26,5 +26,5 @@ export const UMSETZUNGS_BLOECKE: UmsetzungsBlock[] = [
   { key: "treasury", label: "Treasury", desc: "Liquiditäts-Steuerung", icon: "money", step: 2, phaseKeys: ["Treasury"] },
   { key: "einkauf", label: "Einkaufssystem", desc: "Margen-Steuerung", icon: "bag", step: 3, phaseKeys: ["Einkaufssystem"] },
   { key: "vipasebo", label: "VIPA & SeBo", desc: "GF-Assistent & Service-Bot", icon: "send", step: 4, phaseKeys: ["VIPA", "SeBo"] },
-  { key: "vektra", label: "VEKTRA", desc: "Sales-Training", icon: "academy", step: 5, phaseKeys: ["VEKTRA"], live: true, note: "live, aber bewusst nachrangig" },
+  { key: "vektra", label: "VEKTRA", desc: "Verkaufstraining", icon: "academy", step: 5, phaseKeys: ["VEKTRA"], live: true, note: "live, aber bewusst nachrangig" },
 ];

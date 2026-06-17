@@ -5,7 +5,7 @@ import { Icon } from "@/components/icon";
 
 const LABELS: Record<string, string> = {
   angebote: "Angebote", personas: "Personas", einwaende: "Einwände", szenarien: "Szenarien",
-  drills: "Daily-Drills", rollenspiele: "Rollenspiele", marken: "Marken-Bibel", mitarbeiter: "Mitarbeiter",
+  drills: "Tagesübungen", rollenspiele: "Rollenspiele", marken: "Marken-Bibel", mitarbeiter: "Mitarbeiter",
 };
 
 // Liest die zuletzt besuchte Akademie-Sektion (localStorage, vom AkademieTabs gesetzt).

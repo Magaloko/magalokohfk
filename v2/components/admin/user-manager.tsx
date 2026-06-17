@@ -4,7 +4,7 @@ import { cn } from "@/lib/cn";
 import { Icon } from "@/components/icon";
 
 const AREAS: { key: string; label: string }[] = [
-  { key: "drills", label: "Drills" }, { key: "marken", label: "Marken" }, { key: "einwaende", label: "Einwände" },
+  { key: "drills", label: "Übungen" }, { key: "marken", label: "Marken" }, { key: "einwaende", label: "Einwände" },
   { key: "personas", label: "Personas" }, { key: "szenarien", label: "Szenarien" }, { key: "rollenspiele", label: "Rollenspiele" },
   { key: "angebote", label: "Angebote" },
 ];

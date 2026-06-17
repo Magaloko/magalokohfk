@@ -14,7 +14,7 @@ export const PATHS: LearnPath[] = [
     steps: [
       { title: "Personas kennenlernen", hint: "Wer kauft bei uns?", href: "/akademie/personas" },
       { title: "Einwände studieren", hint: "Antworten auf typische Einwände", href: "/akademie/einwaende" },
-      { title: "Quick-Quiz bestehen", hint: "5 gemischte Fragen", href: "/akademie/drills", auto: ["quiz"] },
+      { title: "Schnell-Quiz bestehen", hint: "5 gemischte Fragen", href: "/akademie/drills", auto: ["quiz"] },
       { title: "Szenario meistern", hint: "Ein Gespräch durchspielen", href: "/akademie/szenarien", auto: ["szenario"] },
     ],
   },
@@ -23,8 +23,8 @@ export const PATHS: LearnPath[] = [
     desc: "Produktwissen, das im Verkaufsgespräch überzeugt.",
     steps: [
       { title: "Marken-Bibel lesen", hint: "Herkunft, USPs, Hero-Produkte", href: "/akademie/marken" },
-      { title: "Drill-Training", hint: "Marken-Drills üben", href: "/akademie/drills", auto: ["drill"] },
-      { title: "Wissen testen", hint: "Quick-Quiz", href: "/akademie/drills", auto: ["quiz"] },
+      { title: "Übungstraining", hint: "Markenübungen trainieren", href: "/akademie/drills", auto: ["drill"] },
+      { title: "Wissen testen", hint: "Schnell-Quiz", href: "/akademie/drills", auto: ["quiz"] },
     ],
   },
   {
@@ -32,7 +32,7 @@ export const PATHS: LearnPath[] = [
     desc: "Vom Skript zum echten Verkaufsgespräch — mit KI-Kunde.",
     steps: [
       { title: "Szenario spielen", hint: "Mehrstufige Übung", href: "/akademie/szenarien", auto: ["szenario"] },
-      { title: "KI-Live-Rollenspiel", hint: "Mit KI-Kunde sprechen & Coach-Feedback", href: "/akademie/rollenspiele", auto: ["rollenspiel"] },
+      { title: "KI-Rollenspiel", hint: "Mit dem KI-Kunden sprechen und Coach-Rückmeldung erhalten", href: "/akademie/rollenspiele", auto: ["rollenspiel"] },
       { title: "Abschluss-Quiz", hint: "Gelerntes festigen", href: "/akademie/drills", auto: ["quiz"] },
     ],
   },
@@ -41,7 +41,7 @@ export const PATHS: LearnPath[] = [
     desc: "Jeden Einwand souverän in einen Abschluss verwandeln.",
     steps: [
       { title: "Einwände-Bibliothek lesen", hint: "Antworten & Beweise", href: "/akademie/einwaende" },
-      { title: "Quick-Quiz", hint: "Einwand-Antworten testen", href: "/akademie/drills", auto: ["quiz"] },
+      { title: "Schnell-Quiz", hint: "Einwand-Antworten testen", href: "/akademie/drills", auto: ["quiz"] },
       { title: "Szenario mit Einwänden", hint: "Im Gespräch anwenden", href: "/akademie/szenarien", auto: ["szenario"] },
       { title: "Rollenspiel", hint: "Live gegen echte Einwände", href: "/akademie/rollenspiele", auto: ["rollenspiel"] },
     ],
