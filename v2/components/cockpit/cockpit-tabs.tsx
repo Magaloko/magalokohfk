@@ -7,6 +7,7 @@ import { Icon } from "@/components/icon";
 const TABS = [
   { href: "/cockpit", icon: "cockpit", label: "Übersicht" },
   { href: "/mastermind", icon: "globe", label: "Strategie" },
+  { href: "/cockpit/sebo", icon: "chat", label: "SeBo" },
   { href: "/cockpit/umsetzung", icon: "handshake", label: "Umsetzung" },
   { href: "/cockpit/briefing", icon: "send", label: "Briefing" },
   { href: "/cockpit/tasks", icon: "check", label: "Tasks" },

@@ -34,6 +34,19 @@ export default async function CockpitOverview() {
         </div>
       </section>
 
+      <section className="mt-4 rounded-xl border border-amber/40 bg-amber/10 p-5 shadow-sm">
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+          <div>
+            <div className="flex items-center gap-1.5 text-xs font-bold uppercase tracking-wide text-amber"><Icon name="chat" className="h-3.5 w-3.5" /> SeBo v2 · Auftragsschutz</div>
+            <h2 className="mt-1 text-lg font-extrabold tracking-tight">v1 fuer 5k sauber abschliessen, v2 als neues Projekt starten</h2>
+            <p className="mt-1 max-w-2xl text-sm text-muted">Neue Stephan-Dokumente sind als Mago-Steuerungsseite integriert: Fragen, Handover, Architektur, Meilensteine und naechste Aufgaben.</p>
+          </div>
+          <Link href="/cockpit/sebo" className="inline-flex shrink-0 items-center gap-1.5 rounded-lg bg-amber/15 px-3 py-2 text-sm font-semibold text-amber hover:bg-amber/20">
+            <Icon name="arrow-right" className="h-4 w-4" /> SeBo steuern
+          </Link>
+        </div>
+      </section>
+
       {/* Phasen-Blöcke */}
       <div className="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-5">
         {UMSETZUNGS_BLOECKE.map((b) => {
