@@ -1,7 +1,7 @@
 // MAGALOKO Telegram-Bot — Vercel Serverless Webhook (Phase 2).
 // Portiert aus telegram-bot.mjs: Long-Poll → Webhook, Datei-IO → Supabase.
 // Quiz/Check/Daily-State (früher RAM) liegt jetzt in der Tabelle bot_sessions.
-import { db, tgConfig, webCodeHash, genWebCode } from "./db.mjs";
+import { db, tgConfig, webCodeHash, genWebCode, snapshotState, antiWipeViolation } from "./db.mjs";
 import { buildCopilotKB, copilotSystemPrompt } from "../copilot-kb.mjs";
 
 // === Env / Config ===
@@ -113,6 +113,35 @@ async function loadData() {
 async function loadFullState() {
   const { data } = await db.from("app_state").select("data").eq("id", "hfk").maybeSingle();
   const st = data?.data || {}; return st.workspaces?.hfk?.data || st;
+}
+function stateContainer(data) {
+  const ws = data?.workspaces?.hfk?.data;
+  return ws && typeof ws === "object" && !Array.isArray(ws) ? ws : data;
+}
+function genItemId(prefix) {
+  return `${prefix}_${Date.now().toString(36)}${Math.random().toString(36).slice(2, 7)}`;
+}
+async function createStateItem(collection, item, prefix, actor) {
+  for (let attempt = 0; attempt < 3; attempt++) {
+    const cur = await db.from("app_state").select("data, updated_at").eq("id", "hfk").maybeSingle();
+    const data = cur.data?.data || {};
+    const oldUpdatedAt = Number(cur.data?.updated_at || 0);
+    const old = JSON.parse(JSON.stringify(data));
+    const container = stateContainer(data);
+    const arr = Array.isArray(container[collection]) ? container[collection] : [];
+    const id = genItemId(prefix);
+    container[collection] = [{ id, ...item }, ...arr];
+    data.updatedAt = Date.now();
+    const wiped = antiWipeViolation(old, data);
+    if (wiped) return { ok: false, error: "anti-wipe" };
+    await snapshotState(old, oldUpdatedAt, "telegram-mago-assistant", actor || "telegram");
+    const upd = await db.from("app_state")
+      .update({ data, updated_at: data.updatedAt })
+      .eq("id", "hfk").eq("updated_at", oldUpdatedAt).select("updated_at");
+    if (upd.error) return { ok: false, error: "write_failed" };
+    if (upd.data && upd.data.length) return { ok: true, id };
+  }
+  return { ok: false, error: "conflict" };
 }
 
 // === Scores / Learnings / Sessions (Supabase) ===
@@ -326,6 +355,7 @@ async function sendMenu(chatId, userId) {
   if (allowedQuizTypes(userId).length) { btns.push({ text: "🎯 Quiz", callback_data: "menu|quiz" }); btns.push({ text: "☀️ Tagesaufgabe", callback_data: "menu|tagesaufgabe" }); }
   btns.push({ text: "📊 Score", callback_data: "menu|score" });
   if (isAdmin(userId)) btns.push({ text: "📚 Lehren", callback_data: "menu|lern" });
+  if (isAdmin(userId)) btns.push({ text: "Mago", callback_data: "menu|mago" });
   btns.push({ text: "🧠 Copilot", callback_data: "menu|copilot" });
   const rows = []; for (let i = 0; i < btns.length; i += 3) rows.push(btns.slice(i, i + 3));
   if (isAdmin(userId)) { rows.push([{ text: "📱 Cockpit", web_app: { url: WEBAPP_URL + "/heute" } }, { text: "👔 Stephan", web_app: { url: WEBAPP_URL + "/cockpit/stephan" } }]); rows.push([{ text: "⚙️ Admin", callback_data: "admin|panel" }]); }
@@ -334,7 +364,7 @@ async function sendMenu(chatId, userId) {
 async function cmdStart(chatId, userId) {
   const lines = ["🎓 <b>HFK VEKTRA</b>", "", "Trainiere Produktwissen & Verkauf — direkt im Chat.", "", "<b>🎯 Training:</b>", "/drill — Zufallsübung", "/quiz — Gemischtes Quiz (z.B. <code>/quiz 7</code>)", "/tagesaufgabe — Tägliche Aufgabe ☀️", "/marke <i>LIEWOOD</i> · /einwand <i>preis</i> · /persona <i>anna</i>", "/rollenspiel · /score · /lern", "/check — Wissens-Check · /fortschritt — Skill-Profil", "", "<b>🧠 Microsoft Copilot:</b>", "/copilot — Hilfe & Schritt-für-Schritt zu Outlook, Excel, Word, Teams"];
   if (hasModule(userId, "ai")) lines.push("/frag <i>…</i> — KI-Assistent");
-  if (isAdmin(userId)) lines.push("", "<b>⚙️ Admin:</b>", "/admin — Panel (Nutzer + Bereiche)", "/adduser <i>ID Name</i> · /setrole <i>ID admin|mitarbeiter</i> · /removeuser <i>ID</i>", "/grant <i>ID bereich</i> · /revoke <i>ID bereich</i> — Akademie-Bereiche je Person", "/webcode <i>ID</i> — Browser-Zugangscode");
+  if (isAdmin(userId)) lines.push("", "<b>Mago:</b>", "/mago — Persönlicher Assistent", "/notiz <i>Text</i> · /aufgabe <i>Text</i> · /ekfall <i>Text</i>", "/mchat — privater MAGALOKO-Chat", "", "<b>⚙️ Admin:</b>", "/admin — Panel (Nutzer + Bereiche)", "/adduser <i>ID Name</i> · /setrole <i>ID admin|mitarbeiter</i> · /removeuser <i>ID</i>", "/grant <i>ID bereich</i> · /revoke <i>ID bereich</i> — Akademie-Bereiche je Person", "/webcode <i>ID</i> — Browser-Zugangscode");
   await send(chatId, lines.join("\n"));
   return sendMenu(chatId, userId);
 }
@@ -494,6 +524,118 @@ async function cmdFrag(chatId, question, from) {
     if (e.message === "NO_KEY") return send(chatId, "⚙️ Kein KI-Key konfiguriert (Vercel-Env <code>BOT_AI_KEY</code>).");
     console.error("[cmdFrag]", e.message);
     return send(chatId, "⚠️ KI-Anfrage fehlgeschlagen. Versuch es nochmal.");
+  }
+}
+
+// === Mago: privater Telegram-Assistent ===
+function isOpenStatus(s) {
+  const v = norm(s || "");
+  return !["done", "erledigt", "abgeschlossen", "archiviert", "abgesagt"].includes(v);
+}
+function dateOnly(v) {
+  if (!v) return "";
+  return String(v).slice(0, 10);
+}
+function shortLine(x, keys) {
+  for (const k of keys) if (x?.[k]) return String(x[k]);
+  return "";
+}
+function magoKb() {
+  return { reply_markup: { inline_keyboard: [
+    [{ text: "Heute", callback_data: "mago|brief" }, { text: "Stephan", callback_data: "mago|stephan" }],
+    [{ text: "Protokoll", callback_data: "mago|capture|log" }, { text: "Aufgabe", callback_data: "mago|capture|task" }, { text: "EK-Fall", callback_data: "mago|capture|process" }],
+    [{ text: "Chat", callback_data: "mago|chat" }, { text: "Cockpit", web_app: { url: WEBAPP_URL + "/heute" } }],
+    [{ text: "Menü", callback_data: "menu|main" }]
+  ] } };
+}
+function buildMagoBrief(ws) {
+  const today = new Date().toISOString().slice(0, 10);
+  const tasks = (ws.tasks || []).filter((x) => isOpenStatus(x.status)).slice(0, 8);
+  const due = tasks.filter((x) => dateOnly(x.dueDate) && dateOnly(x.dueDate) <= today).slice(0, 5);
+  const events = (ws.calendarEvents || []).filter((x) => dateOnly(x.date) >= today).sort((a, b) => String(a.date || "").localeCompare(String(b.date || ""))).slice(0, 6);
+  const runs = (ws.processRuns || []).filter((x) => isOpenStatus(x.status)).slice(0, 5);
+  const logs = (ws.magoLog || []).slice(0, 5);
+  const lines = [`<b>Mago Assistent</b>`, `<i>${esc(new Date().toLocaleDateString("de-AT", { weekday: "long", day: "2-digit", month: "2-digit", year: "numeric" }))}</i>`];
+  lines.push("", "<b>Heute/Überfällig</b>");
+  lines.push(due.length ? due.map((t) => `• ${esc(shortLine(t, ["title", "text", "name"]) || "Aufgabe")} ${t.dueDate ? `<i>${esc(t.dueDate)}</i>` : ""}`).join("\n") : "• Keine überfälligen Aufgaben im Cockpit.");
+  lines.push("", "<b>Nächste Termine</b>");
+  lines.push(events.length ? events.map((e) => `• ${esc([e.date, e.time].filter(Boolean).join(" "))} ${esc(e.title || "Termin")}`).join("\n") : "• Keine kommenden Termine erfasst.");
+  lines.push("", "<b>Offene EK-/Prozessfälle</b>");
+  lines.push(runs.length ? runs.map((r) => `• ${esc(r.prozess || r.entscheidung || "Fall")} ${r.risiko ? `<i>${esc(r.risiko)}</i>` : ""}`).join("\n") : "• Keine offenen Prozessfälle erfasst.");
+  lines.push("", "<b>Letzte Protokolle</b>");
+  lines.push(logs.length ? logs.map((l) => `• ${esc(l.titel || l.beschreibung || "Notiz")}`).join("\n") : "• Noch keine Protokolle.");
+  return lines.join("\n").slice(0, 3900);
+}
+function buildStephanPrep(ws) {
+  const tasks = (ws.tasks || []).filter((x) => isOpenStatus(x.status) && /stephan|sebo|einkauf|ek|hfk/i.test([x.title, x.area, x.notes].filter(Boolean).join(" "))).slice(0, 8);
+  const decisions = (ws.stephanDecisions || []).slice(0, 8);
+  const runs = (ws.processRuns || []).filter((x) => /einkauf|ek|lieferant|budget|sebo/i.test([x.bereich, x.prozess, x.entscheidung, x.risiko].filter(Boolean).join(" "))).slice(0, 8);
+  const logs = (ws.magoLog || []).filter((x) => /stephan|sebo|einkauf|ek|hfk/i.test([x.titel, x.kategorie, x.bezug, x.beschreibung].filter(Boolean).join(" "))).slice(0, 8);
+  const lines = ["<b>Vorbereitung Stephan</b>", "", "<b>Besprechen</b>"];
+  const topics = [
+    "EK-Tool: Verkaufsdaten sind importiert; nächster harter Punkt ist kartikel-Matching.",
+    "Einkaufslogik der Einkäufer als Fälle erfassen: Renner, OOS, Penner, Saison, Lieferant, Liquidität.",
+    "Preislich trennen: Datenbasis/Matching, JTL Write-Back, Finanz-/Treasury-Integration, Schulung/Dokumentation."
+  ];
+  lines.push(topics.map((t) => `• ${esc(t)}`).join("\n"));
+  lines.push("", "<b>Offene Aufgaben</b>");
+  lines.push(tasks.length ? tasks.map((t) => `• ${esc(shortLine(t, ["title", "text", "name"]) || "Aufgabe")} ${t.status ? `<i>${esc(t.status)}</i>` : ""}`).join("\n") : "• Keine passenden Aufgaben gefunden.");
+  lines.push("", "<b>Entscheidungen/Notizen</b>");
+  const notes = [...decisions.map((d) => shortLine(d, ["titel", "title"])), ...logs.map((l) => shortLine(l, ["titel", "beschreibung"])), ...runs.map((r) => shortLine(r, ["entscheidung", "prozess"]))].filter(Boolean).slice(0, 10);
+  lines.push(notes.length ? notes.map((n) => `• ${esc(n)}`).join("\n") : "• Noch nichts Passendes erfasst.");
+  return lines.join("\n").slice(0, 3900);
+}
+async function cmdMago(chatId, userId, arg = "") {
+  if (!isAdmin(userId)) return send(chatId, "Nur für Mago/Admin.");
+  const mode = norm(arg);
+  if (!mode) return send(chatId, "<b>Mago Assistent</b>\n\n/mago heute\n/mago stephan\n/notiz Text\n/aufgabe Text\n/ekfall Text\n/mchat Frage\n\nErfassung landet direkt in MAGALOKO.", magoKb());
+  if (["heute", "brief", "briefing"].includes(mode)) return send(chatId, buildMagoBrief(await loadFullState()), magoKb());
+  if (["stephan", "stefan", "meeting"].includes(mode)) return send(chatId, buildStephanPrep(await loadFullState()), magoKb());
+  if (["chat"].includes(mode)) { await patchSess(userId, { magoChat: { messages: [] } }); return send(chatId, "Mago-Chat gestartet. Schreib deine Frage. Beenden: /stop", { reply_markup: { inline_keyboard: [[{ text: "Beenden", callback_data: "mago|exit" }]] } }); }
+  return send(chatId, "Unbekannter Mago-Befehl. Nutze /mago.");
+}
+async function cmdMagoCapture(chatId, userId, kind, text, from) {
+  if (!isAdmin(userId)) return send(chatId, "Nur für Mago/Admin.");
+  if (!text.trim()) {
+    const label = kind === "task" ? "Aufgabe" : kind === "process" ? "EK-Fall" : "Notiz";
+    return send(chatId, `<b>${label} erfassen</b>\n\nBeispiel:\n<code>/${kind === "task" ? "aufgabe" : kind === "process" ? "ekfall" : "notiz"} Stephan fragen: Wie priorisiert ihr OOS-Bestseller?</code>`, magoKb());
+  }
+  const today = new Date().toISOString().slice(0, 10);
+  let collection = "magoLog", prefix = "mlog", item = {};
+  if (kind === "task") {
+    collection = "tasks"; prefix = "t";
+    item = { title: text.slice(0, 140), area: "Mago", phase: "Inbox", status: "offen", priority: "mittel", owner: "Mago", notes: text };
+  } else if (kind === "process") {
+    collection = "processRuns"; prefix = "prun";
+    item = { datum: today, bereich: "Einkauf", prozess: "Einkaufslogik", entscheidung: text.slice(0, 220), einsatz: "", nachweis: "Telegram-Erfassung", risiko: "", status: "offen", systemSignal: "", naechsterSchritt: "Im Prozess-Spiel/Fachgespräch validieren" };
+  } else {
+    item = { datum: today, titel: text.slice(0, 120), kategorie: "Telegram", status: "offen", bezug: "Mago Assistent", beschreibung: text };
+  }
+  const res = await createStateItem(collection, item, prefix, tgUserName(from));
+  if (!res.ok) return send(chatId, `Konnte nicht speichern: ${esc(res.error || "unbekannt")}`);
+  return send(chatId, `Gespeichert in <b>${esc(collection)}</b>.`, magoKb());
+}
+async function cmdMagoChatMessage(chatId, uid, text, sess) {
+  if (!AI_KEY) return send(chatId, "Kein KI-Key konfiguriert (<code>BOT_AI_KEY</code>).");
+  const hist = Array.isArray(sess.magoChat?.messages) ? sess.magoChat.messages : [];
+  await tgApi("sendChatAction", { chat_id: chatId, action: "typing" });
+  try {
+    const ws = await loadFullState();
+    const ctx = [
+      buildMagoBrief(ws).replace(/<[^>]+>/g, ""),
+      buildStephanPrep(ws).replace(/<[^>]+>/g, "")
+    ].join("\n\n");
+    const answer = await callAI([
+      { role: "system", content: "Du bist Magos privater Telegram-Assistent für MAGALOKO/HFK. Antworte knapp, konkret, operativ. Trenne Fakten aus MAGALOKO von Vermutungen. Keine Geheimnisse ausgeben." },
+      { role: "system", content: ctx.slice(0, 5000) },
+      ...hist.slice(-8),
+      { role: "user", content: text.slice(0, 2000) }
+    ]);
+    await patchSess(uid, { magoChat: { messages: [...hist, { role: "user", content: text.slice(0, 2000) }, { role: "assistant", content: answer }].slice(-12) } });
+    for (let i = 0; i < answer.length; i += 4000) await send(chatId, answer.slice(i, i + 4000), i + 4000 >= answer.length ? { reply_markup: { inline_keyboard: [[{ text: "Beenden", callback_data: "mago|exit" }]] } } : {});
+  } catch (e) {
+    console.error("[mago-chat]", e.message);
+    return send(chatId, "KI-Anfrage fehlgeschlagen. Versuch es nochmal.");
   }
 }
 
@@ -785,7 +927,8 @@ async function handleUpdate(u) {
     if (!isPrivateChat(cbq.message?.chat)) return tgApi("answerCallbackQuery", { callback_query_id: cbq.id, text: "Nur im Privatchat" });
     if (!isAllowed(cbq.from?.id)) return tgApi("answerCallbackQuery", { callback_query_id: cbq.id, text: "Kein Zugriff" });
     const data = cbq.data || "", cid = cbq.message?.chat?.id, uid = cbq.from?.id;
-    if (!data.startsWith("admin|") && data !== "menu|main" && !hasModule(uid, "akademie")) return tgApi("answerCallbackQuery", { callback_query_id: cbq.id, text: "🔒 Nicht freigeschaltet", show_alert: true });
+    if (data.startsWith("mago|") && !isAdmin(uid)) return tgApi("answerCallbackQuery", { callback_query_id: cbq.id, text: "Nur für Mago/Admin", show_alert: true });
+    if (!data.startsWith("admin|") && !data.startsWith("mago|") && data !== "menu|mago" && data !== "menu|main" && !hasModule(uid, "akademie")) return tgApi("answerCallbackQuery", { callback_query_id: cbq.id, text: "🔒 Nicht freigeschaltet", show_alert: true });
     // Variante B: Callback nach Akademie-Bereich gaten
     const CB_AREA = { "menu|drill": "drills", "menu|marken": "marken", "menu|einwand": "einwaende", "menu|rollenspiel": "rollenspiele", "menu|persona": "personas" };
     const cbArea = CB_AREA[data] || (data.startsWith("brand|") ? "marken" : data.startsWith("einwand|") ? "einwaende" : data.startsWith("persona|") ? "personas" : null);
@@ -795,6 +938,15 @@ async function handleUpdate(u) {
     if (!selfAnswers) tgApi("answerCallbackQuery", { callback_query_id: cbq.id }).catch(() => {});
     if (data.startsWith("drill|")) return handleDrillAnswer(cbq);
     if (data === "menu|main") return sendMenu(cid, uid);
+    if (data === "menu|mago") return cmdMago(cid, uid, "");
+    if (data === "mago|brief") return cmdMago(cid, uid, "heute");
+    if (data === "mago|stephan") return cmdMago(cid, uid, "stephan");
+    if (data === "mago|chat") return cmdMago(cid, uid, "chat");
+    if (data === "mago|exit") { await patchSess(uid, { magoChat: null }); return send(cid, "Mago-Chat beendet.", magoKb()); }
+    if (data.startsWith("mago|capture|")) {
+      const kind = data.slice("mago|capture|".length);
+      return cmdMagoCapture(cid, uid, kind === "log" ? "log" : kind, "", cbq.from);
+    }
     if (data === "menu|drill") return cmdDrill(cid, "");
     if (data === "menu|marken") return cmdMarkenMenu(cid);
     if (data === "menu|einwand") return cmdEinwandMenu(cid);
@@ -823,6 +975,7 @@ async function handleUpdate(u) {
   const text = msg.text.trim();
   if (!text.startsWith("/")) {
     const sess = await getSess(userId);
+    if (sess && sess.magoChat) return cmdMagoChatMessage(chatId, userId, text, sess);
     if (sess && sess.copilot) return cmdCopilotMessage(chatId, userId, text, sess);
     if (!hasModule(userId, "ai")) return send(chatId, "🔒 Freitext-KI nicht freigeschaltet.\n\n🧠 Tipp: /copilot für Microsoft-Copilot-Hilfe.");
     return cmdFrag(chatId, text, msg.from);
@@ -839,10 +992,18 @@ async function handleUpdate(u) {
       if (cmd === "/grant") return cmdSetArea(chatId, arg, true);
       if (cmd === "/revoke") return cmdSetArea(chatId, arg, false);
       if (cmd === "/webcode") return cmdWebCode(chatId, arg);
+      if (cmd === "/mago") return cmdMago(chatId, userId, arg);
+      if (cmd === "/notiz" || cmd === "/note") return cmdMagoCapture(chatId, userId, "log", arg, msg.from);
+      if (cmd === "/aufgabe" || cmd === "/todo") return cmdMagoCapture(chatId, userId, "task", arg, msg.from);
+      if (cmd === "/ekfall" || cmd === "/prozess") return cmdMagoCapture(chatId, userId, "process", arg, msg.from);
+      if (cmd === "/mchat") {
+        if (arg) { await patchSess(userId, { magoChat: { messages: [] } }); return cmdMagoChatMessage(chatId, userId, arg, await getSess(userId)); }
+        return cmdMago(chatId, userId, "chat");
+      }
     }
     if (cmd === "/start" || cmd === "/help") return cmdStart(chatId, userId);
     if (cmd === "/copilot" || cmd === "/cp") return cmdCopilotStart(chatId, userId);
-    if (cmd === "/stop" || cmd === "/ende") { await patchSess(userId, { copilot: null }); return send(chatId, "✅ Cockpilot beendet. Mit /copilot jederzeit wieder starten."); }
+    if (cmd === "/stop" || cmd === "/ende") { await patchSess(userId, { copilot: null, magoChat: null }); return send(chatId, "Chatmodus beendet. Mit /copilot oder /mago chat wieder starten."); }
     if (cmd === "/frag" || cmd === "/ask" || cmd === "/ai") { if (!hasModule(userId, "ai")) return denyModule(chatId, "KI-Assistent"); return cmdFrag(chatId, arg, msg.from); }
     if (cmd === "/produkt" || cmd === "/p") return send(chatId, "🔍 Produktsuche ist in der Cloud-Bereitstellung deaktiviert (JTL-Daten liegen lokal). Nutze /marke für Marken-Infos.");
     const akademieCmds = ["/drill", "/marke", "/einwand", "/persona", "/rollenspiel", "/rollenspiele", "/score", "/punkte", "/lern", "/learn", "/korrektur", "/quiz", "/tagesaufgabe", "/ta"];
