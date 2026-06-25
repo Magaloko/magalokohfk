@@ -76,6 +76,37 @@ export default async function SeboPage() {
       </div>
 
       <section className="mt-6 rounded-xl border border-line bg-surface p-5 shadow-sm">
+        <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
+          <div>
+            <div className="flex items-center gap-1.5 text-xs font-bold uppercase tracking-wide text-muted-2">
+              <Icon name="kpi" className="h-3.5 w-3.5" /> Aktueller Entwicklungsstand
+            </div>
+            <h2 className="mt-1 text-lg font-extrabold">Was laut Ist-Stand wirklich fertig ist</h2>
+            <p className="mt-2 max-w-3xl text-sm leading-relaxed text-muted">{s.currentStatus.summary}</p>
+          </div>
+          <TonePill tone="accent">{s.currentStatus.source}</TonePill>
+        </div>
+        <div className="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+          {s.currentStatus.modules.map((m) => (
+            <div key={m.name} className="rounded-lg border border-line bg-surface-2 p-4">
+              <div className="flex items-start justify-between gap-2">
+                <h3 className="text-sm font-bold">{m.name}</h3>
+                <TonePill tone={m.tone}>{m.status}</TonePill>
+              </div>
+              <div className="mt-1 text-xs text-muted-2">Reifegrad: {m.maturity}</div>
+              <p className="mt-2 text-sm leading-relaxed text-muted">{m.note}</p>
+            </div>
+          ))}
+        </div>
+        <div className="mt-4 rounded-lg border border-line bg-surface-2 p-4">
+          <h3 className="flex items-center gap-1.5 text-sm font-bold"><Icon name="repeat" className="h-4 w-4 text-accent" /> JTL-Sync Status</h3>
+          <div className="mt-3">
+            <List items={s.currentStatus.jtlSync} icon="check" />
+          </div>
+        </div>
+      </section>
+
+      <section className="mt-6 rounded-xl border border-line bg-surface p-5 shadow-sm">
         <div className="flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
           <div>
             <div className="flex items-center gap-1.5 text-xs font-bold uppercase tracking-wide text-muted-2">
@@ -92,12 +123,42 @@ export default async function SeboPage() {
                 <h3 className="min-w-0 flex-1 font-bold">{task.title}</h3>
                 <TonePill tone={task.priority === "hoch" ? "red" : "amber"}>{task.priority}</TonePill>
               </div>
-              <div className="mt-1 text-xs text-muted-2">Owner: {task.owner}</div>
+              <div className="mt-1 text-xs text-muted-2">Owner: {task.owner}{task.effort ? ` · Aufwand: ${task.effort}` : ""}</div>
               <p className="mt-2 text-sm leading-relaxed text-muted">{task.reason}</p>
             </div>
           ))}
         </div>
       </section>
+
+      <div className="mt-6 grid gap-4 lg:grid-cols-2">
+        <section className="rounded-xl border border-line bg-surface p-5 shadow-sm">
+          <div className="flex items-center gap-1.5 text-xs font-bold uppercase tracking-wide text-muted-2">
+            <Icon name="calendar" className="h-3.5 w-3.5" /> 4-6 Wochen Plan
+          </div>
+          <h2 className="mt-1 text-lg font-extrabold">Kurzfristige Reihenfolge</h2>
+          <div className="mt-4">
+            <List items={s.nearTermPlan} icon="target" />
+          </div>
+        </section>
+
+        <section className="rounded-xl border border-line bg-surface p-5 shadow-sm">
+          <div className="flex items-center gap-1.5 text-xs font-bold uppercase tracking-wide text-muted-2">
+            <Icon name="alert" className="h-3.5 w-3.5" /> Risiken
+          </div>
+          <h2 className="mt-1 text-lg font-extrabold">Was du aktiv kontrollieren musst</h2>
+          <div className="mt-4 grid gap-3">
+            {s.risks.map((r) => (
+              <div key={r.title} className="rounded-lg border border-line bg-surface-2 p-4">
+                <div className="flex flex-wrap items-center gap-2">
+                  <h3 className="min-w-0 flex-1 text-sm font-bold">{r.title}</h3>
+                  <TonePill tone={r.tone}>{r.severity}</TonePill>
+                </div>
+                <p className="mt-2 text-sm leading-relaxed text-muted">{r.mitigation}</p>
+              </div>
+            ))}
+          </div>
+        </section>
+      </div>
 
       <div className="mt-6 grid gap-4 lg:grid-cols-2">
         <section className="rounded-xl border border-line bg-surface p-5 shadow-sm">
