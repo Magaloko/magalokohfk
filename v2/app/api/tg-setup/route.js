@@ -1,5 +1,8 @@
 // Einmaliger Setup-Endpoint: registriert den Telegram-Webhook auf DIESE (V2-)Domain.
 // Aufruf: GET /api/tg-setup?key=<TG_WEBHOOK_SECRET>
+import { getSession } from "@/lib/session";
+import { isAdmin } from "@/lib/auth-helpers";
+
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
@@ -15,13 +18,15 @@ async function tg(method, params) {
 
 export async function GET(req) {
   const url = new URL(req.url);
-  if (!SECRET || url.searchParams.get("key") !== SECRET) {
+  const keyAllowed = Boolean(SECRET && url.searchParams.get("key") === SECRET);
+  const sessionAllowed = isAdmin(await getSession());
+  if (!keyAllowed && !sessionAllowed) {
     return Response.json({ error: "unauthorized — ?key=<TG_WEBHOOK_SECRET>" }, { status: 401 });
   }
   if (!TOKEN) return Response.json({ error: "TELEGRAM_TOKEN fehlt" }, { status: 500 });
 
   // Webhook auf die aufrufende Domain (V2) setzen.
-  const base = (process.env.PUBLIC_URL || url.origin).replace(/\/$/, "");
+  const base = (process.env.WEBAPP_URL || process.env.PUBLIC_URL || url.origin).replace(/\/$/, "");
   const webhookUrl = `${base}/api/tg-webhook`;
   const results = {};
   results.setWebhook = await tg("setWebhook", {
@@ -44,6 +49,9 @@ export async function GET(req) {
       { command: "frag", description: "KI-Assistent (falls freigeschaltet)" },
       { command: "myid", description: "Deine Telegram-ID anzeigen" },
     ],
+  });
+  results.setDefaultMenuButton = await tg("setChatMenuButton", {
+    menu_button: { type: "web_app", text: "VEKTRA", web_app: { url: `${base}/akademie` } },
   });
   results.webhookUrl = webhookUrl;
   results.getWebhookInfo = await tg("getWebhookInfo", {});
