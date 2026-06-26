@@ -16,6 +16,7 @@ const TABS = [
   { href: "/cockpit/entscheidungen", icon: "compass", label: "Entscheidungen" },
   { href: "/cockpit/aktivitaet", icon: "clock", label: "Aktivität" },
   { href: "/cockpit/stephan", icon: "chat", label: "Stephan-Assistent" },
+  { href: "/cockpit/dokumentation", icon: "book", label: "Dokumentation" },
   { href: "/cockpit/audit", icon: "check", label: "Q&A-Audit" },
 ];
 
