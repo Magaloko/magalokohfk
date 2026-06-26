@@ -5,7 +5,19 @@ export type Lever = { id?: string; title?: string; area?: string; phase?: string
 export type StaffMember = { name?: string; completedScenarios?: { scenarioId?: string; titel?: string; score?: number; completedAt?: string }[]; strengths?: string; weaknesses?: string };
 export type WeeklyKpi = { id?: string; weekStart?: string; weekLabel?: string } & Record<string, unknown>;
 export type Decision = { id?: string; titel?: string; status?: string; frist?: string; kategorie?: string; empfehlung?: string };
-export type CalendarEvent = { id?: string; title?: string; date?: string; time?: string; kind?: string; notes?: string };
+export type CalendarEvent = {
+  id?: string;
+  title?: string;
+  date?: string;
+  time?: string;
+  kind?: string;
+  notes?: string;
+  bookingType?: string;
+  refId?: string;
+  refTitle?: string;
+  participant?: string;
+  status?: string;
+};
 export type UmsetzungItem = { id?: string; typ?: string; titel?: string; status?: string; wer?: string; phase?: string; datum?: string; notiz?: string };
 
 export type CockpitData = {

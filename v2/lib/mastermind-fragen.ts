@@ -33,15 +33,15 @@ export const MASTERMIND_FRAGEN: MasterMindFrage[] = [
   { id: "tre-8", werkzeug: "treasury", prio: "P0", ebene: "GF-SAFE", frage: "Saisonalität: Welche Monate sind die kritischen Liquiditäts-Tiefpunkte? Wie wirken die 14–18 Wochen Eigenmarken-Vorlauf konkret?" },
   { id: "tre-9", werkzeug: "treasury", prio: "P0", ebene: "GF-SAFE", frage: "Liqui-Cockpit-Szenarien: Welche Szenario-Schieber braucht die GF (Umsatz ±, Zahlungsziel-Verschiebung, Großorder, Lieferanten-Ausfall)?" },
 
-  // Einkaufssystem (P1)
-  { id: "ein-1", werkzeug: "einkauf", prio: "P1", ebene: "GF-SAFE", frage: 'A/B/C-Klassen & DB1: Wie definierst du „A-Klasse / hoher DB1" (Schwellen)? Woher kommt der DB1 je Artikel verlässlich?' },
-  { id: "ein-2", werkzeug: "einkauf", prio: "P1", ebene: "GF-SAFE", frage: "Autopilot-Grenze: Darf das System Renner eigenständig nachbestellen oder nur vorschlagen (Buyer-Review)? Bis zu welchem Order-Volumen autonom?" },
-  { id: "ein-3", werkzeug: "einkauf", prio: "P1", ebene: "GF-SAFE", frage: 'Penner-Definition: Ab wann ist ein Artikel ein „Penner" (Sell-Through-Schwelle, Lagerdauer, Kapitalbindung)?' },
-  { id: "ein-4", werkzeug: "einkauf", prio: "P1", ebene: "GF-SAFE", frage: "Markdown-Logik: Sell-Through-Markdown-Stufen je Kategorie + Floor (Mindestmarge), unter den nie reduziert wird?" },
-  { id: "ein-5", werkzeug: "einkauf", prio: "P1", frage: "Event-Kalender: Welche Events steuern HFK wirklich (Black Friday, Schulanfang, Weihnachten, Mode-Saisonwechsel) — mit welchen Vorlaufzeiten?" },
-  { id: "ein-6", werkzeug: "einkauf", prio: "P1", ebene: "GF-SAFE", frage: "OOS-Frühwarnung: Lieferzeit-Range je Lieferant/Kategorie (Mode vs. KiWa/Möbel = 14–18 Wochen?)? Safety-Buffer je Kategorie?" },
-  { id: "ein-7", werkzeug: "einkauf", prio: "P1", ebene: "GF-SAFE", frage: "Zielkauf KiWa & Möbel: Bestätigung Vorkasse/auftragsorientiert? Welche Lieferanten, welche Konditionen?" },
-  { id: "ein-8", werkzeug: "einkauf", prio: "P1", frage: 'Top-20-Renner-Sichtbarkeit: Woran misst sich „Sichtbarkeit" (Shop-Position, Bestand, Platzierung im Store)? Was ist ein „Rhythm-Break"?' },
+  // Einkaufssystem (P1/P2 nach P0-Produktivstand 26.06.2026)
+  { id: "ein-1", werkzeug: "einkauf", prio: "P1", ebene: "GF-SAFE", frage: "Historische Lieferzeit-Range: Welche Quelle ist verbindlich fuer Min/Avg/Max je Artikel, Lieferant oder Kategorie - Bestellungen, Lieferantenangabe oder manuelle Overrides?" },
+  { id: "ein-2", werkzeug: "einkauf", prio: "P1", ebene: "GF-SAFE", frage: "Kategorie-Regeln: Bestaetigung, dass KiWa und Moebel keinen Autopilot bekommen; welche weiteren Kategorien brauchen Sperre oder Buyer-Review?" },
+  { id: "ein-3", werkzeug: "einkauf", prio: "P1", ebene: "GF-SAFE", frage: "Saisonaufschlaege: Bleiben Saisonmode +30 % und Spielzeug Q4 +20 % als Startregel? Welche Marken oder Warengruppen sind Ausnahmen?" },
+  { id: "ein-4", werkzeug: "einkauf", prio: "P1", ebene: "GF-SAFE", frage: "Safety-Buffer: Welche Standardtage gelten je Kategorie und welche strategischen Artikel brauchen artikel-spezifische Overrides?" },
+  { id: "ein-5", werkzeug: "einkauf", prio: "P1", ebene: "GF-SAFE", frage: "Autopilot-Grenze nach P0: Welche P0-Vorschlaege duerfen automatisch laufen und ab welchem Order-Volumen oder Risiko ist Buyer-/GF-Review Pflicht?" },
+  { id: "ein-6", werkzeug: "einkauf", prio: "P1", ebene: "GF-SAFE", frage: "ML-Forecast: Was ist das Abnahmekriterium gegen die aktuelle Heuristik - Forecast-Fehler, OOS-Vermeidung, DB1-Uplift oder manuelle Buyer-Akzeptanz?" },
+  { id: "ein-7", werkzeug: "einkauf", prio: "P2", frage: "Event-Kalender: Welche Events steuern HFK wirklich (Black Friday, Schulanfang, Weihnachten, Mode-Saisonwechsel) und mit welchem Vorlauf je Kategorie?" },
+  { id: "ein-8", werkzeug: "einkauf", prio: "P2", frage: "Rhythm-Break und Sichtbarkeit: Woran erkennt HFK einen gebrochenen Verkaufsrhythmus und wie wird Sichtbarkeit fuer Top-20-Renner gemessen?" },
 
   // VIPA (P2)
   { id: "vip-1", werkzeug: "vipa", prio: "P2", ebene: "GF-SAFE", frage: "Mail-Zugang: Welches Postfach, welche Rechte (nur Lesen/Triage vs. auch Senden)?" },

@@ -54,7 +54,7 @@ export const SEBO_V2 = {
   currentStatus: {
     source: "Amok AI Gesamtstatus, Juni 2026",
     summary:
-      "SeBo v1 ist in den Kernfunktionen deutlich weiter als nur ein Konzept: Ticket-System, KI-Kategorisierung, Drafts, JTL-Kundenmapping und Feature Flags sind produktiv oder stabil. Die kritischen Abschlussluecken liegen bei Pilot/Abnahme, Dokumentation, analytics_sales und Bestellhistorie.",
+      "SeBo v1 ist in den Kernfunktionen deutlich weiter als nur ein Konzept: Ticket-System, KI-Kategorisierung, Drafts, JTL-Kundenmapping und Feature Flags sind produktiv oder stabil. Die kritischen Abschlussluecken liegen bei Pilot/Abnahme, Dokumentation, analytics_sales-Backfill und Bestellhistorie.",
     modules: [
       { name: "Ticket-System", status: "Produktiv", maturity: "hoch", tone: "green" as Tone, note: "Stabil und im Einsatz." },
       { name: "KI-Kategorisierung", status: "Produktiv", maturity: "hoch", tone: "green" as Tone, note: "Funktioniert zuverlaessig." },
@@ -73,7 +73,7 @@ export const SEBO_V2 = {
     jtlSync: [
       "Produkte werden aktiv synchronisiert.",
       "Bestaende und Kunden sind pausiert.",
-      "analytics_sales ist noch nicht befuellt.",
+      "analytics_sales wird per CSV-Import und Matching befuellt, ist aber noch nicht vollstaendig automatisiert.",
       "Stabilitaet ist gut, inklusive Binaer-Fallback.",
       "Groesstes Defizit: keine automatische Befuellung von Bestelldaten.",
     ],
@@ -201,7 +201,7 @@ export const SEBO_V2 = {
     "Bestellhistorie und 360-Grad-View als sichtbaren Fortschritt fertigstellen.",
   ],
   risks: [
-    { title: "analytics_sales leer", severity: "hoch", tone: "red" as Tone, mitigation: "Import-Script priorisieren und mit Test-Batch beginnen." },
+    { title: "analytics_sales nicht voll automatisiert", severity: "hoch", tone: "amber" as Tone, mitigation: "CSV-Import und Matching stabilisieren, danach automatischen JTL-Sales-Sync planen." },
     { title: "Pilotphase und Abnahme fehlen", severity: "hoch", tone: "red" as Tone, mitigation: "Strukturierte Tests und Abnahmeprotokoll fuer 5k-Projekt erstellen." },
     { title: "Dokumentation fehlt", severity: "mittel", tone: "amber" as Tone, mitigation: "3-5 Tage fest fuer Bedienung, Betrieb, Grenzen und Abnahme reservieren." },
     { title: "Zu viele parallele Baustellen", severity: "mittel", tone: "amber" as Tone, mitigation: "Reihenfolge halten: Abnahme, Sales-Daten, Bestellhistorie, Automatisierung." },

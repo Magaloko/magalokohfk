@@ -17,6 +17,27 @@ export function verifyAdminPassword(input: string): boolean {
   return timingSafeEqual(a, b);
 }
 
+export function isLocalDevHost(host: string | null): boolean {
+  const h = String(host || "").split(":")[0].toLowerCase();
+  return process.env.NODE_ENV !== "production" && ["localhost", "127.0.0.1", "::1"].includes(h);
+}
+
+function devSecret() {
+  return SESSION_SECRET && SESSION_SECRET.length >= 16 ? SESSION_SECRET : "magaloko-local-dev-session-secret";
+}
+
+export function createDevSessionToken(user: "mago" | "codex"): string {
+  const payload = Buffer.from(JSON.stringify({
+    user,
+    role: "admin",
+    modules: ["*"],
+    email: `local:${user}`,
+    iat: Date.now(),
+  })).toString("base64url");
+  const sig = createHmac("sha256", devSecret()).update(payload).digest("base64url");
+  return `dev.${payload}.${sig}`;
+}
+
 const toIds = (v?: string) => String(v || "").split(",").map((s) => Number(s.trim())).filter(Number.isInteger);
 export function tgConfig() {
   let users: Record<string, { role?: string; modules?: string[] }> = {};
@@ -55,10 +76,11 @@ export function verifyTg(initData: string): { ok: boolean; userId: number | null
 export async function createSession(opts: { tgUserId: number | null; role: string; modules: string[]; email: string; ua?: string }): Promise<string> {
   const token = randomBytes(32).toString("base64url");
   const now = Date.now();
-  await db().from("sessions").insert({
+  const { error } = await db().from("sessions").insert({
     token_hash: hashToken(token), tg_user_id: opts.tgUserId, tg_role: opts.role,
     tg_modules: opts.modules, email: opts.email, created_at: now, last_seen: now, ua: (opts.ua || "web").slice(0, 300),
   });
+  if (error) throw new Error(`session_insert_failed:${error.code || "unknown"}`);
   return token;
 }
 

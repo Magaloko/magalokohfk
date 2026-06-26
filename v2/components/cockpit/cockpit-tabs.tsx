@@ -5,8 +5,10 @@ import { cn } from "@/lib/cn";
 import { Icon } from "@/components/icon";
 
 const TABS = [
-  { href: "/cockpit", icon: "cockpit", label: "Übersicht" },
+  { href: "/cockpit", icon: "cockpit", label: "Heute" },
+  { href: "/cockpit/system", icon: "globe", label: "System" },
   { href: "/mastermind", icon: "globe", label: "Strategie" },
+  { href: "/cockpit/einkauf", icon: "bag", label: "Einkauf" },
   { href: "/cockpit/sebo", icon: "chat", label: "SeBo" },
   { href: "/cockpit/umsetzung", icon: "handshake", label: "Umsetzung" },
   { href: "/cockpit/briefing", icon: "send", label: "Briefing" },

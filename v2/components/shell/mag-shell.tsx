@@ -17,7 +17,9 @@ const SECTIONS: Section[] = [
   ] },
   { title: "Steuerung", adminOnly: true, items: [
     { href: "/heute", label: "Heute", icon: "home", adminOnly: true },
-    { href: "/cockpit", label: "Lieferung", icon: "cockpit", adminOnly: true },
+    { href: "/cockpit", label: "Steuerung", icon: "cockpit", adminOnly: true },
+    { href: "/cockpit/system", label: "SeBo System", icon: "globe", adminOnly: true },
+    { href: "/cockpit/einkauf", label: "Einkauf", icon: "bag", adminOnly: true },
     { href: "/prozesse", label: "Prozess-Spiel", icon: "package", adminOnly: true },
     { href: "/kalender", label: "Kalender", icon: "calendar", adminOnly: true },
   ] },
@@ -47,7 +49,7 @@ export function MagShell({ role, superAdmin = false, children }: { role: string;
   useEffect(() => { mainRef.current?.scrollTo({ top: 0 }); setShowTop(false); }, [pathname]);
   const homeHref = "/akademie"; // Brand „VEKTRA" führt zur Spiel-/Trainings-App (für alle Nutzer)
   const canSee = (h: Hub) => (h.superOnly ? superAdmin : !h.adminOnly || isAdmin);
-  const active = (href: string) => pathname === href || pathname.startsWith(href + "/");
+  const active = (href: string) => pathname === href || (href !== "/cockpit" && pathname.startsWith(href + "/"));
 
   // Pro Sektion nur sichtbare Einträge; Sektionen ohne sichtbare Einträge fallen weg.
   const sections = SECTIONS

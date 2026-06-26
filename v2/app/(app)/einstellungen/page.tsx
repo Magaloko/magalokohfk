@@ -2,6 +2,7 @@ import { requireSuperAdmin } from "@/lib/auth-helpers";
 import { db } from "@/lib/supabase-server";
 import { PageShell } from "@/components/_primitives/page-shell";
 import { UserManager } from "@/components/admin/user-manager";
+import { TelegramSetup } from "@/components/admin/telegram-setup";
 
 export const dynamic = "force-dynamic";
 
@@ -14,6 +15,7 @@ export default async function EinstellungenPage() {
   }));
   return (
     <PageShell title="Einstellungen" icon="settings" subtitle="Nur du (Super-Admin) verwaltest hier Zugänge, Rollen & Akademie-Bereiche">
+      <TelegramSetup />
       <UserManager initial={users} />
     </PageShell>
   );

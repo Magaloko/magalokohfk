@@ -8,10 +8,13 @@ import { HubDiagram } from "@/components/mastermind/hub-diagram";
 import { FragenFortschritt } from "@/components/mastermind/fragen-fortschritt";
 import { RoadmapTimeline } from "@/components/mastermind/roadmap-timeline";
 import { WoWirStehen } from "@/components/mastermind/wo-wir-stehen";
+import { SeboStatusCard } from "@/components/mastermind/sebo-status-card";
+import { EinkaufsplanerStatusCard } from "@/components/mastermind/einkaufsplaner-status-card";
+import { SeboSystemStatusCard } from "@/components/mastermind/sebo-system-status-card";
 import type { MasterMindVorgang, MasterMindToolStatus } from "@/lib/mastermind";
 
 const statusTone = (s: Werkzeug["status"]): "green" | "accent" | "muted" =>
-  s === "Live" ? "green" : s === "Geplant" ? "accent" : "muted";
+  s === "Live" || s === "P0 produktiv" ? "green" : s === "Geplant" ? "accent" : "muted";
 
 function SectionTitle({ icon, kicker, title }: { icon: string; kicker: string; title: string }) {
   return (
@@ -35,6 +38,9 @@ export function PlanView({ antworten, vorgaenge, toolStatus }:
     <>
       {/* Aktueller Stand — zuerst sichtbar */}
       <WoWirStehen vorgaenge={vorgaenge} toolStatus={toolStatus} />
+      <SeboSystemStatusCard />
+      <EinkaufsplanerStatusCard />
+      <SeboStatusCard />
 
       {/* Hero */}
       <section className="rounded-xl border border-line bg-surface p-5 shadow-sm sm:p-6">

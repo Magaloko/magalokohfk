@@ -6,7 +6,7 @@
 // Architektur-Prinzip 6.4). Wo das Dokument keine Zahl nennt, steht hier auch keine.
 // VEKTRA = das Trainer-Werkzeug dieser App (MasterMind).
 
-export type WerkzeugStatus = "Live" | "Geplant" | "Future Scope";
+export type WerkzeugStatus = "Live" | "P0 produktiv" | "Geplant" | "Future Scope";
 export type AgentTyp = "deterministisch" | "agentisch" | "hybrid";
 
 export type Werkzeug = {
@@ -102,18 +102,19 @@ export const MASTERMIND: MasterMindPlan = {
       rolle: "die Liquiditäts-Steuerung",
       icon: "money",
       zweck:
-        "HFK-Einkauf wird liquiditätsbewusst: Jede Order ab 2.000 € wird vor Bestätigung gegen den " +
-        "Cashflow-Forecast geprüft — ohne den Buyer zu entmündigen.",
+        "HFK-Einkauf wird liquiditätsbewusst: Jede Order ab 2.000 € wird vor Bestätigung gegen die " +
+        "Treasury-Ampel geprüft — ohne den Buyer zu entmündigen.",
       faehigkeiten: [
-        "Cashflow-Forecast über 180 Tage",
-        "Konfidenz-Logik (hoch/mittel/niedrig, Gewichte 1,0 / 0,9 / 0,7)",
-        "Order-Ampel ab 2.000 € (grün/gelb/rot) plus 3 Alternativ-Vorschläge",
+        "Treasury-Order-Ampel ab 2.000 € (grün/gelb/rot)",
+        "Cashflow-Schutz fuer grosse Bestellungen",
+        "Integration in Einkaufsplaner-Entscheidungen",
+        "Konfidenz-Logik als Ausbau fuer Forecast-Positionen",
         "Skonto-Optimierung über effektiven Jahreszins",
         "Liqui-Cockpit für die GF mit Szenario-Schiebern",
         "Forecast-Accuracy-Tracking (wöchentliche Kalibrierung)",
       ],
       hebel: "Verhindert akute Liquiditäts-Engpässe und macht Wachstum trotz angespannter Lage planbar.",
-      status: "Geplant",
+      status: "P0 produktiv",
       agentTyp: "deterministisch",
     },
     {
@@ -122,19 +123,18 @@ export const MASTERMIND: MasterMindPlan = {
       rolle: "die Margen-Steuerung",
       icon: "bag",
       zweck:
-        "Sortiments-Entscheidungen werden datenbasiert getroffen: Renner zuverlässig nachbestellen, Penner " +
-        "gezielt abverkaufen, neue Marken mit klarer Margen-Logik ins Sortiment. Macht den Buyer schneller und treffsicherer.",
+        "Sortiments-Entscheidungen werden datenbasiert getroffen: Renner zuverlässig nachbestellen, OOS-Risiken " +
+        "priorisieren, Markenbudgets nach DB1 steuern und Budget unter Cashflow-Grenzen optimieren.",
       faehigkeiten: [
-        "Autopilot für Renner (A-Klasse, hoher DB1)",
-        "Event-Kalender (Black Friday, Schulanfang, Weihnachten …)",
-        "OOS-Frühwarnung mit Lieferzeit-Range",
-        "Kategorie-Logik mit Safety-Buffer",
-        "Fashion-Steuerung (Sell-Through-Markdown mit Floor)",
-        "Zielkauf KiWa & Möbel (Vorkasse, auftragsorientiert)",
-        "Sichtbarkeits-Check Top-20-Renner · Rhythm-Break-Detection",
+        "ABC/XYZ-Klassifizierung plus DB1-Filter",
+        "Brand-Budget-Verteilung nach DB1€ der letzten 365 Tage",
+        "OOS-Schutz fuer Renner, Dauerlaeufer und saisonale Hits",
+        "Budget-Optimizer mit Knapsack-Logik und Brand-Limits",
+        "Safety-Buffer und Kategorie-Regeln im Schema, P1-Logik noch zu konsolidieren",
+        "Historische Lieferzeit-Range, ML-Forecast, Event-Kalender und Rhythm-Break als Ausbau",
       ],
       hebel: "Ein bis zwei Prozentpunkte mehr DB1 über 12 Monate, plus deutlich weniger Kapitalbindung in Pennern.",
-      status: "Geplant",
+      status: "P0 produktiv",
       agentTyp: "hybrid",
     },
     {
@@ -225,8 +225,8 @@ export const MASTERMIND: MasterMindPlan = {
 
   roadmap: [
     { schritt: 1, titel: "Foundation", beschreibung: "Die gemeinsame Datenbasis (ETL-Pipeline + HFK-Postgres-Schema) muss stehen, bevor Werkzeuge belastbar darauf aufsetzen." },
-    { schritt: 2, titel: "Treasury", beschreibung: "Hier ist der wirtschaftliche Druck am höchsten. Erfolg hier bestätigt die Foundation." },
-    { schritt: 3, titel: "Einkaufssystem", beschreibung: "Baut auf Treasury auf (Liqui-Check pro Order) und vervollständigt den größten Hebel." },
+    { schritt: 2, titel: "Treasury", beschreibung: "P0-Kern mit Order-Ampel ab 2.000 € ist produktiv; Forecast- und Szenario-Ausbau bleiben Folgearbeit." },
+    { schritt: 3, titel: "Einkaufssystem", beschreibung: "P0 ist produktiv: DB1-Optimierung, Brand-Budget, OOS-Schutz und Budget-Optimizer. P1 zieht Lieferzeit-Range, Kategorie-Regeln, Safety-Buffer und ML nach." },
     { schritt: 4, titel: "VIPA & SeBo (parallel)", beschreibung: "Beide profitieren von der Foundation, sind aber unabhängig von Treasury und Einkauf." },
     { schritt: 5, titel: "VEKTRA", beschreibung: "Im Plan zuletzt; konnte aber mit Code-basierten Marken-Profilen früher starten — genau das ist diese App.", istDieseApp: true },
     { schritt: 6, titel: "Future Scope", beschreibung: "Brand Intelligence ab Q3–Q4 2026, Customer Experience 2027 ab Q1 2027.", timing: "2026–2027" },

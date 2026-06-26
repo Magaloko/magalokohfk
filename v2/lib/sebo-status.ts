@@ -5,7 +5,7 @@ export const SEBO_STATUS = {
     { label: "SeBo v1", status: "Kern produktiv", tone: "green" as const },
     { label: "5k-Abschluss", status: "Pilot/Doku fehlen", tone: "red" as const },
     { label: "SeBo v2", status: "Neues Projekt", tone: "accent" as const },
-    { label: "analytics_sales", status: "leer", tone: "red" as const },
+    { label: "analytics_sales", status: "CSV/Backfill", tone: "amber" as const },
     { label: "Mago", status: "Abnahme + Steuerung", tone: "teal" as const },
   ],
   running: [
@@ -16,7 +16,7 @@ export const SEBO_STATUS = {
   ],
   openP1: [
     "5k-Projekt mit Pilot, Abnahme und Dokumentation abschliessen.",
-    "analytics_sales mit echten Daten befuellen.",
+    "analytics_sales per CSV-Import und Matching weiter befuellen.",
     "Bestellhistorie fertigstellen und testen.",
     "Automatische Erstantworten testen, aber erst nach Freigabe produktiv aktivieren.",
   ],
@@ -28,7 +28,7 @@ export const SEBO_STATUS = {
   ],
   nextSteps: [
     "5k-Abnahmeplan erstellen und gegen urspruenglichen Auftrag halten.",
-    "analytics_sales zuerst per Test-Batch befuellen.",
+    "analytics_sales zuerst per Test-Batch, dann stabil per Import/Matching befuellen.",
     "Dokumentation/Schulung als Abschluss-Deliverable einplanen.",
     "Stephan-Call mit Entscheidungsfragen vorbereiten.",
   ],

@@ -14,7 +14,7 @@ const SPEC: Record<string, { fields: string[]; numeric?: string[]; prefix: strin
   tasks: { fields: ["title", "area", "phase", "status", "priority", "impact", "effort", "owner", "dueDate", "notes"], prefix: "t" },
   stephanDecisions: { fields: ["titel", "status", "kategorie", "frist", "empfehlung"], prefix: "d" },
   levers: { fields: ["title", "area", "phase", "status", "confidence", "risk", "description", "notes", "startDate", "finishDate"], numeric: ["expectedImpactEur", "effortHours"], prefix: "l" },
-  calendarEvents: { fields: ["title", "date", "time", "kind", "notes"], prefix: "ev" },
+  calendarEvents: { fields: ["title", "date", "time", "kind", "notes", "bookingType", "refId", "refTitle", "participant", "status"], prefix: "ev" },
   umsetzungItems: { fields: ["typ", "titel", "status", "wer", "phase", "datum", "notiz"], prefix: "ums" },
   // Akademie-Inhalte (flach) — admin-only Pflege
   salesObjections: { fields: ["einwand", "kategorie", "antwort", "beweis"], prefix: "obj" },

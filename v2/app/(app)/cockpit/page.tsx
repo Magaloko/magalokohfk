@@ -1,131 +1,196 @@
 import Link from "next/link";
-import { requireAdmin } from "@/lib/auth-helpers";
-import { getCockpitData, isTaskOpen } from "@/lib/cockpit";
+import { requireAdmin, isSuperAdmin } from "@/lib/auth-helpers";
+import { getCockpitData, isTaskOpen, type Task, type Decision, type UmsetzungItem } from "@/lib/cockpit";
+import { getMagoData } from "@/lib/mago";
 import { UMSETZUNGS_BLOECKE } from "@/lib/phases";
+import { SEBO_SYSTEM_STATUS } from "@/lib/sebo-system-status";
 import { PageShell } from "@/components/_primitives/page-shell";
 import { Pill } from "@/components/_primitives/card";
 import { Icon } from "@/components/icon";
+import { BriefingCopy } from "@/components/cockpit/briefing-copy";
+import { MagoCommandCenter } from "@/components/mago/mago-command-center";
 
 export const dynamic = "force-dynamic";
 
-export default async function CockpitOverview() {
-  await requireAdmin();
-  const { tasks, decisions, umsetzung } = await getCockpitData();
+const WEEK_MS = 7 * 24 * 60 * 60 * 1000;
+const openDecision = (d: Decision) => ["offen", "vorbereitet", "Offen", "Empfohlen"].includes(String(d.status || "offen"));
+const doneTask = (t: Task) => String(t.status || "") === "Erledigt";
+const blockedTask = (t: Task) => /warte|block/i.test(String(t.status || "") + " " + String(t.notes || ""));
+const priorityRank = (t: Task) => String(t.priority || "").toLowerCase() === "hoch" ? 0 : String(t.priority || "").toLowerCase() === "mittel" ? 1 : 2;
+const itemOpen = (x: UmsetzungItem) => String(x.status || "offen").toLowerCase() !== "erledigt";
 
-  const openTasks = tasks.filter(isTaskOpen);
-  const openDecisions = decisions.filter((d) => (d.status || "offen") === "offen" || d.status === "vorbereitet");
-  const u = (typ: string) => umsetzung.filter((x) => x.typ === typ && (x.status || "offen") !== "erledigt");
-  const zugaenge = u("Zugang").length, blocker = u("Blocker").length, freigaben = u("Freigabe").length;
-
-  const blockOpen = (keys: string[]) => openTasks.filter((t) => keys.includes(String(t.phase || ""))).length;
-  const focus = [...UMSETZUNGS_BLOECKE].sort((a, b) => a.step - b.step).find((b) => blockOpen(b.phaseKeys) > 0);
-
-  return (
-    <PageShell icon="cockpit" title="Umsetzung" subtitle="Stephans MasterMind-Plan kontrolliert umsetzen — Phasen · Steuerung · Briefing">
-      {/* Stephan-Plan: Umsetzung */}
-      <section className="rounded-xl border border-accent/30 bg-accent/5 p-5 shadow-sm">
-        <div className="flex flex-wrap items-start justify-between gap-3">
-          <div>
-            <div className="flex items-center gap-1.5 text-xs font-bold uppercase tracking-wide text-accent"><Icon name="compass" className="h-3.5 w-3.5" /> Stephan-Plan · Umsetzung</div>
-            <h2 className="mt-1 text-lg font-extrabold tracking-tight">Reihenfolge laut Plan: Foundation → Treasury → Einkauf</h2>
-            <p className="mt-1 max-w-2xl text-sm text-muted">VEKTRA (der Trainer) ist der erste sichtbare Baustein, aber bewusst nachrangig. Der strategische Schwerpunkt bleibt Foundation, Treasury und Einkauf.</p>
-          </div>
-          <Link href="/mastermind" className="shrink-0 text-xs font-semibold text-accent">Plan ansehen →</Link>
-        </div>
-      </section>
-
-      <section className="mt-4 rounded-xl border border-amber/40 bg-amber/10 p-5 shadow-sm">
-        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-          <div>
-            <div className="flex items-center gap-1.5 text-xs font-bold uppercase tracking-wide text-amber"><Icon name="chat" className="h-3.5 w-3.5" /> SeBo v2 · Auftragsschutz</div>
-            <h2 className="mt-1 text-lg font-extrabold tracking-tight">v1 fuer 5k sauber abschliessen, v2 als neues Projekt starten</h2>
-            <p className="mt-1 max-w-2xl text-sm text-muted">Neue Stephan-Dokumente sind als Mago-Steuerungsseite integriert: Fragen, Handover, Architektur, Meilensteine und naechste Aufgaben.</p>
-          </div>
-          <Link href="/cockpit/sebo" className="inline-flex shrink-0 items-center gap-1.5 rounded-lg bg-amber/15 px-3 py-2 text-sm font-semibold text-amber hover:bg-amber/20">
-            <Icon name="arrow-right" className="h-4 w-4" /> SeBo steuern
-          </Link>
-        </div>
-      </section>
-
-      {/* Phasen-Blöcke */}
-      <div className="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-5">
-        {UMSETZUNGS_BLOECKE.map((b) => {
-          const count = blockOpen(b.phaseKeys);
-          const isFocus = focus?.key === b.key;
-          return (
-            <Link key={b.key} href="/cockpit/tasks" className={`rounded-xl border bg-surface p-4 shadow-sm transition hover:border-accent ${isFocus ? "border-accent ring-1 ring-accent/30" : "border-line"}`}>
-              <div className="flex items-center justify-between">
-                <Icon name={b.icon} className="h-5 w-5 text-accent" />
-                <span className="text-[10px] font-bold uppercase tracking-wide text-muted-2">Schritt {b.step}</span>
-              </div>
-              <div className="mt-2 text-sm font-bold">{b.label}</div>
-              <div className="text-xs text-muted-2">{b.desc}</div>
-              <div className="mt-2 flex items-center gap-2">
-                {b.live ? <Pill tone="green">live</Pill> : isFocus ? <Pill tone="accent">Fokus</Pill> : <Pill tone="muted">geplant</Pill>}
-                <span className="text-xs text-muted-2">{count} {count === 1 ? "Task" : "Tasks"}</span>
-              </div>
-              {b.note && <div className="mt-1 text-[11px] text-muted-2">{b.note}</div>}
-            </Link>
-          );
-        })}
-      </div>
-
-      {/* Umsetzungslead */}
-      <h2 className="mb-2 mt-7 flex items-center gap-1.5 text-xs font-bold uppercase tracking-wide text-muted-2"><Icon name="handshake" className="h-3.5 w-3.5" /> Umsetzungslead — was Stephan von mir braucht</h2>
-      <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-        <Lead href="/cockpit/entscheidungen" icon="compass" label="Offene Entscheidungen" value={openDecisions.length} />
-        <Lead href="/cockpit/umsetzung?typ=Zugang" icon="key" label="Offene Zugänge" value={zugaenge} />
-        <Lead href="/cockpit/umsetzung?typ=Blocker" icon="alert" label="Technische Blocker" value={blocker} danger />
-        <Lead href="/cockpit/umsetzung?typ=Freigabe" icon="check" label="Wartet auf Freigabe" value={freigaben} />
-      </div>
-
-      {/* Wochen-Briefing */}
-      <Link href="/cockpit/briefing" className="mt-3 flex items-center gap-3 rounded-xl border border-accent/30 bg-accent/5 p-4 shadow-sm transition hover:border-accent">
-        <span className="grid h-10 w-10 shrink-0 place-items-center rounded-lg bg-accent/15 text-accent"><Icon name="send" className="h-5 w-5" /></span>
-        <span className="min-w-0 flex-1">
-          <span className="block text-sm font-bold">Wochen-Briefing für Stephan</span>
-          <span className="block text-xs text-muted-2">Erledigt · Blocker · Entscheidungen · nächster Schritt · Risiko — als Text zum Senden</span>
-        </span>
-        <Icon name="arrow-right" className="h-4 w-4 shrink-0 text-accent" />
-      </Link>
-
-      {/* Sekundär: Datenbestand */}
-      <h2 className="mb-2 mt-7 text-xs font-bold uppercase tracking-wide text-muted-2">Datenbestand</h2>
-      <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-        <Stat href="/cockpit/tasks" icon="check" label="Offene Tasks" value={openTasks.length} sub={`${tasks.length} gesamt`} />
-        <Stat href="/cockpit/entscheidungen" icon="compass" label="Offene Entsch." value={openDecisions.length} sub={`${decisions.length} gesamt`} />
-      </div>
-
-      <p className="mt-4 flex items-start gap-1.5 text-xs text-muted-2">
-        <Icon name="lock" className="mt-0.5 h-3.5 w-3.5 shrink-0" />
-        <span>Persönliche Tools (Zeit, Bewertung) liegen bewusst nachrangig im <Link href="/mago" className="font-semibold text-accent">Mago-Bereich</Link>.</span>
-      </p>
-    </PageShell>
-  );
+function recent(d?: unknown) {
+  const t = Date.parse(String(d || ""));
+  if (Number.isNaN(t)) return false;
+  const now = Date.now();
+  return now - t <= WEEK_MS && t <= now + 24 * 60 * 60 * 1000;
 }
 
-function Lead({ href, icon, label, value, danger }: { href: string; icon: string; label: string; value: number; danger?: boolean }) {
-  const hot = danger && value > 0;
+function taskLabel(t: Task) {
+  return [t.title, t.area || t.phase, t.owner ? `Owner: ${t.owner}` : "", t.dueDate ? `bis ${t.dueDate}` : ""].filter(Boolean).join(" · ");
+}
+
+function umsetzungLabel(x: UmsetzungItem) {
+  return [x.titel, x.wer ? `bei ${x.wer}` : "", x.phase || "", x.datum || ""].filter(Boolean).join(" · ");
+}
+
+function MiniStat({ href, icon, label, value, tone = "accent", sub }: { href: string; icon: string; label: string; value: number | string; tone?: "muted" | "accent" | "green" | "amber" | "red" | "teal"; sub?: string }) {
   return (
     <Link href={href} className="rounded-xl border border-line bg-surface p-4 shadow-sm transition hover:border-accent">
-      <div className="flex items-center justify-between">
-        <Icon name={icon} className={`h-5 w-5 ${hot ? "text-red" : "text-accent"}`} />
-        <span className={`text-2xl font-extrabold ${hot ? "text-red" : ""}`}>{value}</span>
+      <div className="flex items-center justify-between gap-3">
+        <Icon name={icon} className={`h-5 w-5 ${tone === "red" ? "text-red" : tone === "green" ? "text-green" : tone === "amber" ? "text-amber" : tone === "teal" ? "text-teal" : "text-accent"}`} />
+        <span className={`text-2xl font-extrabold ${tone === "red" ? "text-red" : ""}`}>{value}</span>
       </div>
       <div className="mt-2 text-sm font-semibold">{label}</div>
+      {sub && <div className="mt-0.5 text-xs text-muted-2">{sub}</div>}
     </Link>
   );
 }
 
-function Stat({ href, icon, label, value, sub }: { href: string; icon: string; label: string; value: number; sub?: string }) {
+function WorkList({ title, icon, items, empty, tone = "accent" }: { title: string; icon: string; items: string[]; empty: string; tone?: "accent" | "green" | "amber" | "red" | "teal" }) {
+  const color = tone === "red" ? "text-red" : tone === "green" ? "text-green" : tone === "amber" ? "text-amber" : tone === "teal" ? "text-teal" : "text-accent";
   return (
-    <Link href={href} className="group rounded-xl border border-line bg-surface p-4 shadow-sm transition hover:border-accent">
-      <div className="flex items-center justify-between">
-        <Icon name={icon} className="h-5 w-5 text-accent" />
-        <span className="text-2xl font-extrabold">{value}</span>
+    <section className="rounded-xl border border-line bg-surface p-4 shadow-sm">
+      <div className="flex items-center justify-between gap-3">
+        <h2 className="flex items-center gap-1.5 text-sm font-bold"><Icon name={icon} className={`h-4 w-4 ${color}`} />{title}</h2>
+        <span className="rounded-full bg-surface-2 px-2 py-0.5 text-xs font-semibold text-muted-2">{items.length}</span>
       </div>
-      <div className="mt-2 text-sm font-semibold">{label}</div>
-      {sub && <div className="text-xs text-muted-2">{sub}</div>}
-    </Link>
+      {items.length ? (
+        <ul className="mt-3 grid gap-2">
+          {items.map((item, i) => (
+            <li key={`${item}-${i}`} className="flex items-start gap-2 text-sm leading-relaxed text-muted">
+              <Icon name="dot" className={`mt-1 h-2.5 w-2.5 shrink-0 ${color}`} />
+              <span>{item}</span>
+            </li>
+          ))}
+        </ul>
+      ) : <p className="mt-3 text-sm text-muted-2">{empty}</p>}
+    </section>
+  );
+}
+
+export default async function CockpitOverview() {
+  const sess = await requireAdmin();
+  const [c, m] = await Promise.all([getCockpitData(), isSuperAdmin(sess) ? getMagoData() : Promise.resolve(null)]);
+  const today = new Date().toISOString().slice(0, 10);
+
+  const openTasks = c.tasks.filter(isTaskOpen);
+  const taskDone = c.tasks.filter(doneTask);
+  const decisions = c.decisions.filter(openDecision);
+  const waiting = c.umsetzung.filter((x) => itemOpen(x) && ["Zugang", "Freigabe", "Abstimmung"].includes(String(x.typ || "")));
+  const blockers = [
+    ...c.umsetzung.filter((x) => itemOpen(x) && ["Blocker", "Risiko"].includes(String(x.typ || ""))).map(umsetzungLabel),
+    ...openTasks.filter(blockedTask).map(taskLabel),
+  ].slice(0, 8);
+  const doneThisWeek = [
+    ...taskDone.map(taskLabel),
+    ...c.umsetzung.filter((x) => !itemOpen(x) && recent(x.datum)).map(umsetzungLabel),
+    ...((m?.protokoll || []).filter((p) => ["Geliefert", "Abgenommen"].includes(String(p.status || "")) && recent(p.datum)).map((p) => String(p.titel || "")).filter(Boolean)),
+  ].slice(0, 8);
+
+  const focus = [...UMSETZUNGS_BLOECKE].sort((a, b) => a.step - b.step).find((b) => openTasks.some((t) => b.phaseKeys.includes(String(t.phase || ""))));
+  const nextTasks = [...openTasks]
+    .sort((a, b) => priorityRank(a) - priorityRank(b) || String(a.dueDate || "9999").localeCompare(String(b.dueDate || "9999")))
+    .slice(0, 8)
+    .map(taskLabel);
+  const waitingItems = waiting.map(umsetzungLabel).slice(0, 8);
+  const decisionItems = decisions.map((d) => [d.titel, d.kategorie, d.frist ? `Frist: ${d.frist}` : ""].filter(Boolean).join(" · ")).slice(0, 8);
+
+  const statusTone = blockers.length ? "red" : waiting.length || decisions.length ? "amber" : "green";
+  const systemHealth = blockers.length ? "Kritisch pruefen" : waiting.length || decisions.length ? "Auf Antworten warten" : "Arbeitsfaehig";
+
+  const briefingSections = [
+    { title: "Systemstatus", items: [`${systemHealth}`, `Fokus: ${focus ? `${focus.label} (Schritt ${focus.step})` : "keine Phase aktiv"}`] },
+    { title: "Naechste Schritte", items: nextTasks.length ? nextTasks.slice(0, 5) : ["Keine offenen Tasks erfasst."] },
+    { title: "Wartet auf", items: waitingItems.length ? waitingItems.slice(0, 5) : ["Keine offenen Zugänge, Freigaben oder Abstimmungen."] },
+    { title: "Blocker / Risiken", items: blockers.length ? blockers.slice(0, 5) : ["Keine Blocker erfasst."] },
+    { title: "Entscheidungen von Stephan", items: decisionItems.length ? decisionItems.slice(0, 5) : ["Keine offenen Entscheidungen erfasst."] },
+    { title: "Erledigt", items: doneThisWeek.length ? doneThisWeek.slice(0, 5) : ["Diese Woche noch nichts als erledigt erfasst."] },
+  ];
+  const briefingText = [`Stephan-Update — ${today}`, ""]
+    .concat(briefingSections.flatMap((s) => [s.title.toUpperCase() + ":", ...s.items.map((x) => `- ${x}`), ""]))
+    .join("\n").trim();
+
+  return (
+    <PageShell
+      icon="cockpit"
+      title="Heute & Steuerung"
+      subtitle="Was offen ist, worauf gewartet wird, was erledigt ist und was Stephan wissen muss."
+      action={
+        <>
+          <BriefingCopy text={briefingText} />
+          <Link href="/cockpit/briefing" className="inline-flex items-center gap-1.5 rounded-lg bg-surface-2 px-3 py-2 text-sm font-semibold hover:text-ink">
+            <Icon name="send" className="h-4 w-4" /> Briefing
+          </Link>
+        </>
+      }
+    >
+      <section className={`rounded-xl border p-5 shadow-sm ${statusTone === "red" ? "border-red/40 bg-red/10" : statusTone === "amber" ? "border-amber/40 bg-amber/10" : "border-green/40 bg-green/10"}`}>
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+          <div>
+            <div className={`flex items-center gap-1.5 text-xs font-bold uppercase tracking-wide ${statusTone === "red" ? "text-red" : statusTone === "amber" ? "text-amber" : "text-green"}`}>
+              <Icon name={statusTone === "red" ? "alert" : statusTone === "amber" ? "clock" : "check"} className="h-3.5 w-3.5" /> Arbeitslage
+            </div>
+            <h2 className="mt-1 text-xl font-extrabold tracking-tight">{systemHealth}</h2>
+            <p className="mt-2 max-w-3xl text-sm leading-relaxed text-muted">
+              {focus ? `Aktueller Fokus ist ${focus.label}. ` : "Aktuell ist keine Roadmap-Phase als Fokus erkennbar. "}
+              {blockers.length ? "Es gibt Blocker oder Risiken, die zuerst geklaert werden muessen." : waiting.length ? "Mehrere Punkte warten auf Rueckmeldung, Zugang oder Freigabe." : "Keine akuten Blocker in den Cockpit-Daten."}
+            </p>
+          </div>
+          <Pill tone={statusTone}>{focus ? `Schritt ${focus.step}` : "kein Fokus"}</Pill>
+        </div>
+      </section>
+
+      <div className="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-5">
+        <MiniStat href="/cockpit/tasks" icon="check" label="Offene Tasks" value={openTasks.length} tone={openTasks.length ? "amber" : "green"} sub={`${taskDone.length} erledigt`} />
+        <MiniStat href="/cockpit/entscheidungen" icon="compass" label="Entscheidungen" value={decisions.length} tone={decisions.length ? "red" : "green"} sub="von Stephan / GF" />
+        <MiniStat href="/cockpit/umsetzung?typ=Blocker" icon="alert" label="Blocker/Risiken" value={blockers.length} tone={blockers.length ? "red" : "green"} sub="zuerst klaeren" />
+        <MiniStat href="/cockpit/umsetzung" icon="clock" label="Wartet auf" value={waiting.length} tone={waiting.length ? "amber" : "green"} sub="Zugang, Freigabe, Abstimmung" />
+        <MiniStat href="/cockpit/system" icon="globe" label="Systemmodule" value={SEBO_SYSTEM_STATUS.summary.length} tone="teal" sub="SeBo Gesamtstand" />
+      </div>
+
+      <div className="mt-6 grid gap-4 lg:grid-cols-[minmax(0,1.2fr)_minmax(320px,0.8fr)]">
+        <div className="grid gap-4">
+          <WorkList title="Naechste konkrete Schritte" icon="target" items={nextTasks} empty="Keine offenen Aufgaben erfasst." tone="accent" />
+          <div className="grid gap-4 lg:grid-cols-2">
+            <WorkList title="Wartet auf" icon="clock" items={waitingItems} empty="Nichts wartet auf Rueckmeldung." tone="amber" />
+            <WorkList title="Blocker & Risiken" icon="alert" items={blockers} empty="Keine Blocker oder Risiken erfasst." tone={blockers.length ? "red" : "green"} />
+          </div>
+          <div className="grid gap-4 lg:grid-cols-2">
+            <WorkList title="Offene Entscheidungen" icon="compass" items={decisionItems} empty="Keine offenen Entscheidungen." tone="red" />
+            <WorkList title="Erledigt / geliefert" icon="check" items={doneThisWeek} empty="Noch nichts als erledigt erfasst." tone="green" />
+          </div>
+        </div>
+
+        <aside className="grid content-start gap-4">
+          <section className="rounded-xl border border-line bg-surface p-4 shadow-sm">
+            <div className="flex items-center justify-between gap-3">
+              <h2 className="flex items-center gap-1.5 text-sm font-bold"><Icon name="send" className="h-4 w-4 text-accent" />Stephan-Update</h2>
+              <BriefingCopy text={briefingText} />
+            </div>
+            <pre className="mt-3 max-h-[360px] overflow-auto whitespace-pre-wrap rounded-lg border border-line bg-bg p-3 text-xs leading-relaxed text-muted">{briefingText}</pre>
+          </section>
+
+          <section className="rounded-xl border border-line bg-surface p-4 shadow-sm">
+            <h2 className="flex items-center gap-1.5 text-sm font-bold"><Icon name="globe" className="h-4 w-4 text-teal" />Modulstatus</h2>
+            <div className="mt-3 grid gap-2">
+              {SEBO_SYSTEM_STATUS.summary.map((s) => (
+                <Link key={s.label} href="/cockpit/system" className="flex items-center justify-between gap-3 rounded-lg border border-line bg-surface-2 px-3 py-2 transition hover:border-accent">
+                  <span className="min-w-0">
+                    <span className="block truncate text-sm font-semibold">{s.label}</span>
+                    <span className="block truncate text-xs text-muted-2">{s.note}</span>
+                  </span>
+                  <Pill tone={s.tone}>{s.value}</Pill>
+                </Link>
+              ))}
+            </div>
+          </section>
+        </aside>
+      </div>
+
+      <div className="mt-6">
+        <MagoCommandCenter />
+      </div>
+    </PageShell>
   );
 }

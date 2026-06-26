@@ -11,6 +11,7 @@ import type { Task, Decision, CalendarEvent, StaffMember } from "@/lib/cockpit";
 type Tone = "accent" | "amber" | "red" | "green" | "teal" | "muted";
 type Drag = { collection: string; id: string; field: string; min?: string; max?: string };
 type Item = { date: string; time?: string; title: string; kindLabel: string; tone: Tone; layer: string; href?: string; event?: CalendarEvent; sort: number; drag?: Drag };
+type BookingOption = { id: string; title: string };
 
 type View = "week" | "2weeks" | "month" | "quarter" | "year";
 const VIEWS: { id: View; label: string }[] = [
@@ -22,6 +23,8 @@ const VIEWS: { id: View; label: string }[] = [
 ];
 const LAYERS: { id: string; label: string; tone: Tone }[] = [
   { id: "termine", label: "Termine", tone: "accent" },
+  { id: "kurse", label: "Kurse", tone: "green" },
+  { id: "angebote", label: "Angebote", tone: "teal" },
   { id: "aufgaben", label: "Aufgaben", tone: "amber" },
   { id: "entscheidungen", label: "Entscheidungen", tone: "accent" },
   { id: "training", label: "Training", tone: "green" },
@@ -41,8 +44,14 @@ const toneDot: Record<Tone, string> = {
   accent: "bg-accent", amber: "bg-amber", red: "bg-red", green: "bg-green", teal: "bg-teal", muted: "bg-muted-2",
 };
 
-export function CalendarView({ events, tasks, decisions, staff, today }: {
-  events: CalendarEvent[]; tasks: Task[]; decisions: Decision[]; staff: StaffMember[]; today: string;
+export function CalendarView({ events, tasks, decisions, staff, today, offers = [], courses = [] }: {
+  events: CalendarEvent[];
+  tasks: Task[];
+  decisions: Decision[];
+  staff: StaffMember[];
+  today: string;
+  offers?: BookingOption[];
+  courses?: BookingOption[];
 }) {
   const router = useRouter();
   const now = parse(today);
@@ -70,8 +79,13 @@ export function CalendarView({ events, tasks, decisions, staff, today }: {
       const d = date.slice(0, 10);
       (byDate[d] ||= []).push({ date: d, ...it });
     };
-    const eKind: Record<string, Tone> = { Termin: "accent", Erinnerung: "teal", Deadline: "red", Block: "muted" };
-    for (const e of events) push(e.date, { title: e.title || "Termin", time: e.time, kindLabel: e.kind || "Termin", tone: eKind[e.kind || ""] || "accent", layer: "termine", event: e, sort: 0, drag: e.id ? { collection: "calendarEvents", id: e.id, field: "date" } : undefined });
+    const eKind: Record<string, Tone> = { Termin: "accent", Erinnerung: "teal", Deadline: "red", Block: "muted", Kurs: "green", Angebot: "teal" };
+    for (const e of events) {
+      const kind = e.kind || "Termin";
+      const layer = kind === "Kurs" ? "kurse" : kind === "Angebot" ? "angebote" : "termine";
+      const href = kind === "Kurs" && e.refId ? "/akademie/lernpfade" : kind === "Angebot" && e.refId ? "/akademie/angebote" : undefined;
+      push(e.date, { title: e.title || e.refTitle || kind, time: e.time, kindLabel: e.status ? `${kind} · ${e.status}` : kind, tone: eKind[kind] || "accent", layer, href, event: e, sort: kind === "Kurs" || kind === "Angebot" ? 0 : 1, drag: e.id ? { collection: "calendarEvents", id: e.id, field: "date" } : undefined });
+    }
     for (const t of tasks) if ((t.status || "") !== "Erledigt") push(t.dueDate, { title: t.title || "Aufgabe", kindLabel: "Aufgabe", tone: (t.dueDate || "") < today ? "red" : "amber", layer: "aufgaben", href: `/cockpit/tasks/${encodeURIComponent(t.id || String(tasks.indexOf(t)))}`, sort: 1, drag: t.id ? { collection: "tasks", id: t.id, field: "dueDate" } : undefined });
     for (const d of decisions) if ((d.status || "offen") !== "entschieden" && d.status !== "verworfen") push(d.frist, { title: d.titel || "Entscheidung", kindLabel: "Entscheidung", tone: (d.frist || "") < today ? "red" : "accent", layer: "entscheidungen", href: `/cockpit/entscheidungen/${encodeURIComponent(d.id || String(decisions.indexOf(d)))}`, sort: 2, drag: d.id ? { collection: "stephanDecisions", id: d.id, field: "frist" } : undefined });
     for (const m of staff) for (const c of m.completedScenarios || []) {
@@ -249,7 +263,7 @@ export function CalendarView({ events, tasks, decisions, staff, today }: {
       <div className="rounded-xl border border-line bg-surface p-4 shadow-sm">
         <div className="mb-3 flex items-center justify-between gap-2">
           <h3 className="text-sm font-bold capitalize">{selLabel}</h3>
-          <NewEventButton presetDate={sel} />
+          <NewEventButton presetDate={sel} label="+ Buchung" offers={offers} courses={courses} />
         </div>
         {selPts.length ? (
           <ul className="flex flex-col gap-2">
@@ -263,9 +277,10 @@ export function CalendarView({ events, tasks, decisions, staff, today }: {
                       <span className="ml-1 text-xs text-muted-2">· {it.kindLabel}{it.time ? ` · ${it.time}` : ""}</span>
                     </span>
                   </span>
-                  {it.event && <EventEditButton event={it.event} />}
+                  {it.event && <EventEditButton event={it.event} offers={offers} courses={courses} />}
                 </div>
                 {it.event?.notes && <p className="mt-1 pl-4 text-xs text-muted">{it.event.notes}</p>}
+                {(it.event?.participant || it.event?.refTitle) && <p className="mt-1 pl-4 text-xs text-muted-2">{[it.event.refTitle, it.event.participant].filter(Boolean).join(" · ")}</p>}
               </li>
             ))}
           </ul>

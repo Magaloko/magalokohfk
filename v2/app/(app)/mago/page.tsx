@@ -4,6 +4,7 @@ import { getMagoData, getMagoCollection } from "@/lib/mago";
 import { MAGO_MODULES } from "@/lib/mago-config";
 import { PageShell } from "@/components/_primitives/page-shell";
 import { Icon } from "@/components/icon";
+import { MagoCommandCenter } from "@/components/mago/mago-command-center";
 
 export const dynamic = "force-dynamic";
 
@@ -16,6 +17,8 @@ export default async function MagoOverview() {
 
   return (
     <PageShell icon="briefcase" title="Mago" subtitle="Mein Bereich — meine Zusammenarbeit & Arbeit für Stephan (privat, nur ich)">
+      <MagoCommandCenter />
+
       <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
         {MAGO_MODULES.map((m) => (
           <Link key={m.key} href={m.route} className="group rounded-xl border border-line bg-surface p-4 shadow-sm transition hover:border-accent">
