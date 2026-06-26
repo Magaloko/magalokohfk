@@ -45,7 +45,7 @@ export function EinkaufsplanerStatusCard() {
           <List items={s.implementedP0} />
         </Card>
         <Card className="p-4">
-          <h3 className="flex items-center gap-1.5 text-sm font-bold"><Icon name="target" className="h-4 w-4 text-amber" />Naechste Aufgaben</h3>
+          <h3 className="flex items-center gap-1.5 text-sm font-bold"><Icon name="target" className="h-4 w-4 text-amber" />Nächste Aufgaben</h3>
           <List items={s.nextTasks.map((t) => `${t.title}: ${t.reason}`)} icon="target" />
         </Card>
       </div>

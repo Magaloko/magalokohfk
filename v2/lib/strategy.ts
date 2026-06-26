@@ -106,9 +106,9 @@ export const MASTERMIND: MasterMindPlan = {
         "Treasury-Ampel geprüft — ohne den Buyer zu entmündigen.",
       faehigkeiten: [
         "Treasury-Order-Ampel ab 2.000 € (grün/gelb/rot)",
-        "Cashflow-Schutz fuer grosse Bestellungen",
+        "Cashflow-Schutz für große Bestellungen",
         "Integration in Einkaufsplaner-Entscheidungen",
-        "Konfidenz-Logik als Ausbau fuer Forecast-Positionen",
+        "Konfidenz-Logik als Ausbau für Forecast-Positionen",
         "Skonto-Optimierung über effektiven Jahreszins",
         "Liqui-Cockpit für die GF mit Szenario-Schiebern",
         "Forecast-Accuracy-Tracking (wöchentliche Kalibrierung)",
@@ -128,7 +128,7 @@ export const MASTERMIND: MasterMindPlan = {
       faehigkeiten: [
         "ABC/XYZ-Klassifizierung plus DB1-Filter",
         "Brand-Budget-Verteilung nach DB1€ der letzten 365 Tage",
-        "OOS-Schutz fuer Renner, Dauerlaeufer und saisonale Hits",
+        "OOS-Schutz für Renner, Dauerläufer und saisonale Hits",
         "Budget-Optimizer mit Knapsack-Logik und Brand-Limits",
         "Safety-Buffer und Kategorie-Regeln im Schema, P1-Logik noch zu konsolidieren",
         "Historische Lieferzeit-Range, ML-Forecast, Event-Kalender und Rhythm-Break als Ausbau",

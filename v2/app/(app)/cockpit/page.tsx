@@ -97,11 +97,11 @@ export default async function CockpitOverview() {
   const decisionItems = decisions.map((d) => [d.titel, d.kategorie, d.frist ? `Frist: ${d.frist}` : ""].filter(Boolean).join(" · ")).slice(0, 8);
 
   const statusTone = blockers.length ? "red" : waiting.length || decisions.length ? "amber" : "green";
-  const systemHealth = blockers.length ? "Kritisch pruefen" : waiting.length || decisions.length ? "Auf Antworten warten" : "Arbeitsfaehig";
+  const systemHealth = blockers.length ? "Kritisch prüfen" : waiting.length || decisions.length ? "Auf Antworten warten" : "Arbeitsfähig";
 
   const briefingSections = [
     { title: "Systemstatus", items: [`${systemHealth}`, `Fokus: ${focus ? `${focus.label} (Schritt ${focus.step})` : "keine Phase aktiv"}`] },
-    { title: "Naechste Schritte", items: nextTasks.length ? nextTasks.slice(0, 5) : ["Keine offenen Tasks erfasst."] },
+    { title: "Nächste Schritte", items: nextTasks.length ? nextTasks.slice(0, 5) : ["Keine offenen Tasks erfasst."] },
     { title: "Wartet auf", items: waitingItems.length ? waitingItems.slice(0, 5) : ["Keine offenen Zugänge, Freigaben oder Abstimmungen."] },
     { title: "Blocker / Risiken", items: blockers.length ? blockers.slice(0, 5) : ["Keine Blocker erfasst."] },
     { title: "Entscheidungen von Stephan", items: decisionItems.length ? decisionItems.slice(0, 5) : ["Keine offenen Entscheidungen erfasst."] },
@@ -134,7 +134,7 @@ export default async function CockpitOverview() {
             <h2 className="mt-1 text-xl font-extrabold tracking-tight">{systemHealth}</h2>
             <p className="mt-2 max-w-3xl text-sm leading-relaxed text-muted">
               {focus ? `Aktueller Fokus ist ${focus.label}. ` : "Aktuell ist keine Roadmap-Phase als Fokus erkennbar. "}
-              {blockers.length ? "Es gibt Blocker oder Risiken, die zuerst geklaert werden muessen." : waiting.length ? "Mehrere Punkte warten auf Rueckmeldung, Zugang oder Freigabe." : "Keine akuten Blocker in den Cockpit-Daten."}
+              {blockers.length ? "Es gibt Blocker oder Risiken, die zuerst geklärt werden müssen." : waiting.length ? "Mehrere Punkte warten auf Rückmeldung, Zugang oder Freigabe." : "Keine akuten Blocker in den Cockpit-Daten."}
             </p>
           </div>
           <Pill tone={statusTone}>{focus ? `Schritt ${focus.step}` : "kein Fokus"}</Pill>
@@ -144,16 +144,16 @@ export default async function CockpitOverview() {
       <div className="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-5">
         <MiniStat href="/cockpit/tasks" icon="check" label="Offene Tasks" value={openTasks.length} tone={openTasks.length ? "amber" : "green"} sub={`${taskDone.length} erledigt`} />
         <MiniStat href="/cockpit/entscheidungen" icon="compass" label="Entscheidungen" value={decisions.length} tone={decisions.length ? "red" : "green"} sub="von Stephan / GF" />
-        <MiniStat href="/cockpit/umsetzung?typ=Blocker" icon="alert" label="Blocker/Risiken" value={blockers.length} tone={blockers.length ? "red" : "green"} sub="zuerst klaeren" />
+        <MiniStat href="/cockpit/umsetzung?typ=Blocker" icon="alert" label="Blocker/Risiken" value={blockers.length} tone={blockers.length ? "red" : "green"} sub="zuerst klären" />
         <MiniStat href="/cockpit/umsetzung" icon="clock" label="Wartet auf" value={waiting.length} tone={waiting.length ? "amber" : "green"} sub="Zugang, Freigabe, Abstimmung" />
         <MiniStat href="/cockpit/system" icon="globe" label="Systemmodule" value={SEBO_SYSTEM_STATUS.summary.length} tone="teal" sub="SeBo Gesamtstand" />
       </div>
 
       <div className="mt-6 grid gap-4 lg:grid-cols-[minmax(0,1.2fr)_minmax(320px,0.8fr)]">
         <div className="grid gap-4">
-          <WorkList title="Naechste konkrete Schritte" icon="target" items={nextTasks} empty="Keine offenen Aufgaben erfasst." tone="accent" />
+          <WorkList title="Nächste konkrete Schritte" icon="target" items={nextTasks} empty="Keine offenen Aufgaben erfasst." tone="accent" />
           <div className="grid gap-4 lg:grid-cols-2">
-            <WorkList title="Wartet auf" icon="clock" items={waitingItems} empty="Nichts wartet auf Rueckmeldung." tone="amber" />
+            <WorkList title="Wartet auf" icon="clock" items={waitingItems} empty="Nichts wartet auf Rückmeldung." tone="amber" />
             <WorkList title="Blocker & Risiken" icon="alert" items={blockers} empty="Keine Blocker oder Risiken erfasst." tone={blockers.length ? "red" : "green"} />
           </div>
           <div className="grid gap-4 lg:grid-cols-2">

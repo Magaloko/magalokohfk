@@ -33,7 +33,7 @@ export default async function SeboPage() {
     <PageShell
       icon="chat"
       title="SeBo v2 Steuerung"
-      subtitle="Auftragsschutz, Stephan-Vorbereitung und Uebergabe an Dadakaev Labs"
+      subtitle="Auftragsschutz, Stephan-Vorbereitung und Übergabe an Dadakaev Labs"
       action={
         <>
           <Link href="/cockpit/tasks" className="inline-flex items-center gap-1.5 rounded-lg bg-surface-2 px-3 py-2 text-sm font-semibold hover:text-ink">
@@ -54,7 +54,7 @@ export default async function SeboPage() {
             <h2 className="mt-1 text-xl font-extrabold tracking-tight">{s.mission.title}</h2>
             <p className="mt-2 max-w-3xl text-sm leading-relaxed text-muted">{s.mission.summary}</p>
           </div>
-          <TonePill tone="amber">5k v1 schuetzen</TonePill>
+          <TonePill tone="amber">5k v1 schützen</TonePill>
         </div>
         <p className="mt-4 rounded-lg border border-amber/30 bg-bg/40 p-3 text-sm font-semibold leading-relaxed text-ink">
           {s.mission.guardrail}
@@ -110,7 +110,7 @@ export default async function SeboPage() {
         <div className="flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
           <div>
             <div className="flex items-center gap-1.5 text-xs font-bold uppercase tracking-wide text-muted-2">
-              <Icon name="target" className="h-3.5 w-3.5" /> Naechste Aufgaben fuer Mago
+              <Icon name="target" className="h-3.5 w-3.5" /> Nächste Aufgaben für Mago
             </div>
             <h2 className="mt-1 text-lg font-extrabold">Was jetzt aktiv passieren muss</h2>
           </div>
@@ -218,7 +218,7 @@ export default async function SeboPage() {
       <div className="mt-6 grid gap-4 lg:grid-cols-2">
         <section className="rounded-xl border border-line bg-surface p-5 shadow-sm">
           <div className="flex items-center gap-1.5 text-xs font-bold uppercase tracking-wide text-muted-2">
-            <Icon name="chat" className="h-3.5 w-3.5" /> Fragen fuer Stephan
+            <Icon name="chat" className="h-3.5 w-3.5" /> Fragen für Stephan
           </div>
           <div className="mt-4">
             <List items={s.stephanQuestions} icon="compass" />

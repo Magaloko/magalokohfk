@@ -9,7 +9,7 @@ const EN = ["the", "and", "with", "your", "you", "for", "this", "that", "are", "
 
 // Häufige deutsche Wortstämme, bei denen ae/oe/ue/ss fast sicher einen Umlaut/ß ersetzt (mit Wortgrenzen,
 // damit legitime Wörter wie schauen, teuer, neue, OEKO-TEX, individuell NICHT markiert werden).
-// Fängt transliterierte Umlaute, die die Englisch-Heuristik übersieht (z. B. "fuer", "Waechst", "Hoeren").
+// Fängt transliterierte Umlaute, die die Englisch-Heuristik übersieht (z. B. "für", "Wächst", "Hören").
 const UMLAUT_TL = /\b(?:fuers?|ueber\w*|moeglich\w*|koenn\w*|muess\w*|wuerd\w*|haett\w*|waer\w*|naechst\w*|spaet\w*|frueh\w*|schoen\w*|groess\w*|gross\w*|guenstig\w*|laeng\w*|staerk\w*|waechst|fuehr\w*|daenisch\w*|oekolog\w*|aerzt\w*|geaendert|aender\w*|jaehrig\w*|haelfte|paedagog\w*|bruecke\w*|loesung\w*|hoer\w*|schliess\w*|tuer\w*|buecher|sloejd|[NO]Oe)\b/i;
 
 // Schnelle Heuristik: wirkt der Text sprachlich auffällig — englisch ODER transliterierte Umlaute?

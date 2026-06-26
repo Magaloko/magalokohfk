@@ -6,9 +6,9 @@ export const EINKAUFSPLANER_STATUS = {
   mission: {
     title: "SeBo Einkaufsplaner ist P0-produktiv, P1 wird jetzt kontrolliert nachgezogen",
     summary:
-      "Der Einkaufsplaner ist das zentrale MasterMind-System fuer DB1-optimierten Einkauf. P0 steht: Treasury-Ampel, Brand-Budget nach DB1, OOS-Schutz, ABC/XYZ, DB1-Filter und Budget-Optimierung sind produktiv. Mago muss jetzt P1 sauber priorisieren und jede fachliche Regel als pruefbaren Einkaufsfall erfassen.",
+      "Der Einkaufsplaner ist das zentrale MasterMind-System für DB1-optimierten Einkauf. P0 steht: Treasury-Ampel, Brand-Budget nach DB1, OOS-Schutz, ABC/XYZ, DB1-Filter und Budget-Optimierung sind produktiv. Mago muss jetzt P1 sauber priorisieren und jede fachliche Regel als prüfbaren Einkaufsfall erfassen.",
     guardrail:
-      "Keine Deploys waehrend laufendem JTL-Sync ohne explizites Go. Optimizer-Aenderungen immer zusammen mit API und UI pruefen; TypeScript-Check vor Commit.",
+      "Keine Deploys während laufendem JTL-Sync ohne explizites Go. Optimizer-Änderungen immer zusammen mit API und UI prüfen; TypeScript-Check vor Commit.",
   },
   summary: [
     { label: "P0 Kern", status: "Produktiv", tone: "green" as EinkaufTone },
@@ -18,9 +18,9 @@ export const EINKAUFSPLANER_STATUS = {
     { label: "ML-Forecast", status: "POC", tone: "accent" as EinkaufTone },
   ],
   implementedP0: [
-    "Treasury-Order-Ampel fuer Bestellungen ab 2.000 EUR.",
+    "Treasury-Order-Ampel für Bestellungen ab 2.000 EUR.",
     "Brand-Budget-Verteilung nach realem DB1-Beitrag der letzten 365 Tage.",
-    "OOS-Schutz priorisiert Renner, Dauerlaeufer und saisonale Hits.",
+    "OOS-Schutz priorisiert Renner, Dauerläufer und saisonale Hits.",
     "ABC/XYZ-Klassifizierung mit DB1-Filter.",
     "Budget-Optimizer mit Knapsack-Logik und Brand-Limits.",
     "Einkaufs-Cockpit und Budget-Planer UI sind vorhanden.",
@@ -28,26 +28,26 @@ export const EINKAUFSPLANER_STATUS = {
   partial: [
     "Safety-Buffer und Kategorie-Regeln sind im DB-Schema vorhanden, aber noch nicht konsistent aktiv.",
     "Python-POC mit XGBoost ist weiter als der produktive TypeScript-Code.",
-    "analytics_sales wird hauptsaechlich ueber CSV-Import und Matching-Scripts befuellt.",
+    "analytics_sales wird hauptsächlich über CSV-Import und Matching-Scripts befüllt.",
   ],
   openP1: [
     "P1.1 Historische Lieferzeit-Range: Min/Avg/Max aus 12 Monaten ableiten.",
-    "P1.2 Kategorie-Regeln aktivieren: KiWa/Moebel kein Autopilot, Saisonmode +30 %, Spielzeug Q4 +20 %.",
+    "P1.2 Kategorie-Regeln aktivieren: KiWa/Möbel kein Autopilot, Saisonmode +30 %, Spielzeug Q4 +20 %.",
     "P1.3 Artikel-spezifischen Safety-Buffer konsistent in Sicherheitsbestand und UI anzeigen.",
-    "P1.4 ML-Forecast aus dem Python-POC produktionsnah in TypeScript/Service-Schicht ueberfuehren.",
+    "P1.4 ML-Forecast aus dem Python-POC produktionsnah in TypeScript/Service-Schicht überführen.",
   ],
   openP2: [
-    "Event-Kalender fuer Black Friday, Weihnachten, Schulanfang und Saisonwechsel.",
-    "Rhythm-Break Detection fuer Top-Renner.",
+    "Event-Kalender für Black Friday, Weihnachten, Schulanfang und Saisonwechsel.",
+    "Rhythm-Break Detection für Top-Renner.",
     "Top-20- und Markdown-Steuerung mit Mindestmargen-Floor.",
-    "Sichtbarkeits-Check fuer strategisch wichtige Artikel.",
+    "Sichtbarkeits-Check für strategisch wichtige Artikel.",
   ],
   architecture: [
     { label: "lib/einkauf/optimizer.ts", detail: "Kern: generateCandidates und applyBudget." },
     { label: "lib/einkauf/calculations.ts", detail: "DB1, Saison-Index, Nachfrageprofil und Lifecycle." },
     { label: "lib/einkauf.ts", detail: "Orchestrierung, Treasury-Ampel und Hauptlogik." },
     { label: "lib/einkauf/db.ts", detail: "DB-Zugriff, Artikel-Config, Safety-Buffer, Kategorie-Regeln und Lieferzeit-Override." },
-    { label: "app/api/einkauf/recommendations/route.ts", detail: "API fuer Budget-Optimierung und Vorschlaege." },
+    { label: "app/api/einkauf/recommendations/route.ts", detail: "API für Budget-Optimierung und Vorschläge." },
     { label: "app/dashboard/einkauf/*", detail: "Einkaufs-Cockpit und Budget-Planer UI." },
   ],
   dataSources: [
@@ -60,7 +60,7 @@ export const EINKAUFSPLANER_STATUS = {
     title: "Produkt-Sync Filter seit 26.06.2026",
     points: [
       "syncProducts filtert nur noch item.Id != null.",
-      "Artikel muessen weiterhin IsActive === true sein.",
+      "Artikel müssen weiterhin IsActive === true sein.",
       "EK <= 0 ist kein Ausschlusskriterium mehr.",
       "Artikelalter > 3 Jahre ist kein Ausschlusskriterium mehr.",
     ],
@@ -70,29 +70,29 @@ export const EINKAUFSPLANER_STATUS = {
       title: "P1.1 Lieferzeit-Range spezifizieren",
       owner: "Mago + Einkauf",
       priority: "hoch",
-      reason: "Der aktuelle Default von 14 Tagen ist fuer KiWa, Moebel und Eigenmarken fachlich zu grob.",
+      reason: "Der aktuelle Default von 14 Tagen ist für KiWa, Möbel und Eigenmarken fachlich zu grob.",
     },
     {
-      title: "Kategorie-Regeln als Testfaelle erfassen",
+      title: "Kategorie-Regeln als Testfälle erfassen",
       owner: "Mago",
       priority: "hoch",
       reason: "P1.2 darf nicht nur Text sein; jede Regel braucht Artikelbeispiele, Sperrlogik und erwartete UI-Ausgabe.",
     },
     {
-      title: "Safety-Buffer in Optimizer, API und UI pruefen",
+      title: "Safety-Buffer in Optimizer, API und UI prüfen",
       owner: "Entwicklung",
       priority: "hoch",
-      reason: "Schema existiert, aber inkonsistente Anwendung fuehrt direkt zu falschen Bestellvorschlaegen.",
+      reason: "Schema existiert, aber inkonsistente Anwendung führt direkt zu falschen Bestellvorschlägen.",
     },
     {
       title: "ML-POC gegen Heuristik benchmarken",
       owner: "Entwicklung",
       priority: "mittel",
-      reason: "XGBoost erst produktiv uebernehmen, wenn Forecast-Qualitaet und Fallback-Regeln belastbar sind.",
+      reason: "XGBoost erst produktiv übernehmen, wenn Forecast-Qualität und Fallback-Regeln belastbar sind.",
     },
   ],
   stephanQuestions: [
-    "Welche Kategorien sind Autopilot-Sperren: KiWa, Moebel, weitere?",
+    "Welche Kategorien sind Autopilot-Sperren: KiWa, Möbel, weitere?",
     "Welche Lieferzeit-Quelle ist verbindlich: historische Bestellungen, Lieferantenangabe oder manuelle Overrides?",
     "Welche Safety-Buffer gelten je Kategorie und welche Artikel brauchen Einzel-Override?",
     "Ab welchem DB1- oder Kapitalbindungsrisiko soll Mago einen Vorschlag blockieren statt nur warnen?",

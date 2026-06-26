@@ -98,7 +98,7 @@ export default async function EinkaufPage() {
             </div>
             <h2 className="mt-1 text-lg font-extrabold">Was jetzt aktiv passieren muss</h2>
           </div>
-          <TonePill tone="amber">naechster Fokus</TonePill>
+          <TonePill tone="amber">nächster Fokus</TonePill>
         </div>
         <div className="mt-4 grid gap-3 lg:grid-cols-2">
           {s.nextTasks.map((task) => (
@@ -168,7 +168,7 @@ export default async function EinkaufPage() {
 
       <section className="mt-6 rounded-xl border border-line bg-surface p-5 shadow-sm">
         <div className="flex items-center gap-1.5 text-xs font-bold uppercase tracking-wide text-muted-2">
-          <Icon name="chat" className="h-3.5 w-3.5" /> Fragen fuer Stephan
+          <Icon name="chat" className="h-3.5 w-3.5" /> Fragen für Stephan
         </div>
         <div className="mt-4">
           <List items={s.stephanQuestions} icon="compass" />
